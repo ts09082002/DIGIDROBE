@@ -1,0 +1,36 @@
+[
+  {
+    "id": "9bfe097e-3cd1-4314-9277-30a54dfe951a",
+    "originalFilename": "camera_photo.jpg",
+    "originalUrl": "/uploads/originals/cb0e72f9-ae96-4c6b-9a23-bb3fffce274a.jpg",
+    "processedUrl": "/uploads/processed/9bfe097e-3cd1-4314-9277-30a54dfe951a_clean.png",
+    "category": "tops",
+    "name": "Camera Photo",
+    "brand": "",
+    "color": "",
+    "season": [],
+    "occasion": [],
+    "isFavorite": true,
+    "mimeType": "image/png",
+    "size": 0,
+    "createdAt": "2026-02-24T17:59:47.698Z",
+    "updatedAt": "2026-02-24T18:00:42.869Z"
+  },
+  {
+    "id": "d89a8309-b05c-495d-965f-ade5b521d5a8",
+    "originalFilename": "camera_photo.jpg",
+    "originalUrl": "/uploads/originals/2406f501-db0e-4ad7-bcf7-5d85def2728a.jpg",
+    "processedUrl": "/uploads/processed/d89a8309-b05c-495d-965f-ade5b521d5a8_clean.png",
+    "category": "tops",
+    "name": "Camera Photo",
+    "brand": "",
+    "color": "",
+    "season": [],
+    "occasion": [],
+    "isFavorite": false,
+    "mimeType": "image/png",
+    "size": 0,
+    "createdAt": "2026-02-24T18:18:00.198Z",
+    "updatedAt": "2026-02-24T18:18:00.198Z"
+  }
+]
