@@ -117,6 +117,7 @@ export default function WardrobeScreen() {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
+                aspect: [4, 5],
                 quality: 0.9,
             });
 
@@ -125,9 +126,10 @@ export default function WardrobeScreen() {
             setUploading(true);
             const asset = result.assets[0];
             const filename = asset.fileName || 'clothing.jpg';
+            const mimeType = (asset as any).mimeType as string | undefined;
 
             // Upload to backend (background removal happens server-side)
-            const uploadResult = await api.uploadClothingImage(asset.uri, filename);
+            const uploadResult = await api.uploadClothingImage(asset.uri, filename, mimeType);
 
             // Create wardrobe item
             await api.createWardrobeItem({
@@ -160,6 +162,7 @@ export default function WardrobeScreen() {
 
             const result = await ImagePicker.launchCameraAsync({
                 allowsEditing: true,
+                aspect: [4, 5],
                 quality: 0.9,
             });
 
@@ -168,7 +171,8 @@ export default function WardrobeScreen() {
             setUploading(true);
             const asset = result.assets[0];
 
-            const uploadResult = await api.uploadClothingImage(asset.uri, 'camera_photo.jpg');
+            const mimeType = (asset as any).mimeType as string | undefined;
+            const uploadResult = await api.uploadClothingImage(asset.uri, 'camera_photo.jpg', mimeType);
             await api.createWardrobeItem({
                 id: uploadResult.id,
                 originalFilename: uploadResult.originalFilename,

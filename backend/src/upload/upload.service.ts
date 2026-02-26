@@ -34,7 +34,20 @@ export class UploadService {
         const processedFilename = `${id}_clean.png`;
         const processedPath = join(processedDir, processedFilename);
 
+        // Run background removal into processed PNG
         await this.bgRemovalService.removeBackground(file.path, processedPath);
+
+        // We no longer keep the original photo on disk
+        try {
+            if (fs.existsSync(file.path)) {
+                fs.unlinkSync(file.path);
+            }
+        } catch (err: any) {
+            this.logger.warn(`Failed to delete original image ${file.path}: ${err.message}`);
+        }
+
+        // Use the processed file size and URL as the single source of truth
+        const processedStat = fs.statSync(processedPath);
 
         // Step 2: Classify clothing type based on filename/basic heuristics
         const category = this.classifyClothing(file.originalname);
@@ -42,11 +55,12 @@ export class UploadService {
         const result: ProcessedImage = {
             id,
             originalFilename: file.originalname,
-            originalUrl: `/uploads/originals/${file.filename}`,
+            // Only store and expose the background-removed image
+            originalUrl: `/uploads/processed/${processedFilename}`,
             processedUrl: `/uploads/processed/${processedFilename}`,
             category,
             mimeType: file.mimetype,
-            size: file.size,
+            size: processedStat.size,
             createdAt: new Date().toISOString(),
         };
 

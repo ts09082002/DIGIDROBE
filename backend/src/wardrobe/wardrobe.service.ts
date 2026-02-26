@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import * as fs from 'fs';
-import { join } from 'path';
+import { getFirebaseAdmin } from '../firebase-admin';
+import { v4 as uuid } from 'uuid';
 
 export interface WardrobeItem {
     id: string;
@@ -23,62 +23,74 @@ export interface WardrobeItem {
 @Injectable()
 export class WardrobeService {
     private readonly logger = new Logger(WardrobeService.name);
-    private readonly itemsPath = join(__dirname, '..', '..', 'uploads', 'metadata', 'wardrobe.json');
+    private readonly collection = getFirebaseAdmin().firestore().collection('wardrobeItems');
 
-    private loadItems(): WardrobeItem[] {
-        try {
-            if (fs.existsSync(this.itemsPath)) {
-                return JSON.parse(fs.readFileSync(this.itemsPath, 'utf-8'));
-            }
-        } catch (e) {
-            this.logger.error('Error loading wardrobe items', e);
+    private docToItem(id: string, data: FirebaseFirestore.DocumentData | undefined): WardrobeItem | null {
+        if (!data) {
+            return null;
         }
-        return [];
+
+        return {
+            id,
+            originalFilename: data.originalFilename ?? '',
+            originalUrl: data.originalUrl ?? '',
+            processedUrl: data.processedUrl ?? '',
+            category: data.category ?? 'tops',
+            name: data.name ?? data.originalFilename ?? 'Untitled',
+            brand: data.brand ?? '',
+            color: data.color ?? '',
+            season: data.season ?? [],
+            occasion: data.occasion ?? [],
+            isFavorite: data.isFavorite ?? false,
+            mimeType: data.mimeType ?? 'image/png',
+            size: data.size ?? 0,
+            createdAt: data.createdAt ?? new Date().toISOString(),
+            updatedAt: data.updatedAt ?? new Date().toISOString(),
+        };
     }
 
-    private saveItems(items: WardrobeItem[]): void {
-        const dir = join(__dirname, '..', '..', 'uploads', 'metadata');
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(this.itemsPath, JSON.stringify(items, null, 2));
-    }
-
-    getAll(query?: { category?: string; search?: string; favorite?: string }): WardrobeItem[] {
-        let items = this.loadItems();
+    async getAll(query?: { category?: string; search?: string; favorite?: string }): Promise<WardrobeItem[]> {
+        const snapshot = await this.collection.get();
+        let items: WardrobeItem[] = snapshot.docs
+            .map((doc) => this.docToItem(doc.id, doc.data()))
+            .filter((i): i is WardrobeItem => i !== null);
 
         const category = query?.category;
         if (category && category !== 'all') {
-            items = items.filter(i => i.category.toLowerCase() === category.toLowerCase());
+            items = items.filter((i) => i.category.toLowerCase() === category.toLowerCase());
         }
 
         if (query?.search) {
             const q = query.search.toLowerCase();
-            items = items.filter(i =>
+            items = items.filter((i) =>
                 i.name.toLowerCase().includes(q) ||
                 i.brand.toLowerCase().includes(q) ||
-                i.category.toLowerCase().includes(q)
+                i.category.toLowerCase().includes(q),
             );
         }
 
         if (query?.favorite === 'true') {
-            items = items.filter(i => i.isFavorite);
+            items = items.filter((i) => i.isFavorite);
         }
 
-        return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        return items.sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
     }
 
-    getById(id: string): WardrobeItem {
-        const items = this.loadItems();
-        const item = items.find(i => i.id === id);
+    async getById(id: string): Promise<WardrobeItem> {
+        const doc = await this.collection.doc(id).get();
+        const item = this.docToItem(doc.id, doc.data());
         if (!item) throw new NotFoundException(`Item ${id} not found`);
         return item;
     }
 
-    create(data: Partial<WardrobeItem>): WardrobeItem {
-        const items = this.loadItems();
+    async create(data: Partial<WardrobeItem>): Promise<WardrobeItem> {
+        const id = data.id || uuid();
+        const now = new Date().toISOString();
+
         const item: WardrobeItem = {
-            id: data.id || '',
+            id,
             originalFilename: data.originalFilename || '',
             originalUrl: data.originalUrl || '',
             processedUrl: data.processedUrl || '',
@@ -91,53 +103,73 @@ export class WardrobeService {
             isFavorite: data.isFavorite || false,
             mimeType: data.mimeType || 'image/png',
             size: data.size || 0,
-            createdAt: data.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt: data.createdAt || now,
+            updatedAt: now,
         };
-        items.push(item);
-        this.saveItems(items);
+
+        await this.collection.doc(id).set(item);
         return item;
     }
 
-    update(id: string, data: Partial<WardrobeItem>): WardrobeItem {
-        const items = this.loadItems();
-        const index = items.findIndex(i => i.id === id);
-        if (index === -1) throw new NotFoundException(`Item ${id} not found`);
+    async update(id: string, data: Partial<WardrobeItem>): Promise<WardrobeItem> {
+        const docRef = this.collection.doc(id);
+        const existing = await docRef.get();
+        if (!existing.exists) throw new NotFoundException(`Item ${id} not found`);
 
-        items[index] = { ...items[index], ...data, updatedAt: new Date().toISOString() };
-        this.saveItems(items);
-        return items[index];
+        const existingData = this.docToItem(existing.id, existing.data());
+        if (!existingData) throw new NotFoundException(`Item ${id} not found`);
+
+        const updated: WardrobeItem = {
+            ...existingData,
+            ...data,
+            updatedAt: new Date().toISOString(),
+        };
+
+        await docRef.set(updated, { merge: true });
+        return updated;
     }
 
-    toggleFavorite(id: string): WardrobeItem {
-        const items = this.loadItems();
-        const index = items.findIndex(i => i.id === id);
-        if (index === -1) throw new NotFoundException(`Item ${id} not found`);
+    async toggleFavorite(id: string): Promise<WardrobeItem> {
+        const docRef = this.collection.doc(id);
+        const existing = await docRef.get();
+        if (!existing.exists) throw new NotFoundException(`Item ${id} not found`);
 
-        items[index].isFavorite = !items[index].isFavorite;
-        items[index].updatedAt = new Date().toISOString();
-        this.saveItems(items);
-        return items[index];
+        const data = existing.data() || {};
+        const updated: Partial<WardrobeItem> = {
+            isFavorite: !data.isFavorite,
+            updatedAt: new Date().toISOString(),
+        };
+
+        await docRef.set(updated, { merge: true });
+        const finalDoc = await docRef.get();
+        const item = this.docToItem(finalDoc.id, finalDoc.data());
+        if (!item) throw new NotFoundException(`Item ${id} not found`);
+        return item;
     }
 
-    delete(id: string): void {
-        const items = this.loadItems();
-        const index = items.findIndex(i => i.id === id);
-        if (index === -1) throw new NotFoundException(`Item ${id} not found`);
-        items.splice(index, 1);
-        this.saveItems(items);
+    async delete(id: string): Promise<void> {
+        const docRef = this.collection.doc(id);
+        const existing = await docRef.get();
+        if (!existing.exists) throw new NotFoundException(`Item ${id} not found`);
+        await docRef.delete();
     }
 
-    getStats(): { totalItems: number; totalFavorites: number; categories: Record<string, number> } {
-        const items = this.loadItems();
+    async getStats(): Promise<{ totalItems: number; totalFavorites: number; categories: Record<string, number> }> {
+        const snapshot = await this.collection.get();
+        const items: WardrobeItem[] = snapshot.docs
+            .map((doc) => this.docToItem(doc.id, doc.data()))
+            .filter((i): i is WardrobeItem => i !== null);
+
         const categories: Record<string, number> = {};
-        items.forEach(i => {
+        items.forEach((i) => {
             categories[i.category] = (categories[i.category] || 0) + 1;
         });
+
         return {
             totalItems: items.length,
-            totalFavorites: items.filter(i => i.isFavorite).length,
+            totalFavorites: items.filter((i) => i.isFavorite).length,
             categories,
         };
     }
 }
+

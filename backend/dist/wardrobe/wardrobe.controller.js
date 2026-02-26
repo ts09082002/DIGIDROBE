@@ -20,44 +20,50 @@ let WardrobeController = class WardrobeController {
     constructor(wardrobeService) {
         this.wardrobeService = wardrobeService;
     }
-    getAll(category, search, favorite) {
+    async getAll(category, search, favorite) {
+        const data = await this.wardrobeService.getAll({ category, search, favorite });
         return {
             success: true,
-            data: this.wardrobeService.getAll({ category, search, favorite }),
+            data,
         };
     }
-    getStats() {
+    async getStats() {
+        const data = await this.wardrobeService.getStats();
         return {
             success: true,
-            data: this.wardrobeService.getStats(),
+            data,
         };
     }
-    getById(id) {
+    async getById(id) {
+        const data = await this.wardrobeService.getById(id);
         return {
             success: true,
-            data: this.wardrobeService.getById(id),
+            data,
         };
     }
-    create(body) {
+    async create(body) {
+        const data = await this.wardrobeService.create(body);
         return {
             success: true,
-            data: this.wardrobeService.create(body),
+            data,
         };
     }
-    update(id, body) {
+    async update(id, body) {
+        const data = await this.wardrobeService.update(id, body);
         return {
             success: true,
-            data: this.wardrobeService.update(id, body),
+            data,
         };
     }
-    toggleFavorite(id) {
+    async toggleFavorite(id) {
+        const data = await this.wardrobeService.toggleFavorite(id);
         return {
             success: true,
-            data: this.wardrobeService.toggleFavorite(id),
+            data,
         };
     }
-    delete(id) {
-        this.wardrobeService.delete(id);
+    async delete(id) {
+        await this.wardrobeService.delete(id);
         return { success: true, message: 'Item deleted' };
     }
 };
@@ -69,27 +75,27 @@ __decorate([
     __param(2, (0, common_1.Query)('favorite')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String, String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], WardrobeController.prototype, "getAll", null);
 __decorate([
     (0, common_1.Get)('stats'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], WardrobeController.prototype, "getStats", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], WardrobeController.prototype, "getById", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], WardrobeController.prototype, "create", null);
 __decorate([
     (0, common_1.Patch)(':id'),
@@ -97,21 +103,21 @@ __decorate([
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], WardrobeController.prototype, "update", null);
 __decorate([
     (0, common_1.Patch)(':id/favorite'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], WardrobeController.prototype, "toggleFavorite", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], WardrobeController.prototype, "delete", null);
 exports.WardrobeController = WardrobeController = __decorate([
     (0, common_1.Controller)('api/wardrobe'),

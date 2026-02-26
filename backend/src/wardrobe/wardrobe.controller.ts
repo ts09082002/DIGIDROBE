@@ -15,60 +15,67 @@ export class WardrobeController {
     constructor(private readonly wardrobeService: WardrobeService) { }
 
     @Get()
-    getAll(
+    async getAll(
         @Query('category') category?: string,
         @Query('search') search?: string,
         @Query('favorite') favorite?: string,
     ) {
+        const data = await this.wardrobeService.getAll({ category, search, favorite });
         return {
             success: true,
-            data: this.wardrobeService.getAll({ category, search, favorite }),
+            data,
         };
     }
 
     @Get('stats')
-    getStats() {
+    async getStats() {
+        const data = await this.wardrobeService.getStats();
         return {
             success: true,
-            data: this.wardrobeService.getStats(),
+            data,
         };
     }
 
     @Get(':id')
-    getById(@Param('id') id: string) {
+    async getById(@Param('id') id: string) {
+        const data = await this.wardrobeService.getById(id);
         return {
             success: true,
-            data: this.wardrobeService.getById(id),
+            data,
         };
     }
 
     @Post()
-    create(@Body() body: Partial<WardrobeItem>) {
+    async create(@Body() body: Partial<WardrobeItem>) {
+        const data = await this.wardrobeService.create(body);
         return {
             success: true,
-            data: this.wardrobeService.create(body),
+            data,
         };
     }
 
     @Patch(':id')
-    update(@Param('id') id: string, @Body() body: Partial<WardrobeItem>) {
+    async update(@Param('id') id: string, @Body() body: Partial<WardrobeItem>) {
+        const data = await this.wardrobeService.update(id, body);
         return {
             success: true,
-            data: this.wardrobeService.update(id, body),
+            data,
         };
     }
 
     @Patch(':id/favorite')
-    toggleFavorite(@Param('id') id: string) {
+    async toggleFavorite(@Param('id') id: string) {
+        const data = await this.wardrobeService.toggleFavorite(id);
         return {
             success: true,
-            data: this.wardrobeService.toggleFavorite(id),
+            data,
         };
     }
 
     @Delete(':id')
-    delete(@Param('id') id: string) {
-        this.wardrobeService.delete(id);
+    async delete(@Param('id') id: string) {
+        await this.wardrobeService.delete(id);
         return { success: true, message: 'Item deleted' };
     }
 }
+

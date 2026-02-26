@@ -38,12 +38,16 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 var BackgroundRemovalService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BackgroundRemovalService = void 0;
 const common_1 = require("@nestjs/common");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+const sharp_1 = __importDefault(require("sharp"));
 const background_removal_node_1 = require("@imgly/background-removal-node");
 let BackgroundRemovalService = BackgroundRemovalService_1 = class BackgroundRemovalService {
     logger = new common_1.Logger(BackgroundRemovalService_1.name);
@@ -57,15 +61,34 @@ let BackgroundRemovalService = BackgroundRemovalService_1 = class BackgroundRemo
             const inputBuffer = fs.readFileSync(inputPath);
             const blob = new Blob([inputBuffer], { type: 'image/jpeg' });
             const resultBlob = await (0, background_removal_node_1.removeBackground)(blob, {
+                model: 'large',
                 debug: false,
-                output: { format: 'image/png' }
+                output: { format: 'image/png' },
             });
             const arrayBuffer = await resultBlob.arrayBuffer();
             const resultBuffer = Buffer.from(arrayBuffer);
-            fs.writeFileSync(outputPath, resultBuffer);
-            this.logger.log(`Background removed successfully. Output: ${outputPath} (${resultBuffer.length} bytes)`);
+            const trimmed = (0, sharp_1.default)(resultBuffer);
+            const meta = await trimmed.metadata();
+            const CANVAS_SIZE = 1024;
+            const PADDING = 80;
+            const fitted = await trimmed
+                .resize(CANVAS_SIZE - PADDING * 2, CANVAS_SIZE - PADDING * 2, {
+                fit: 'inside',
+            })
+                .extend({
+                top: PADDING,
+                bottom: PADDING,
+                left: PADDING,
+                right: PADDING,
+                background: { r: 0, g: 0, b: 0, alpha: 0 },
+            })
+                .png()
+                .toBuffer();
+            fs.writeFileSync(outputPath, fitted);
+            this.logger.log(`Background removed successfully. Output: ${outputPath} (${fitted.length} bytes, original ${meta.width}x${meta.height})`);
         }
         catch (error) {
+            console.error("REAL ERROR:", error);
             this.logger.error(`AI Background removal failed: ${error.message}`);
             await this.fallbackRemoval(inputPath, outputPath);
         }
