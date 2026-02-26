@@ -2,11 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
 import sharp from 'sharp';
-import { removeBackground } from '@imgly/background-removal-node';
 
 @Injectable()
 export class BackgroundRemovalService {
     private readonly logger = new Logger(BackgroundRemovalService.name);
+    private readonly aiServiceUrl = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
 
     async removeBackground(inputPath: string, outputPath: string): Promise<void> {
         this.logger.log(`Removing background from: ${inputPath} using AI`);
@@ -18,17 +18,13 @@ export class BackgroundRemovalService {
                 fs.mkdirSync(outputDir, { recursive: true });
             }
 
-            const inputBuffer = fs.readFileSync(inputPath);
-            const blob = new Blob([inputBuffer], { type: 'image/jpeg' });
+            const resultBuffer = await this.removeBackgroundWithAiService(inputPath);
+            const resultMeta = await sharp(resultBuffer).metadata();
 
-            const resultBlob = await removeBackground(blob, {
-                model: 'large',
-                debug: false,
-                output: { format: 'image/png' },
-            });
-
-            const arrayBuffer = await resultBlob.arrayBuffer();
-            const resultBuffer = Buffer.from(arrayBuffer);
+            // Guard against accidental non-alpha outputs.
+            if (!resultMeta.hasAlpha) {
+                throw new Error('Background removal result has no alpha channel');
+            }
 
             // Step 1: trim away fully transparent border so we get a tight bbox
             const trimmed = sharp(resultBuffer);
@@ -59,26 +55,55 @@ export class BackgroundRemovalService {
             this.logger.log(
                 `Background removed successfully. Output: ${outputPath} (${fitted.length} bytes, original ${meta.width}x${meta.height})`,
             );
-        } catch (error) {
-            console.error("REAL ERROR:", error);
-
-            this.logger.error(`AI Background removal failed: ${error.message}`);
-            // Fallback
-            await this.fallbackRemoval(inputPath, outputPath);
+        } catch (error: any) {
+            this.logger.error(`AI Background removal failed: ${error?.message ?? error}`);
+            // Do not silently copy the original image; propagate failure so client can retry.
+            throw error;
         }
     }
 
-    /**
-     * Fallback: Simple white-background removal
-     */
-    private async fallbackRemoval(inputPath: string, outputPath: string): Promise<void> {
-        this.logger.log('AI Failed, using fallback background removal (copy original)...');
+    private async removeBackgroundWithAiService(inputPath: string): Promise<Buffer> {
+        const inputBuffer = fs.readFileSync(inputPath);
+        const filename = path.basename(inputPath);
+        const mimeType = this.getMimeTypeFromPath(inputPath);
 
-        try {
-            fs.copyFileSync(inputPath, outputPath);
-            this.logger.log('Fallback copy completed');
-        } catch (error) {
-            this.logger.error(`Fallback also failed: ${error.message}`);
+        const formData = new FormData();
+        formData.append('image', new Blob([inputBuffer], { type: mimeType }), filename);
+
+        const processRes = await fetch(`${this.aiServiceUrl}/process`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!processRes.ok) {
+            const detail = await processRes.text().catch(() => '');
+            throw new Error(`AI service /process failed with ${processRes.status}${detail ? `: ${detail}` : ''}`);
         }
+
+        const payload = (await processRes.json()) as any;
+        const processedPath = payload?.data?.processed_url || payload?.data?.processedUrl;
+        if (!processedPath || typeof processedPath !== 'string') {
+            throw new Error('AI service response missing processed image URL');
+        }
+
+        const processedUrl = processedPath.startsWith('http')
+            ? processedPath
+            : `${this.aiServiceUrl}${processedPath}`;
+        const processedRes = await fetch(processedUrl);
+        if (!processedRes.ok) {
+            throw new Error(`AI service processed image fetch failed with ${processedRes.status}`);
+        }
+
+        const imageArrayBuffer = await processedRes.arrayBuffer();
+        return Buffer.from(imageArrayBuffer);
+    }
+
+    private getMimeTypeFromPath(filePath: string): string {
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.png') return 'image/png';
+        if (ext === '.webp') return 'image/webp';
+        if (ext === '.heic') return 'image/heic';
+        if (ext === '.heif') return 'image/heif';
+        return 'image/jpeg';
     }
 }

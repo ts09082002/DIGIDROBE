@@ -138,5 +138,45 @@
     "mimeType": "image/jpeg",
     "size": 1507852,
     "createdAt": "2026-02-26T17:04:20.772Z"
+  },
+  {
+    "id": "e8f07bdf-798b-41b3-9f12-41c166b1e069",
+    "originalFilename": "94ded4f9-0b60-421a-bc21-bcc7031bbc97.jpeg",
+    "originalUrl": "/uploads/processed/e8f07bdf-798b-41b3-9f12-41c166b1e069_clean.png",
+    "processedUrl": "/uploads/processed/e8f07bdf-798b-41b3-9f12-41c166b1e069_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 1485756,
+    "createdAt": "2026-02-26T18:59:03.301Z"
+  },
+  {
+    "id": "2496f490-a2d3-4865-ab98-84fc118178e9",
+    "originalFilename": "6a28657a-1c11-4793-835d-ac03d1a19da0.jpeg",
+    "originalUrl": "/uploads/processed/2496f490-a2d3-4865-ab98-84fc118178e9_clean.png",
+    "processedUrl": "/uploads/processed/2496f490-a2d3-4865-ab98-84fc118178e9_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 433067,
+    "createdAt": "2026-02-26T19:57:10.803Z"
+  },
+  {
+    "id": "6807845c-5b84-45dc-93a7-85a3be8c9ec7",
+    "originalFilename": "d106ceef-1081-4694-88c2-ba46130e7831.jpeg",
+    "originalUrl": "/uploads/processed/6807845c-5b84-45dc-93a7-85a3be8c9ec7_clean.png",
+    "processedUrl": "/uploads/processed/6807845c-5b84-45dc-93a7-85a3be8c9ec7_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 552924,
+    "createdAt": "2026-02-26T20:00:39.046Z"
+  },
+  {
+    "id": "f462fff1-ff73-43b4-be77-c46be93e81e4",
+    "originalFilename": "camera_photo.jpg",
+    "originalUrl": "/uploads/processed/f462fff1-ff73-43b4-be77-c46be93e81e4_clean.png",
+    "processedUrl": "/uploads/processed/f462fff1-ff73-43b4-be77-c46be93e81e4_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 465145,
+    "createdAt": "2026-02-26T20:02:41.111Z"
   }
 ]

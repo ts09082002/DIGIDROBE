@@ -63,22 +63,34 @@ class ApiService {
             type: mimeType || 'image/jpeg',
             name: filename || 'clothing.jpg',
         } as any);
+        try {
+            const response = await fetch(this.getFullUrl('/api/upload/clothing'), {
+                method: 'POST',
+                body: formData,
+                // Let React Native set multipart boundary automatically.
+            });
 
-        const response = await fetch(this.getFullUrl('/api/upload/clothing'), {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
+            if (!response.ok) {
+                let message = 'Upload failed';
+                try {
+                    const error = await response.json();
+                    message = error.message || message;
+                } catch {
+                    // Keep default message if server didn't return JSON.
+                }
+                throw new Error(message);
+            }
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Upload failed');
+            const result: ApiResponse<UploadResult> = await response.json();
+            return result.data;
+        } catch (error: any) {
+            if (error?.message?.includes('Network request failed')) {
+                throw new Error(
+                    `Cannot reach backend at ${this.baseUrl}. Make sure backend is running and phone/emulator can access this IP.`,
+                );
+            }
+            throw error;
         }
-
-        const result: ApiResponse<UploadResult> = await response.json();
-        return result.data;
     }
 
     // Create wardrobe item from upload result
