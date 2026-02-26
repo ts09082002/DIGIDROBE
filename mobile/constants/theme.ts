@@ -134,4 +134,4 @@ export const Shadows = {
     },
 };
 
-export const API_BASE_URL = 'http://192.168.4.104:3000'; // Updated to match local network IP
+export const API_BASE_URL = 'http://192.168.4.106:3000'; // Updated to match local network IP

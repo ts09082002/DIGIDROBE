@@ -56,11 +56,11 @@ class ApiService {
     }
 
     // Upload clothing image
-    async uploadClothingImage(imageUri: string, filename: string): Promise<UploadResult> {
+    async uploadClothingImage(imageUri: string, filename: string, mimeType?: string): Promise<UploadResult> {
         const formData = new FormData();
         formData.append('image', {
             uri: imageUri,
-            type: 'image/jpeg',
+            type: mimeType || 'image/jpeg',
             name: filename || 'clothing.jpg',
         } as any);
 

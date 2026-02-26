@@ -17,22 +17,21 @@ export interface WardrobeItem {
 }
 export declare class WardrobeService {
     private readonly logger;
-    private readonly itemsPath;
-    private loadItems;
-    private saveItems;
+    private readonly collection;
+    private docToItem;
     getAll(query?: {
         category?: string;
         search?: string;
         favorite?: string;
-    }): WardrobeItem[];
-    getById(id: string): WardrobeItem;
-    create(data: Partial<WardrobeItem>): WardrobeItem;
-    update(id: string, data: Partial<WardrobeItem>): WardrobeItem;
-    toggleFavorite(id: string): WardrobeItem;
-    delete(id: string): void;
-    getStats(): {
+    }): Promise<WardrobeItem[]>;
+    getById(id: string): Promise<WardrobeItem>;
+    create(data: Partial<WardrobeItem>): Promise<WardrobeItem>;
+    update(id: string, data: Partial<WardrobeItem>): Promise<WardrobeItem>;
+    toggleFavorite(id: string): Promise<WardrobeItem>;
+    delete(id: string): Promise<void>;
+    getStats(): Promise<{
         totalItems: number;
         totalFavorites: number;
         categories: Record<string, number>;
-    };
+    }>;
 }

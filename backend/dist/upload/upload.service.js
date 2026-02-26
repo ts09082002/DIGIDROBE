@@ -65,15 +65,24 @@ let UploadService = UploadService_1 = class UploadService {
         const processedFilename = `${id}_clean.png`;
         const processedPath = (0, path_1.join)(processedDir, processedFilename);
         await this.bgRemovalService.removeBackground(file.path, processedPath);
+        try {
+            if (fs.existsSync(file.path)) {
+                fs.unlinkSync(file.path);
+            }
+        }
+        catch (err) {
+            this.logger.warn(`Failed to delete original image ${file.path}: ${err.message}`);
+        }
+        const processedStat = fs.statSync(processedPath);
         const category = this.classifyClothing(file.originalname);
         const result = {
             id,
             originalFilename: file.originalname,
-            originalUrl: `/uploads/originals/${file.filename}`,
+            originalUrl: `/uploads/processed/${processedFilename}`,
             processedUrl: `/uploads/processed/${processedFilename}`,
             category,
             mimeType: file.mimetype,
-            size: file.size,
+            size: processedStat.size,
             createdAt: new Date().toISOString(),
         };
         await this.storeMetadata(result);
