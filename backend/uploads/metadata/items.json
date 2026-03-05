@@ -178,5 +178,65 @@
     "mimeType": "image/jpeg",
     "size": 465145,
     "createdAt": "2026-02-26T20:02:41.111Z"
+  },
+  {
+    "id": "e425a95b-0df7-46a9-b9a9-318658dd2751",
+    "originalFilename": "1000171720.jpg",
+    "originalUrl": "/uploads/processed/e425a95b-0df7-46a9-b9a9-318658dd2751_clean.png",
+    "processedUrl": "/uploads/processed/e425a95b-0df7-46a9-b9a9-318658dd2751_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 371493,
+    "createdAt": "2026-02-27T17:35:34.434Z"
+  },
+  {
+    "id": "a756af2f-08b3-4a24-9e63-6b47d31152fd",
+    "originalFilename": "1000171720.jpg",
+    "originalUrl": "/uploads/processed/a756af2f-08b3-4a24-9e63-6b47d31152fd_clean.png",
+    "processedUrl": "/uploads/processed/a756af2f-08b3-4a24-9e63-6b47d31152fd_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 371493,
+    "createdAt": "2026-02-27T17:51:39.104Z"
+  },
+  {
+    "id": "38ab2e77-1573-4f01-bc59-152e464fbf7f",
+    "originalFilename": "1000171720.jpg",
+    "originalUrl": "/uploads/processed/38ab2e77-1573-4f01-bc59-152e464fbf7f_clean.png",
+    "processedUrl": "/uploads/processed/38ab2e77-1573-4f01-bc59-152e464fbf7f_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 371493,
+    "createdAt": "2026-02-27T18:18:53.998Z"
+  },
+  {
+    "id": "ece0aaa6-7bc7-4ca8-af43-001694a6bf3e",
+    "originalFilename": "1000171720.jpg",
+    "originalUrl": "/uploads/processed/ece0aaa6-7bc7-4ca8-af43-001694a6bf3e_clean.png",
+    "processedUrl": "/uploads/processed/ece0aaa6-7bc7-4ca8-af43-001694a6bf3e_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 371493,
+    "createdAt": "2026-02-27T18:24:23.845Z"
+  },
+  {
+    "id": "583ca4b0-980d-4a5b-9232-93da1a9aa1d7",
+    "originalFilename": "1000171720.jpg",
+    "originalUrl": "/uploads/processed/583ca4b0-980d-4a5b-9232-93da1a9aa1d7_clean.png",
+    "processedUrl": "/uploads/processed/583ca4b0-980d-4a5b-9232-93da1a9aa1d7_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 371493,
+    "createdAt": "2026-02-27T18:41:37.089Z"
+  },
+  {
+    "id": "605f27b9-fce6-407a-ba90-e793cc2b52b6",
+    "originalFilename": "1000171720.jpg",
+    "originalUrl": "/uploads/processed/605f27b9-fce6-407a-ba90-e793cc2b52b6_clean.png",
+    "processedUrl": "/uploads/processed/605f27b9-fce6-407a-ba90-e793cc2b52b6_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 371493,
+    "createdAt": "2026-02-27T18:55:23.300Z"
   }
 ]

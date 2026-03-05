@@ -1,6 +1,8 @@
 /**
- * API Service — handles all backend communication
+ * API Service - handles all backend communication
  */
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { API_BASE_URL } from '../constants/theme';
 
 interface ApiResponse<T> {
@@ -55,6 +57,67 @@ class ApiService {
         return `${this.baseUrl}${path}`;
     }
 
+    private getBaseCandidates(): string[] {
+        const candidates: string[] = [];
+
+        const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+        if (envUrl) candidates.push(envUrl);
+        if (API_BASE_URL) candidates.push(API_BASE_URL);
+
+        const c: any = Constants;
+        const hostUri =
+            c?.expoConfig?.hostUri ||
+            c?.manifest2?.extra?.expoGo?.debuggerHost ||
+            c?.manifest?.debuggerHost;
+
+        if (hostUri && typeof hostUri === 'string') {
+            const host = hostUri.split(':')[0];
+            candidates.push(`http://${host}:3000`);
+        }
+
+        if (Platform.OS === 'android') {
+            candidates.push('http://10.0.2.2:3000');
+        }
+
+        candidates.push('http://127.0.0.1:3000');
+        candidates.push('http://localhost:3000');
+
+        return [...new Set(candidates)];
+    }
+
+    private isNetworkError(error: any): boolean {
+        return `${error?.message || ''}`.includes('Network request failed');
+    }
+
+    private async resolveReachableBaseUrl(): Promise<string | null> {
+        for (const candidate of this.getBaseCandidates()) {
+            try {
+                const res = await fetch(`${candidate}/api/wardrobe`);
+                if (res.ok) {
+                    this.baseUrl = candidate;
+                    return candidate;
+                }
+            } catch {
+                // try next candidate
+            }
+        }
+
+        return null;
+    }
+
+    private async fetchWithRetry(path: string, init?: RequestInit): Promise<Response> {
+        try {
+            return await fetch(this.getFullUrl(path), init);
+        } catch (error: any) {
+            if (!this.isNetworkError(error)) throw error;
+
+            const reachable = await this.resolveReachableBaseUrl();
+            if (!reachable) throw error;
+
+            return fetch(`${reachable}${path}`, init);
+        }
+    }
+
     // Upload clothing image
     async uploadClothingImage(imageUri: string, filename: string, mimeType?: string): Promise<UploadResult> {
         const formData = new FormData();
@@ -63,11 +126,11 @@ class ApiService {
             type: mimeType || 'image/jpeg',
             name: filename || 'clothing.jpg',
         } as any);
+
         try {
-            const response = await fetch(this.getFullUrl('/api/upload/clothing'), {
+            const response = await this.fetchWithRetry('/api/upload/clothing', {
                 method: 'POST',
                 body: formData,
-                // Let React Native set multipart boundary automatically.
             });
 
             if (!response.ok) {
@@ -76,7 +139,7 @@ class ApiService {
                     const error = await response.json();
                     message = error.message || message;
                 } catch {
-                    // Keep default message if server didn't return JSON.
+                    // keep default message if server did not return JSON
                 }
                 throw new Error(message);
             }
@@ -84,9 +147,9 @@ class ApiService {
             const result: ApiResponse<UploadResult> = await response.json();
             return result.data;
         } catch (error: any) {
-            if (error?.message?.includes('Network request failed')) {
+            if (this.isNetworkError(error)) {
                 throw new Error(
-                    `Cannot reach backend at ${this.baseUrl}. Make sure backend is running and phone/emulator can access this IP.`,
+                    `Cannot reach backend. Tried: ${this.getBaseCandidates().join(', ')}`,
                 );
             }
             throw error;
@@ -95,7 +158,7 @@ class ApiService {
 
     // Create wardrobe item from upload result
     async createWardrobeItem(data: Partial<WardrobeItem>): Promise<WardrobeItem> {
-        const response = await fetch(this.getFullUrl('/api/wardrobe'), {
+        const response = await this.fetchWithRetry('/api/wardrobe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -117,15 +180,14 @@ class ApiService {
         if (params?.favorite) searchParams.set('favorite', params.favorite);
 
         const query = searchParams.toString();
-        const url = this.getFullUrl(`/api/wardrobe${query ? `?${query}` : ''}`);
-        const response = await fetch(url);
+        const response = await this.fetchWithRetry(`/api/wardrobe${query ? `?${query}` : ''}`);
         const result: ApiResponse<WardrobeItem[]> = await response.json();
         return result.data;
     }
 
     // Toggle favorite
     async toggleFavorite(id: string): Promise<WardrobeItem> {
-        const response = await fetch(this.getFullUrl(`/api/wardrobe/${id}/favorite`), {
+        const response = await this.fetchWithRetry(`/api/wardrobe/${id}/favorite`, {
             method: 'PATCH',
         });
         const result: ApiResponse<WardrobeItem> = await response.json();
@@ -134,12 +196,12 @@ class ApiService {
 
     // Delete item
     async deleteItem(id: string): Promise<void> {
-        await fetch(this.getFullUrl(`/api/wardrobe/${id}`), { method: 'DELETE' });
+        await this.fetchWithRetry(`/api/wardrobe/${id}`, { method: 'DELETE' });
     }
 
     // Get stats
     async getStats(): Promise<WardrobeStats> {
-        const response = await fetch(this.getFullUrl('/api/wardrobe/stats'));
+        const response = await this.fetchWithRetry('/api/wardrobe/stats');
         const result: ApiResponse<WardrobeStats> = await response.json();
         return result.data;
     }

@@ -116,8 +116,6 @@ export default function WardrobeScreen() {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [4, 5],
                 quality: 0.9,
             });
 
@@ -161,8 +159,6 @@ export default function WardrobeScreen() {
             }
 
             const result = await ImagePicker.launchCameraAsync({
-                allowsEditing: true,
-                aspect: [4, 5],
                 quality: 0.9,
             });
 
