@@ -34,6 +34,9 @@ let WardrobeService = WardrobeService_1 = class WardrobeService {
             size: data.size ?? 0,
             createdAt: data.createdAt ?? new Date().toISOString(),
             updatedAt: data.updatedAt ?? new Date().toISOString(),
+            status: data.status ?? 'done',
+            isLowConfidence: data.isLowConfidence ?? false,
+            colorPalette: data.colorPalette ?? undefined,
         };
     }
     async getAll(query) {
@@ -82,6 +85,9 @@ let WardrobeService = WardrobeService_1 = class WardrobeService {
             size: data.size || 0,
             createdAt: data.createdAt || now,
             updatedAt: now,
+            status: data.status || 'pending',
+            isLowConfidence: data.isLowConfidence ?? false,
+            colorPalette: data.colorPalette ?? undefined,
         };
         await this.collection.doc(id).set(item);
         return item;

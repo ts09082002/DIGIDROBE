@@ -4,7 +4,7 @@ export declare class UploadController {
     constructor(uploadService: UploadService);
     uploadClothing(file: any): Promise<{
         success: boolean;
-        data: import("./upload.service").ProcessedImage;
+        data: import("../wardrobe/wardrobe.service").WardrobeItem;
     }>;
     getProcessedImage(filename: string, res: any): Promise<void>;
 }

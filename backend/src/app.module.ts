@@ -3,6 +3,8 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { UploadModule } from './upload/upload.module';
 import { WardrobeModule } from './wardrobe/wardrobe.module';
+import { CalendarModule } from './calendar/calendar.module';
+import { PackingModule } from './packing/packing.module';
 
 @Module({
   imports: [
@@ -12,6 +14,8 @@ import { WardrobeModule } from './wardrobe/wardrobe.module';
     }),
     UploadModule,
     WardrobeModule,
+    CalendarModule,
+    PackingModule,
   ],
 })
 export class AppModule { }

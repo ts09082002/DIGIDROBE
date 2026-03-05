@@ -18,6 +18,11 @@ export interface WardrobeItem {
     size: number;
     createdAt: string;
     updatedAt: string;
+    status: string;
+    /** True when AI classification confidence was below 0.4 — prompts user to manually tag. */
+    isLowConfidence?: boolean;
+    /** JSON string of top-3 color palette from AI: [{hex, name}, ...] */
+    colorPalette?: string;
 }
 
 @Injectable()
@@ -46,6 +51,9 @@ export class WardrobeService {
             size: data.size ?? 0,
             createdAt: data.createdAt ?? new Date().toISOString(),
             updatedAt: data.updatedAt ?? new Date().toISOString(),
+            status: data.status ?? 'done',
+            isLowConfidence: data.isLowConfidence ?? false,
+            colorPalette: data.colorPalette ?? undefined,
         };
     }
 
@@ -105,6 +113,9 @@ export class WardrobeService {
             size: data.size || 0,
             createdAt: data.createdAt || now,
             updatedAt: now,
+            status: data.status || 'pending',
+            isLowConfidence: data.isLowConfidence ?? false,
+            colorPalette: data.colorPalette ?? undefined,
         };
 
         await this.collection.doc(id).set(item);

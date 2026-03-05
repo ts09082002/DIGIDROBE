@@ -11,6 +11,8 @@ const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
     index: { active: 'home', inactive: 'home-outline' },
     outfits: { active: 'albums', inactive: 'albums-outline' },
     wardrobe: { active: 'file-tray-stacked', inactive: 'file-tray-stacked-outline' },
+    calendar: { active: 'calendar', inactive: 'calendar-outline' },
+    travel: { active: 'airplane', inactive: 'airplane-outline' },
     profile: { active: 'person', inactive: 'person-outline' },
 };
 
@@ -50,6 +52,8 @@ export default function TabLayout() {
             <Tabs.Screen name="index" options={{ title: 'Home' }} />
             <Tabs.Screen name="outfits" options={{ title: 'Outfits' }} />
             <Tabs.Screen name="wardrobe" options={{ title: 'Wardrobe' }} />
+            <Tabs.Screen name="calendar" options={{ title: 'Calendar' }} />
+            <Tabs.Screen name="travel" options={{ title: 'Travel' }} />
             <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
 
             <Tabs.Screen name="styling" options={{ href: null }} />

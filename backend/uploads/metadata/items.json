@@ -178,5 +178,25 @@
     "mimeType": "image/jpeg",
     "size": 465145,
     "createdAt": "2026-02-26T20:02:41.111Z"
+  },
+  {
+    "id": "f2a86edd-2e32-45a1-8bfb-cf9ca9cb8685",
+    "originalFilename": "camera_photo.jpg",
+    "originalUrl": "/uploads/processed/f2a86edd-2e32-45a1-8bfb-cf9ca9cb8685_clean.png",
+    "processedUrl": "/uploads/processed/f2a86edd-2e32-45a1-8bfb-cf9ca9cb8685_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 1141759,
+    "createdAt": "2026-02-26T20:15:17.335Z"
+  },
+  {
+    "id": "7bfe38d0-dec5-4b71-a716-5185fb3dd2a5",
+    "originalFilename": "camera_photo.jpg",
+    "originalUrl": "/uploads/processed/7bfe38d0-dec5-4b71-a716-5185fb3dd2a5_clean.png",
+    "processedUrl": "/uploads/processed/7bfe38d0-dec5-4b71-a716-5185fb3dd2a5_clean.png",
+    "category": "tops",
+    "mimeType": "image/jpeg",
+    "size": 928996,
+    "createdAt": "2026-02-26T20:16:30.209Z"
   }
 ]

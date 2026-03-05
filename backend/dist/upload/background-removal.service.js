@@ -48,86 +48,111 @@ const common_1 = require("@nestjs/common");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const sharp_1 = __importDefault(require("sharp"));
+const AI_TIMEOUT_MS = 10000;
+const AI_MAX_RETRIES = 0;
 let BackgroundRemovalService = BackgroundRemovalService_1 = class BackgroundRemovalService {
     logger = new common_1.Logger(BackgroundRemovalService_1.name);
     aiServiceUrl = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
     async removeBackground(inputPath, outputPath) {
-        this.logger.log(`Removing background from: ${inputPath} using AI`);
+        this.logger.log(`Removing background from: ${inputPath} via AI service (u2netp)`);
         try {
             const outputDir = path.dirname(outputPath);
             if (!fs.existsSync(outputDir)) {
                 fs.mkdirSync(outputDir, { recursive: true });
             }
-            const resultBuffer = await this.removeBackgroundWithAiService(inputPath);
-            const resultMeta = await (0, sharp_1.default)(resultBuffer).metadata();
-            if (!resultMeta.hasAlpha) {
-                throw new Error('Background removal result has no alpha channel');
-            }
-            const trimmed = (0, sharp_1.default)(resultBuffer);
-            const meta = await trimmed.metadata();
-            const CANVAS_SIZE = 1024;
-            const PADDING = 80;
-            const fitted = await trimmed
-                .resize(CANVAS_SIZE - PADDING * 2, CANVAS_SIZE - PADDING * 2, {
-                fit: 'inside',
-            })
+            const aiResult = await this.callAIServiceWithRetry(inputPath);
+            const fitted = await (0, sharp_1.default)(aiResult.imageBuffer)
+                .trim()
                 .extend({
-                top: PADDING,
-                bottom: PADDING,
-                left: PADDING,
-                right: PADDING,
+                top: 40,
+                bottom: 40,
+                left: 40,
+                right: 40,
                 background: { r: 0, g: 0, b: 0, alpha: 0 },
             })
                 .png()
                 .toBuffer();
             fs.writeFileSync(outputPath, fitted);
-            this.logger.log(`Background removed successfully. Output: ${outputPath} (${fitted.length} bytes, original ${meta.width}x${meta.height})`);
+            this.logger.log(`Background removed successfully. Output: ${outputPath} (${fitted.length} bytes)`);
+            return {
+                imageBuffer: fitted,
+                classification: aiResult.classification,
+                dominantColor: aiResult.dominantColor,
+                colorName: aiResult.colorName,
+                palette: aiResult.palette,
+            };
         }
         catch (error) {
-            this.logger.error(`AI Background removal failed: ${error?.message ?? error}`);
-            throw error;
+            console.error("Background removal error:", error);
+            this.logger.error(`AI service background removal failed: ${error.message}`);
+            await this.fallbackRemoval(inputPath, outputPath);
+            const fallbackBuffer = fs.readFileSync(outputPath);
+            return { imageBuffer: fallbackBuffer };
         }
     }
-    async removeBackgroundWithAiService(inputPath) {
+    async callAIServiceWithRetry(inputPath) {
         const inputBuffer = fs.readFileSync(inputPath);
-        const filename = path.basename(inputPath);
-        const mimeType = this.getMimeTypeFromPath(inputPath);
-        const formData = new FormData();
-        formData.append('image', new Blob([inputBuffer], { type: mimeType }), filename);
-        const processRes = await fetch(`${this.aiServiceUrl}/process`, {
-            method: 'POST',
-            body: formData,
-        });
-        if (!processRes.ok) {
-            const detail = await processRes.text().catch(() => '');
-            throw new Error(`AI service /process failed with ${processRes.status}${detail ? `: ${detail}` : ''}`);
+        for (let attempt = 0; attempt <= AI_MAX_RETRIES; attempt++) {
+            try {
+                if (attempt > 0) {
+                    this.logger.warn(`Retrying AI service call (attempt ${attempt + 1})...`);
+                }
+                const blob = new Blob([inputBuffer], { type: 'image/jpeg' });
+                const formData = new FormData();
+                formData.append('image', blob, 'clothing.jpg');
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+                const response = await fetch(`${this.aiServiceUrl}/process`, {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal,
+                });
+                clearTimeout(timeout);
+                if (!response.ok) {
+                    throw new Error(`AI service returned ${response.status}: ${response.statusText}`);
+                }
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    const json = await response.json();
+                    const processedUrl = json?.data?.processed_url;
+                    if (!processedUrl) {
+                        throw new Error('AI service JSON response missing data.processed_url');
+                    }
+                    const imageResponse = await fetch(`${this.aiServiceUrl}${processedUrl}`, { method: 'GET' });
+                    if (!imageResponse.ok) {
+                        throw new Error(`AI image fetch failed: ${imageResponse.status} ${imageResponse.statusText}`);
+                    }
+                    const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+                    const classification = json?.data?.classification;
+                    const attributes = json?.data?.attributes;
+                    return {
+                        imageBuffer,
+                        classification: classification ?? undefined,
+                        dominantColor: attributes?.dominant_color ?? undefined,
+                        colorName: attributes?.color_name ?? undefined,
+                        palette: attributes?.palette ?? undefined,
+                    };
+                }
+                return { imageBuffer: Buffer.from(await response.arrayBuffer()) };
+            }
+            catch (error) {
+                if (attempt === AI_MAX_RETRIES) {
+                    throw error;
+                }
+                this.logger.warn(`AI service attempt ${attempt + 1} failed: ${error.message}`);
+            }
         }
-        const payload = (await processRes.json());
-        const processedPath = payload?.data?.processed_url || payload?.data?.processedUrl;
-        if (!processedPath || typeof processedPath !== 'string') {
-            throw new Error('AI service response missing processed image URL');
-        }
-        const processedUrl = processedPath.startsWith('http')
-            ? processedPath
-            : `${this.aiServiceUrl}${processedPath}`;
-        const processedRes = await fetch(processedUrl);
-        if (!processedRes.ok) {
-            throw new Error(`AI service processed image fetch failed with ${processedRes.status}`);
-        }
-        const imageArrayBuffer = await processedRes.arrayBuffer();
-        return Buffer.from(imageArrayBuffer);
+        throw new Error('AI service call exhausted all retries');
     }
-    getMimeTypeFromPath(filePath) {
-        const ext = path.extname(filePath).toLowerCase();
-        if (ext === '.png')
-            return 'image/png';
-        if (ext === '.webp')
-            return 'image/webp';
-        if (ext === '.heic')
-            return 'image/heic';
-        if (ext === '.heif')
-            return 'image/heif';
-        return 'image/jpeg';
+    async fallbackRemoval(inputPath, outputPath) {
+        this.logger.log('AI service unavailable, using fallback (copy original)...');
+        try {
+            fs.copyFileSync(inputPath, outputPath);
+            this.logger.log('Fallback copy completed');
+        }
+        catch (error) {
+            this.logger.error(`Fallback also failed: ${error.message}`);
+        }
     }
 };
 exports.BackgroundRemovalService = BackgroundRemovalService;
