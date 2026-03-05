@@ -49,45 +49,55 @@ const background_removal_service_1 = require("./background-removal.service");
 const path_1 = require("path");
 const uuid_1 = require("uuid");
 const fs = __importStar(require("fs"));
+const wardrobe_service_1 = require("../wardrobe/wardrobe.service");
 let UploadService = UploadService_1 = class UploadService {
     bgRemovalService;
+    wardrobeService;
     logger = new common_1.Logger(UploadService_1.name);
-    constructor(bgRemovalService) {
+    constructor(bgRemovalService, wardrobeService) {
         this.bgRemovalService = bgRemovalService;
+        this.wardrobeService = wardrobeService;
     }
     async processClothingImage(file) {
         const id = (0, uuid_1.v4)();
-        this.logger.log(`Processing clothing image: ${file.originalname} (${file.size} bytes)`);
-        const processedDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'processed');
-        if (!fs.existsSync(processedDir)) {
-            fs.mkdirSync(processedDir, { recursive: true });
+        this.logger.log(`Received clothing image: ${file.originalname} (${file.size} bytes)`);
+        const originalsDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'originals');
+        if (!fs.existsSync(originalsDir)) {
+            fs.mkdirSync(originalsDir, { recursive: true });
         }
-        const processedFilename = `${id}_clean.png`;
-        const processedPath = (0, path_1.join)(processedDir, processedFilename);
-        await this.bgRemovalService.removeBackground(file.path, processedPath);
-        try {
-            if (fs.existsSync(file.path)) {
-                fs.unlinkSync(file.path);
-            }
+        const originalFilenameOnDisk = file.filename || `${id}${(0, path_1.extname)(file.originalname)}`;
+        const originalPath = (0, path_1.join)(originalsDir, originalFilenameOnDisk);
+        if (!fs.existsSync(originalPath) && file.path && fs.existsSync(file.path)) {
+            fs.copyFileSync(file.path, originalPath);
         }
-        catch (err) {
-            this.logger.warn(`Failed to delete original image ${file.path}: ${err.message}`);
-        }
-        const processedStat = fs.statSync(processedPath);
         const category = this.classifyClothing(file.originalname);
-        const result = {
+        const mimeType = file.mimetype;
+        const size = fs.existsSync(originalPath) ? fs.statSync(originalPath).size : file.size;
+        const createdAt = new Date().toISOString();
+        const wardrobeItem = await this.wardrobeService.create({
             id,
             originalFilename: file.originalname,
-            originalUrl: `/uploads/processed/${processedFilename}`,
-            processedUrl: `/uploads/processed/${processedFilename}`,
+            originalUrl: `/uploads/originals/${originalFilenameOnDisk}`,
+            processedUrl: '',
             category,
-            mimeType: file.mimetype,
-            size: processedStat.size,
-            createdAt: new Date().toISOString(),
-        };
-        await this.storeMetadata(result);
-        this.logger.log(`Successfully processed: ${id} → Category: ${category}`);
-        return result;
+            name: this.buildDefaultName(category),
+            brand: '',
+            isFavorite: false,
+            mimeType,
+            size,
+            createdAt,
+            status: 'processing',
+        });
+        this.startBackgroundProcessing(file, wardrobeItem.id).catch((err) => {
+            this.logger.error(`Background processing failed for ${wardrobeItem.id}: ${err.message}`);
+        });
+        return wardrobeItem;
+    }
+    buildDefaultName(category) {
+        const pretty = category && category.length > 0
+            ? category.charAt(0).toUpperCase() + category.slice(1)
+            : 'Clothing';
+        return `${pretty} item`;
     }
     classifyClothing(filename) {
         const name = filename.toLowerCase();
@@ -120,10 +130,51 @@ let UploadService = UploadService_1 = class UploadService {
         items.push(data);
         fs.writeFileSync(itemsFile, JSON.stringify(items, null, 2));
     }
+    async startBackgroundProcessing(file, wardrobeItemId) {
+        try {
+            const processedDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'processed');
+            if (!fs.existsSync(processedDir)) {
+                fs.mkdirSync(processedDir, { recursive: true });
+            }
+            const processedFilename = `${wardrobeItemId}_clean.png`;
+            const processedPath = (0, path_1.join)(processedDir, processedFilename);
+            const aiResult = await this.bgRemovalService.removeBackground(file.path, processedPath);
+            try {
+                if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path);
+                }
+            }
+            catch (err) {
+                this.logger.warn(`Failed to delete temp original image ${file.path}: ${err.message}`);
+            }
+            const processedStat = fs.statSync(processedPath);
+            const updatePayload = {
+                processedUrl: `/uploads/processed/${processedFilename}`,
+                size: processedStat.size,
+                mimeType: file.mimetype,
+                status: 'done',
+            };
+            if (aiResult.classification) {
+                updatePayload.isLowConfidence = aiResult.classification.is_low_confidence;
+            }
+            if (aiResult.palette && aiResult.palette.length > 0) {
+                updatePayload.colorPalette = JSON.stringify(aiResult.palette);
+            }
+            await this.wardrobeService.update(wardrobeItemId, updatePayload);
+            this.logger.log(`Background processing completed for wardrobe item ${wardrobeItemId}`);
+        }
+        catch (error) {
+            this.logger.error(`Background processing error for ${wardrobeItemId}: ${error.message}`);
+            await this.wardrobeService.update(wardrobeItemId, {
+                status: 'failed',
+            });
+        }
+    }
 };
 exports.UploadService = UploadService;
 exports.UploadService = UploadService = UploadService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [background_removal_service_1.BackgroundRemovalService])
+    __metadata("design:paramtypes", [background_removal_service_1.BackgroundRemovalService,
+        wardrobe_service_1.WardrobeService])
 ], UploadService);
 //# sourceMappingURL=upload.service.js.map

@@ -14,6 +14,9 @@ export interface WardrobeItem {
     size: number;
     createdAt: string;
     updatedAt: string;
+    status: string;
+    isLowConfidence?: boolean;
+    colorPalette?: string;
 }
 export declare class WardrobeService {
     private readonly logger;

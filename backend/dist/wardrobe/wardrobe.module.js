@@ -17,6 +17,7 @@ exports.WardrobeModule = WardrobeModule = __decorate([
     (0, common_1.Module)({
         controllers: [wardrobe_controller_1.WardrobeController],
         providers: [wardrobe_service_1.WardrobeService],
+        exports: [wardrobe_service_1.WardrobeService],
     })
 ], WardrobeModule);
 //# sourceMappingURL=wardrobe.module.js.map

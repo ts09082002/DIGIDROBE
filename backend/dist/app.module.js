@@ -12,6 +12,8 @@ const serve_static_1 = require("@nestjs/serve-static");
 const path_1 = require("path");
 const upload_module_1 = require("./upload/upload.module");
 const wardrobe_module_1 = require("./wardrobe/wardrobe.module");
+const calendar_module_1 = require("./calendar/calendar.module");
+const packing_module_1 = require("./packing/packing.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -24,6 +26,8 @@ exports.AppModule = AppModule = __decorate([
             }),
             upload_module_1.UploadModule,
             wardrobe_module_1.WardrobeModule,
+            calendar_module_1.CalendarModule,
+            packing_module_1.PackingModule,
         ],
     })
 ], AppModule);

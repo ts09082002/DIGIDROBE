@@ -4,3 +4,6 @@ python-multipart
 rembg
 Pillow
 onnxruntime
+numpy
+opencv-python-headless
+scikit-learn

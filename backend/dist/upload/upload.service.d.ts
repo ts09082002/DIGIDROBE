@@ -1,4 +1,5 @@
 import { BackgroundRemovalService } from './background-removal.service';
+import { WardrobeService, WardrobeItem } from '../wardrobe/wardrobe.service';
 export interface ProcessedImage {
     id: string;
     originalFilename: string;
@@ -11,9 +12,12 @@ export interface ProcessedImage {
 }
 export declare class UploadService {
     private readonly bgRemovalService;
+    private readonly wardrobeService;
     private readonly logger;
-    constructor(bgRemovalService: BackgroundRemovalService);
-    processClothingImage(file: any): Promise<ProcessedImage>;
+    constructor(bgRemovalService: BackgroundRemovalService, wardrobeService: WardrobeService);
+    processClothingImage(file: any): Promise<WardrobeItem>;
+    private buildDefaultName;
     private classifyClothing;
     private storeMetadata;
+    private startBackgroundProcessing;
 }

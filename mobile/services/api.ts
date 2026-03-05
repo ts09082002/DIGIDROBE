@@ -9,16 +9,7 @@ interface ApiResponse<T> {
     message?: string;
 }
 
-interface UploadResult {
-    id: string;
-    originalFilename: string;
-    originalUrl: string;
-    processedUrl: string;
-    category: string;
-    mimeType: string;
-    size: number;
-    createdAt: string;
-}
+interface UploadResult extends WardrobeItem { }
 
 export interface WardrobeItem {
     id: string;
@@ -36,12 +27,41 @@ export interface WardrobeItem {
     size: number;
     createdAt: string;
     updatedAt: string;
+    status: string;
+    /** True when AI classification confidence was below 0.4 */
+    isLowConfidence?: boolean;
+    /** JSON string of [{hex, name}] palette entries from AI */
+    colorPalette?: string;
 }
 
 export interface WardrobeStats {
     totalItems: number;
-    totalFavorites: number;
-    categories: Record<string, number>;
+    categoryCounts: Record<string, number>;
+    colorCounts: Record<string, number>;
+}
+
+export interface OOTD {
+    id: string;
+    date: string;
+    itemIds: string[];
+    notes: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface OOTDStats {
+    mostWorn: { itemId: string; count: number }[];
+    leastWorn: { itemId: string; count: number }[];
+}
+
+export interface StylistSuggestion {
+    suggestedOutfit: WardrobeItem[];
+    favorites: WardrobeItem[];
+    stats: {
+        totalItems: number;
+        totalFavorites: number;
+        categories: Record<string, number>;
+    };
 }
 
 class ApiService {
@@ -132,6 +152,17 @@ class ApiService {
         return result.data;
     }
 
+    // Update wardrobe item (e.g., rename)
+    async updateWardrobeItem(id: string, data: Partial<WardrobeItem>): Promise<WardrobeItem> {
+        const response = await fetch(this.getFullUrl(`/api/wardrobe/${id}`), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        const result: ApiResponse<WardrobeItem> = await response.json();
+        return result.data;
+    }
+
     // Delete item
     async deleteItem(id: string): Promise<void> {
         await fetch(this.getFullUrl(`/api/wardrobe/${id}`), { method: 'DELETE' });
@@ -149,6 +180,81 @@ class ApiService {
         if (path.startsWith('http')) return path;
         return this.getFullUrl(path);
     }
+
+    // --- Calendar / OOTD ---
+
+    async getOOTDByMonth(year: number, month: number): Promise<OOTD[]> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/calendar?year=${year}&month=${month}`);
+            if (!response.ok) throw new Error('Failed to fetch OOTD');
+            const result = await response.json();
+            return result.data as OOTD[];
+        } catch (error) {
+            console.error('Error fetching calendar:', error);
+            return [];
+        }
+    }
+
+    async getOOTDStats(days: number = 30): Promise<OOTDStats | null> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/calendar/stats?days=${days}`);
+            if (!response.ok) throw new Error('Failed to fetch OOTD stats');
+            const result = await response.json();
+            return result.data as OOTDStats;
+        } catch (error) {
+            console.error('Error fetching calendar stats:', error);
+            return null;
+        }
+    }
+
+    async saveOOTD(date: string, itemIds: string[], notes: string = ''): Promise<OOTD> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/calendar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date, itemIds, notes }),
+            });
+            if (!response.ok) throw new Error('Failed to save OOTD');
+            const result = await response.json();
+            return result.data as OOTD;
+        } catch (error) {
+            console.error('Error saving OOTD:', error);
+            throw error;
+        }
+    }
+
+    // --- Travel / Packing ---
+
+    async generatePackingList(destination: string, days: number): Promise<WardrobeItem[]> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/packing/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ destination, days }),
+            });
+            if (!response.ok) throw new Error('Failed to generate packing list');
+            const result = await response.json();
+            return result.data as WardrobeItem[];
+        } catch (error) {
+            console.error('Error generating packing list:', error);
+            throw error;
+        }
+    }
+
+    // --- AI Stylist ---
+
+    async getStylistSuggestion(): Promise<StylistSuggestion> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/packing/stylist`);
+            if (!response.ok) throw new Error('Failed to fetch stylist suggestion');
+            const result = await response.json();
+            return result.data as StylistSuggestion;
+        } catch (error) {
+            console.error('Error fetching stylist suggestion:', error);
+            throw error;
+        }
+    }
 }
 
 export const api = new ApiService();
+

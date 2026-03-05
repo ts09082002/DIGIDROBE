@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BackgroundRemovalService } from './background-removal.service';
+import { BackgroundRemovalService, AiProcessResult } from './background-removal.service';
 import { join, extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
+import { WardrobeService, WardrobeItem } from '../wardrobe/wardrobe.service';
 
 export interface ProcessedImage {
     id: string;
@@ -19,56 +20,68 @@ export interface ProcessedImage {
 export class UploadService {
     private readonly logger = new Logger(UploadService.name);
 
-    constructor(private readonly bgRemovalService: BackgroundRemovalService) { }
+    constructor(
+        private readonly bgRemovalService: BackgroundRemovalService,
+        private readonly wardrobeService: WardrobeService,
+    ) { }
 
-    async processClothingImage(file: any): Promise<ProcessedImage> {
+    /**
+     * Save original image, create wardrobe item immediately, then kick off
+     * background removal asynchronously to update the item when ready.
+     */
+    async processClothingImage(file: any): Promise<WardrobeItem> {
         const id = uuidv4();
-        this.logger.log(`Processing clothing image: ${file.originalname} (${file.size} bytes)`);
+        this.logger.log(`Received clothing image: ${file.originalname} (${file.size} bytes)`);
 
-        // Step 1: Remove background using sharp
-        const processedDir = join(__dirname, '..', '..', 'uploads', 'processed');
-        if (!fs.existsSync(processedDir)) {
-            fs.mkdirSync(processedDir, { recursive: true });
+        // Compute original URL served via /uploads/originals
+        const originalsDir = join(__dirname, '..', '..', 'uploads', 'originals');
+        if (!fs.existsSync(originalsDir)) {
+            fs.mkdirSync(originalsDir, { recursive: true });
         }
 
-        const processedFilename = `${id}_clean.png`;
-        const processedPath = join(processedDir, processedFilename);
+        const originalFilenameOnDisk = file.filename || `${id}${extname(file.originalname)}`;
+        const originalPath = join(originalsDir, originalFilenameOnDisk);
 
-        // Run background removal into processed PNG
-        await this.bgRemovalService.removeBackground(file.path, processedPath);
-
-        // We no longer keep the original photo on disk
-        try {
-            if (fs.existsSync(file.path)) {
-                fs.unlinkSync(file.path);
-            }
-        } catch (err: any) {
-            this.logger.warn(`Failed to delete original image ${file.path}: ${err.message}`);
+        // Multer already stored the file at file.path (originals dir). Ensure it's in place.
+        if (!fs.existsSync(originalPath) && file.path && fs.existsSync(file.path)) {
+            fs.copyFileSync(file.path, originalPath);
         }
 
-        // Use the processed file size and URL as the single source of truth
-        const processedStat = fs.statSync(processedPath);
-
-        // Step 2: Classify clothing type based on filename/basic heuristics
         const category = this.classifyClothing(file.originalname);
+        const mimeType = file.mimetype;
+        const size = fs.existsSync(originalPath) ? fs.statSync(originalPath).size : file.size;
+        const createdAt = new Date().toISOString();
 
-        const result: ProcessedImage = {
+        // Create wardrobe item immediately with original image and pending status
+        const wardrobeItem = await this.wardrobeService.create({
             id,
             originalFilename: file.originalname,
-            // Only store and expose the background-removed image
-            originalUrl: `/uploads/processed/${processedFilename}`,
-            processedUrl: `/uploads/processed/${processedFilename}`,
+            originalUrl: `/uploads/originals/${originalFilenameOnDisk}`,
+            processedUrl: '',
             category,
-            mimeType: file.mimetype,
-            size: processedStat.size,
-            createdAt: new Date().toISOString(),
-        };
+            name: this.buildDefaultName(category),
+            brand: '',
+            isFavorite: false,
+            mimeType,
+            size,
+            createdAt,
+            status: 'processing',
+        });
 
-        // Step 3: Store metadata
-        await this.storeMetadata(result);
+        // Kick off background removal asynchronously; do not block response
+        this.startBackgroundProcessing(file, wardrobeItem.id).catch((err) => {
+            this.logger.error(`Background processing failed for ${wardrobeItem.id}: ${err.message}`);
+        });
 
-        this.logger.log(`Successfully processed: ${id} → Category: ${category}`);
-        return result;
+        return wardrobeItem;
+    }
+
+    private buildDefaultName(category: string): string {
+        const pretty =
+            category && category.length > 0
+                ? category.charAt(0).toUpperCase() + category.slice(1)
+                : 'Clothing';
+        return `${pretty} item`;
     }
 
     private classifyClothing(filename: string): string {
@@ -109,5 +122,77 @@ export class UploadService {
 
         items.push(data);
         fs.writeFileSync(itemsFile, JSON.stringify(items, null, 2));
+    }
+
+    /**
+     * Perform background removal and update the existing wardrobe item.
+     */
+    private async startBackgroundProcessing(file: any, wardrobeItemId: string): Promise<void> {
+        try {
+            const processedDir = join(__dirname, '..', '..', 'uploads', 'processed');
+            if (!fs.existsSync(processedDir)) {
+                fs.mkdirSync(processedDir, { recursive: true });
+            }
+
+            const processedFilename = `${wardrobeItemId}_clean.png`;
+            const processedPath = join(processedDir, processedFilename);
+
+            const aiResult: AiProcessResult = await this.bgRemovalService.removeBackground(
+                file.path,
+                processedPath,
+            );
+
+            // Clean up original disk file used for processing (not the one served via /uploads/originals)
+            try {
+                if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path);
+                }
+            } catch (err: any) {
+                this.logger.warn(`Failed to delete temp original image ${file.path}: ${err.message}`);
+            }
+
+            const processedStat = fs.statSync(processedPath);
+
+            // Persist processed image URL and any AI-generated metadata
+            const updatePayload: Partial<WardrobeItem> = {
+                processedUrl: `/uploads/processed/${processedFilename}`,
+                size: processedStat.size,
+                mimeType: file.mimetype,
+                status: 'done',
+            };
+
+            if (aiResult.classification) {
+                updatePayload.isLowConfidence = aiResult.classification.is_low_confidence;
+                // Map AI categories to frontend categories
+                const aiCategory = aiResult.classification.category;
+                const categoryMap: Record<string, string> = {
+                    'topwear': 'tops',
+                    'bottomwear': 'bottoms',
+                    'outerwear': 'outerwear',
+                    'footwear': 'shoes',
+                    'accessories': 'accessories',
+                    'dresses': 'dresses'
+                };
+
+                if (aiCategory && aiCategory !== 'unclassified' && categoryMap[aiCategory]) {
+                    updatePayload.category = categoryMap[aiCategory];
+                    updatePayload.name = this.buildDefaultName(updatePayload.category);
+                }
+            }
+
+            if (aiResult.palette && aiResult.palette.length > 0) {
+                updatePayload.colorPalette = JSON.stringify(aiResult.palette);
+            }
+
+            await this.wardrobeService.update(wardrobeItemId, updatePayload);
+
+            this.logger.log(`Background processing completed for wardrobe item ${wardrobeItemId}`);
+        } catch (error: any) {
+            this.logger.error(`Background processing error for ${wardrobeItemId}: ${error.message}`);
+            // Mark item as failed but keep original image
+            await this.wardrobeService.update(wardrobeItemId, {
+                status: 'failed',
+            });
+        }
     }
 }
