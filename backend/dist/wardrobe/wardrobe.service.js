@@ -14,6 +14,9 @@ const uuid_1 = require("uuid");
 let WardrobeService = WardrobeService_1 = class WardrobeService {
     logger = new common_1.Logger(WardrobeService_1.name);
     collection = (0, firebase_admin_1.getFirebaseAdmin)().firestore().collection('wardrobeItems');
+    sanitizeForFirestore(data) {
+        return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
+    }
     docToItem(id, data) {
         if (!data) {
             return null;
@@ -89,7 +92,7 @@ let WardrobeService = WardrobeService_1 = class WardrobeService {
             isLowConfidence: data.isLowConfidence ?? false,
             colorPalette: data.colorPalette ?? undefined,
         };
-        await this.collection.doc(id).set(item);
+        await this.collection.doc(id).set(this.sanitizeForFirestore(item));
         return item;
     }
     async update(id, data) {
@@ -105,7 +108,7 @@ let WardrobeService = WardrobeService_1 = class WardrobeService {
             ...data,
             updatedAt: new Date().toISOString(),
         };
-        await docRef.set(updated, { merge: true });
+        await docRef.set(this.sanitizeForFirestore(updated), { merge: true });
         return updated;
     }
     async toggleFavorite(id) {
@@ -118,7 +121,7 @@ let WardrobeService = WardrobeService_1 = class WardrobeService {
             isFavorite: !data.isFavorite,
             updatedAt: new Date().toISOString(),
         };
-        await docRef.set(updated, { merge: true });
+        await docRef.set(this.sanitizeForFirestore(updated), { merge: true });
         const finalDoc = await docRef.get();
         const item = this.docToItem(finalDoc.id, finalDoc.data());
         if (!item)

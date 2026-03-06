@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -13,13 +13,19 @@ import {
     ScrollView,
     Modal,
     Pressable,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
-import { CANONICAL_TO_FILTER_PARAM, FILTER_TO_CANONICAL, normalizeCategory } from '../../constants/categories';
+import {
+    CANONICAL_TO_FILTER_PARAM,
+    FILTER_TO_CANONICAL,
+    normalizeCategory,
+    CanonicalCategory,
+} from '../../constants/categories';
 import { api, WardrobeItem } from '../../services/api';
 import { useTheme } from '../../context/ThemeContext';
 import { Toast } from '../../components/Toast';
@@ -27,40 +33,84 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - Spacing.xl * 2 - Spacing.md) / 2;
+const SUGGESTION_SECTION_PADDING = Spacing.lg;
+const SUGGESTION_GRID_GAP = Spacing.sm;
+const SUGGESTIONS_PAGE_SIZE = 6;
+const SUGGESTIONS_MAX = 120;
 const TARGET_WIDTH = 800;
 const TARGET_ASPECT_RATIO = 4 / 5;
 
-    const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
+const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
 
-const SUGGESTED_ITEMS = [
-    {
-        id: 's1',
-        name: 'Linen Blend Shirt',
-        brand: 'Zara',
-        imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=500&auto=format&fit=crop&q=60',
-        category: 'Topwear'
-    },
-    {
-        id: 's2',
-        name: 'Original Jeans',
-        brand: 'Levi\'s',
-        imageUrl: 'https://images.unsplash.com/photo-1602293589930-45aad59ba3ab?w=500&auto=format&fit=crop&q=60',
-        category: 'Bottoms'
-    },
-    {
-        id: 's3',
-        name: 'Classic Coat',
-        brand: 'Mango',
-        imageUrl: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500&auto=format&fit=crop&q=60',
-        category: 'Outerwear'
-    },
-    {
-        id: 's4',
-        name: 'Sneakers',
-        brand: 'Nike',
-        imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format&fit=crop&q=60',
-        category: 'Shoes'
-    },
+type SuggestionItem = {
+    id: string;
+    name: string;
+    brand: string;
+    imageUrl: string;
+    backendCategory: string;
+};
+
+const SECTION_SUGGESTIONS: Record<'all' | CanonicalCategory, SuggestionItem[]> = {
+    all: [
+        { id: 't1', name: 'Classic White Tee', brand: 'Essentials', imageUrl: 'https://pngimg.com/d/tshirt_PNG5448.png', backendCategory: 'tops' },
+        { id: 'b1', name: 'Blue Denim Jeans', brand: 'Denim Co', imageUrl: 'https://pngimg.com/d/jeans_PNG5754.png', backendCategory: 'bottoms' },
+        { id: 'o1', name: 'Wool Blend Coat', brand: 'Atelier', imageUrl: 'https://pngimg.com/d/coat_PNG24.png', backendCategory: 'outerwear' },
+        { id: 's1', name: 'Everyday Sneakers', brand: 'Move', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5825.png', backendCategory: 'shoes' },
+        { id: 'a1', name: 'Leather Handbag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6394.png', backendCategory: 'accessories' },
+    ],
+    topwear: [
+        { id: 't2', name: 'Crew Neck T-Shirt', brand: 'Core', imageUrl: 'https://pngimg.com/d/tshirt_PNG5447.png', backendCategory: 'tops' },
+        { id: 't3', name: 'Striped Shirt', brand: 'Urban', imageUrl: 'https://pngimg.com/d/shirt_PNG6918.png', backendCategory: 'tops' },
+        { id: 't4', name: 'Girls Soft Top', brand: 'Bloom', imageUrl: 'https://pngimg.com/d/top_PNG39.png', backendCategory: 'tops' },
+    ],
+    bottomwear: [
+        { id: 'b2', name: 'Slim Fit Jeans', brand: 'Denim Co', imageUrl: 'https://pngimg.com/d/jeans_PNG5749.png', backendCategory: 'bottoms' },
+        { id: 'b3', name: 'Formal Trousers', brand: 'Tailor', imageUrl: 'https://pngimg.com/d/trousers_PNG68.png', backendCategory: 'bottoms' },
+        { id: 'b4', name: 'Pleated Skirt', brand: 'Bloom', imageUrl: 'https://pngimg.com/d/skirt_PNG35.png', backendCategory: 'bottoms' },
+    ],
+    outerwear: [
+        { id: 'o2', name: 'Longline Coat', brand: 'Atelier', imageUrl: 'https://pngimg.com/d/coat_PNG8.png', backendCategory: 'outerwear' },
+        { id: 'o3', name: 'Denim Jacket', brand: 'Street', imageUrl: 'https://pngimg.com/d/jacket_PNG8058.png', backendCategory: 'outerwear' },
+        { id: 'o4', name: 'Casual Blazer', brand: 'Monarch', imageUrl: 'https://pngimg.com/d/blazer_PNG16.png', backendCategory: 'outerwear' },
+    ],
+    footwear: [
+        { id: 's2', name: 'White Sneakers', brand: 'Move', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5824.png', backendCategory: 'shoes' },
+        { id: 's3', name: 'Ankle Boots', brand: 'Stride', imageUrl: 'https://pngimg.com/d/boots_PNG37.png', backendCategory: 'shoes' },
+        { id: 's4', name: 'Flat Sandals', brand: 'Coast', imageUrl: 'https://pngimg.com/d/sandals_PNG26.png', backendCategory: 'shoes' },
+    ],
+    accessories: [
+        { id: 'a2', name: 'Mini Shoulder Bag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6388.png', backendCategory: 'accessories' },
+        { id: 'a3', name: 'Classic Belt', brand: 'Line', imageUrl: 'https://pngimg.com/d/belt_PNG9592.png', backendCategory: 'accessories' },
+        { id: 'a4', name: 'Winter Scarf', brand: 'Cloud', imageUrl: 'https://pngimg.com/d/scarf_PNG28.png', backendCategory: 'accessories' },
+    ],
+    unclassified: [],
+};
+
+const WEB_SUGGESTION_ITEMS: SuggestionItem[] = [
+    { id: 'w-t1', name: 'Cotton Tee', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/tshirt_PNG5448.png', backendCategory: 'tops' },
+    { id: 'w-t2', name: 'Round Neck Tee', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/tshirt_PNG5447.png', backendCategory: 'tops' },
+    { id: 'w-t3', name: 'Formal Shirt', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/shirt_PNG6918.png', backendCategory: 'tops' },
+    { id: 'w-t4', name: 'Girls Top', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/top_PNG39.png', backendCategory: 'tops' },
+
+    { id: 'w-b1', name: 'Blue Jeans', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/jeans_PNG5754.png', backendCategory: 'bottoms' },
+    { id: 'w-b2', name: 'Slim Jeans', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/jeans_PNG5749.png', backendCategory: 'bottoms' },
+    { id: 'w-b3', name: 'Trousers', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/trousers_PNG68.png', backendCategory: 'bottoms' },
+    { id: 'w-b4', name: 'Pleated Skirt', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/skirt_PNG35.png', backendCategory: 'bottoms' },
+
+    { id: 'w-o1', name: 'Long Coat', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/coat_PNG24.png', backendCategory: 'outerwear' },
+    { id: 'w-o2', name: 'Classic Coat', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/coat_PNG8.png', backendCategory: 'outerwear' },
+    { id: 'w-o3', name: 'Denim Jacket', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/jacket_PNG8058.png', backendCategory: 'outerwear' },
+    { id: 'w-o4', name: 'Tailored Blazer', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/blazer_PNG16.png', backendCategory: 'outerwear' },
+
+    { id: 'w-s1', name: 'Running Shoes', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5825.png', backendCategory: 'shoes' },
+    { id: 'w-s2', name: 'White Sneakers', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5824.png', backendCategory: 'shoes' },
+    { id: 'w-s3', name: 'Ankle Boots', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/boots_PNG37.png', backendCategory: 'shoes' },
+    { id: 'w-s4', name: 'Flat Sandals', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/sandals_PNG26.png', backendCategory: 'shoes' },
+
+    { id: 'w-a1', name: 'Leather Handbag', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/handbag_PNG6394.png', backendCategory: 'accessories' },
+    { id: 'w-a2', name: 'Mini Shoulder Bag', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/handbag_PNG6388.png', backendCategory: 'accessories' },
+    { id: 'w-a3', name: 'Classic Belt', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/belt_PNG9592.png', backendCategory: 'accessories' },
+    { id: 'w-a4', name: 'Winter Scarf', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/scarf_PNG28.png', backendCategory: 'accessories' },
 ];
 
 export default function WardrobeScreen() {
@@ -79,8 +129,13 @@ export default function WardrobeScreen() {
     const [savingName, setSavingName] = useState(false);
     const [tagPickerVisible, setTagPickerVisible] = useState(false);
     const [tagPickerItemId, setTagPickerItemId] = useState<string | null>(null);
+    const [bulkMoveItemIds, setBulkMoveItemIds] = useState<string[]>([]);
     const [pickerCategory, setPickerCategory] = useState('');
+    const [tagPickerMode, setTagPickerMode] = useState<'tag' | 'move'>('tag');
     const [savingTag, setSavingTag] = useState(false);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+    const [suggestionVisibleCount, setSuggestionVisibleCount] = useState(SUGGESTIONS_PAGE_SIZE);
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
@@ -95,25 +150,102 @@ export default function WardrobeScreen() {
     ];
 
     const openTagPicker = (item: WardrobeItem) => {
+        setTagPickerMode('tag');
         setTagPickerItemId(item.id);
-        setPickerCategory(item.category !== 'unclassified' ? item.category : '');
+        setBulkMoveItemIds([]);
+        const normalized = normalizeCategory(item.category);
+        setPickerCategory(normalized !== 'unclassified' ? normalized : '');
         setTagPickerVisible(true);
     };
 
+    const openBulkMovePicker = () => {
+        if (!selectedItemIds.length) return;
+        setTagPickerMode('move');
+        setTagPickerItemId(null);
+        setBulkMoveItemIds(selectedItemIds);
+        setPickerCategory('');
+        setTagPickerVisible(true);
+    };
+
+    const closeTagPicker = () => {
+        setTagPickerVisible(false);
+        setTagPickerItemId(null);
+        setBulkMoveItemIds([]);
+        setPickerCategory('');
+    };
+
+    const toggleSelectionMode = () => {
+        if (selectionMode) {
+            setSelectionMode(false);
+            setSelectedItemIds([]);
+            return;
+        }
+        setSelectionMode(true);
+    };
+
+    const toggleSelectItem = (id: string) => {
+        setSelectedItemIds((prev) => {
+            const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+            if (next.length === 0) setSelectionMode(false);
+            return next;
+        });
+    };
+
+    const beginMultiSelectFromItem = (id: string) => {
+        if (!selectionMode) setSelectionMode(true);
+        setSelectedItemIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    };
+
     const saveTag = async () => {
-        if (!tagPickerItemId || !pickerCategory) return;
+        if (!pickerCategory) return;
         try {
             setSavingTag(true);
-            const updated = await api.updateWardrobeItem(tagPickerItemId, {
-                category: pickerCategory,
-                isLowConfidence: false,
-            });
-            setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
-            if (selectedItem?.id === tagPickerItemId) setSelectedItem(updated);
-            setTagPickerVisible(false);
+            const canonicalCategory = pickerCategory as CanonicalCategory;
+            const backendCategory = CANONICAL_TO_FILTER_PARAM[canonicalCategory];
+            const targetIds =
+                tagPickerMode === 'move' && bulkMoveItemIds.length > 0
+                    ? bulkMoveItemIds
+                    : (tagPickerItemId ? [tagPickerItemId] : []);
+            if (!targetIds.length) return;
+
+            const updates = await Promise.all(
+                targetIds.map((id) =>
+                    api.updateWardrobeItem(id, {
+                        category: backendCategory,
+                        isLowConfidence: false,
+                    }),
+                ),
+            );
+
+            const normalizedMap = new Map(
+                updates.map((updated) => [
+                    updated.id,
+                    { ...updated, category: normalizeCategory(updated.category) } as WardrobeItem,
+                ]),
+            );
+
+            setItems((prev) => prev.map((i) => normalizedMap.get(i.id) ?? i));
+            setSelectedItem((prev) => (prev ? (normalizedMap.get(prev.id) ?? prev) : prev));
+            closeTagPicker();
+
+            if (tagPickerMode === 'move' && bulkMoveItemIds.length > 0) {
+                setToastType('success');
+                setToastMessage(`${bulkMoveItemIds.length} items moved successfully`);
+                setToastVisible(true);
+                setSelectionMode(false);
+                setSelectedItemIds([]);
+                await loadItems();
+            } else {
+                setToastType('success');
+                setToastMessage(tagPickerMode === 'move' ? 'Item moved successfully' : 'Item category updated');
+                setToastVisible(true);
+                if (tagPickerMode === 'move') {
+                    await loadItems();
+                }
+            }
         } catch (e: any) {
             setToastType('error');
-            setToastMessage(e?.message || 'Could not save tag');
+            setToastMessage(e?.message || (tagPickerMode === 'move' ? 'Could not move item' : 'Could not save tag'));
             setToastVisible(true);
         } finally {
             setSavingTag(false);
@@ -129,6 +261,37 @@ export default function WardrobeScreen() {
         iconBtnBg: isDarkMode ? '#333333' : Colors.white,
         imageBg: isDarkMode ? '#111111' : Colors.warmGray,
     };
+
+    const currentFilterCanonical = (FILTER_TO_CANONICAL[selectedCategory] ?? 'all') as CanonicalCategory | 'all';
+    const suggestionPool = useMemo(() => {
+        const base = SECTION_SUGGESTIONS[currentFilterCanonical] || SECTION_SUGGESTIONS.all;
+        const uniqueBase = Array.from(new Map(base.map((item) => [item.id, item])).values());
+        const extra =
+            currentFilterCanonical === 'all'
+                ? WEB_SUGGESTION_ITEMS
+                : WEB_SUGGESTION_ITEMS.filter(
+                    (item) => item.backendCategory === CANONICAL_TO_FILTER_PARAM[currentFilterCanonical],
+                );
+        return Array.from(
+            new Map([...uniqueBase, ...extra].map((item) => [item.id, item])).values(),
+        );
+    }, [currentFilterCanonical, suggestionVisibleCount]);
+    const visibleSuggestions = useMemo(
+        () => suggestionPool.slice(0, suggestionVisibleCount),
+        [suggestionPool, suggestionVisibleCount],
+    );
+    const hasMoreSuggestions = suggestionVisibleCount < Math.min(SUGGESTIONS_MAX, suggestionPool.length);
+
+    useEffect(() => {
+        setSuggestionVisibleCount(SUGGESTIONS_PAGE_SIZE);
+    }, [currentFilterCanonical]);
+
+    const loadMoreSuggestions = useCallback(() => {
+        if (!hasMoreSuggestions) return;
+        setSuggestionVisibleCount((prev) =>
+            Math.min(prev + SUGGESTIONS_PAGE_SIZE, Math.min(SUGGESTIONS_MAX, suggestionPool.length)),
+        );
+    }, [hasMoreSuggestions, suggestionPool.length]);
 
     const loadItems = useCallback(async () => {
         try {
@@ -214,41 +377,104 @@ export default function WardrobeScreen() {
         return manipulated.uri;
     };
 
+    const getPreferredUploadCategory = (): string | undefined => {
+        const selectedCanonical = FILTER_TO_CANONICAL[selectedCategory] ?? 'all';
+        if (selectedCanonical === 'all') return undefined;
+        return CANONICAL_TO_FILTER_PARAM[selectedCanonical];
+    };
+
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const watchProcessingItems = async (itemIds: string[]) => {
+        if (!itemIds.length) return;
+        const pending = new Set(itemIds);
+
+        for (let attempt = 0; attempt < 20 && pending.size > 0; attempt++) {
+            await wait(1500);
+            const updates = await Promise.all(
+                Array.from(pending).map(async (id) => {
+                    try {
+                        const item = await api.getWardrobeItem(id);
+                        return {
+                            ...item,
+                            category: normalizeCategory(item.category),
+                        } as WardrobeItem;
+                    } catch {
+                        return null;
+                    }
+                }),
+            );
+
+            const valid = updates.filter((u): u is WardrobeItem => u !== null);
+            if (!valid.length) continue;
+
+            const byId = new Map(valid.map((u) => [u.id, u]));
+            valid.forEach((u) => {
+                if (u.status !== 'processing') pending.delete(u.id);
+            });
+
+            setItems((prev) =>
+                prev.map((item) => byId.get(item.id) ?? item),
+            );
+            setSelectedItem((prev) => (prev ? (byId.get(prev.id) ?? prev) : prev));
+        }
+    };
+
+    const uploadAssets = async (assets: ImagePicker.ImagePickerAsset[], source: 'gallery' | 'camera') => {
+        if (!assets.length) return;
+
+        const start = Date.now();
+        const preferredCategory = getPreferredUploadCategory();
+        const uploadedItems = await Promise.all(
+            assets.map(async (asset) => {
+                const filename = asset.fileName || `${source}_photo.jpg`;
+                const uploadUri = await autoCropAndResize(asset.uri, asset.width, asset.height);
+                const newItem = await api.uploadClothingImage(
+                    uploadUri,
+                    filename,
+                    'image/jpeg',
+                    preferredCategory,
+                );
+                return {
+                    ...newItem,
+                    category: normalizeCategory(newItem.category),
+                } as WardrobeItem;
+            }),
+        );
+
+        if (uploadedItems.length > 0) {
+            setItems((prev) => [...uploadedItems, ...prev]);
+            const elapsed = Date.now() - start;
+            console.log(`Wardrobe upload (${source}) completed in ${elapsed}ms for ${uploadedItems.length} image(s)`);
+            setProcessingVisible(true);
+            setTimeout(() => setProcessingVisible(false), 2200);
+            setToastType('success');
+            setToastMessage(
+                uploadedItems.length === 1
+                    ? '1 item added'
+                    : `${uploadedItems.length} items added`,
+            );
+            setToastVisible(true);
+            // Auto-refresh each uploaded item until backend background processing finishes.
+            watchProcessingItems(uploadedItems.map((item) => item.id));
+        }
+    };
+
     const handleUpload = async () => {
         try {
-            const start = Date.now();
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: false,
                 quality: 1,
+                allowsMultipleSelection: true,
+                orderedSelection: true,
+                selectionLimit: 15,
             });
 
-            if (result.canceled || !result.assets[0]) return;
+            if (result.canceled || !result.assets.length) return;
 
             setUploading(true);
-            const asset = result.assets[0];
-            const filename = asset.fileName || 'clothing.jpg';
-
-            const uploadUri = await autoCropAndResize(
-                asset.uri,
-                asset.width,
-                asset.height,
-            );
-
-            // Step 2: Upload image to backend, which now creates the wardrobe item
-            const newItem = await api.uploadClothingImage(
-                uploadUri,
-                filename,
-                'image/jpeg'
-            );
-
-            // Optimistically add the new item to local state
-            setItems((prev) => [newItem, ...prev]);
-
-            const elapsed = Date.now() - start;
-            console.log(`Wardrobe upload (gallery) completed in ${elapsed}ms`);
-            setProcessingVisible(true);
-            setTimeout(() => setProcessingVisible(false), 2200);
+            await uploadAssets(result.assets, 'gallery');
         } catch (error: any) {
             setToastType('error');
             setToastMessage(error.message || 'Upload failed');
@@ -268,7 +494,6 @@ export default function WardrobeScreen() {
                 return;
             }
 
-            const start = Date.now();
             const result = await ImagePicker.launchCameraAsync({
                 allowsEditing: false,
                 quality: 0.8,
@@ -277,28 +502,7 @@ export default function WardrobeScreen() {
             if (result.canceled || !result.assets[0]) return;
 
             setUploading(true);
-            const asset = result.assets[0];
-
-            const uploadUri = await autoCropAndResize(
-                asset.uri,
-                asset.width,
-                asset.height,
-            );
-
-            // Step 2: Upload image to backend, which now creates the wardrobe item
-            const newItem = await api.uploadClothingImage(
-                uploadUri,
-                'camera_photo.jpg',
-                'image/jpeg'
-            );
-
-            // Optimistically add the new item to local state
-            setItems((prev) => [newItem, ...prev]);
-
-            const elapsed = Date.now() - start;
-            console.log(`Wardrobe upload (camera) completed in ${elapsed}ms`);
-            setProcessingVisible(true);
-            setTimeout(() => setProcessingVisible(false), 2200);
+            await uploadAssets(result.assets, 'camera');
         } catch (error: any) {
             setToastType('error');
             setToastMessage(error.message || 'Something went wrong');
@@ -325,6 +529,44 @@ export default function WardrobeScreen() {
         setUploadOptionsVisible(true);
     };
 
+    const addSuggestionToWardrobe = async (suggestion: SuggestionItem) => {
+        try {
+            setUploading(true);
+            const selectedCanonical = FILTER_TO_CANONICAL[selectedCategory] ?? 'all';
+            const targetCategory =
+                selectedCanonical === 'all'
+                    ? suggestion.backendCategory
+                    : CANONICAL_TO_FILTER_PARAM[selectedCanonical];
+
+            const newItem = await api.createWardrobeItem({
+                originalFilename: `${suggestion.name.replace(/\s+/g, '_').toLowerCase()}.png`,
+                originalUrl: suggestion.imageUrl,
+                processedUrl: suggestion.imageUrl,
+                category: targetCategory,
+                name: suggestion.name,
+                brand: suggestion.brand,
+                mimeType: 'image/png',
+                size: 0,
+                status: 'done',
+                isFavorite: false,
+            });
+            const normalized = {
+                ...newItem,
+                category: normalizeCategory(newItem.category),
+            };
+            setItems((prev) => [normalized, ...prev]);
+            setToastType('success');
+            setToastMessage(`${suggestion.name} added to ${selectedCategory}`);
+            setToastVisible(true);
+        } catch (e: any) {
+            setToastType('error');
+            setToastMessage(e?.message || 'Could not add suggested item');
+            setToastVisible(true);
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const openItem = (item: WardrobeItem) => {
         setSelectedItem(item);
         setEditingName(false);
@@ -333,8 +575,19 @@ export default function WardrobeScreen() {
 
     const renderItem = ({ item }: { item: WardrobeItem }) => (
         <TouchableOpacity
-            style={[styles.card, { backgroundColor: theme.card }]}
-            onPress={() => openItem(item)}
+            style={[
+                styles.card,
+                { backgroundColor: theme.card },
+                selectionMode && selectedItemIds.includes(item.id) && styles.cardSelected,
+            ]}
+            onPress={() => {
+                if (selectionMode) {
+                    toggleSelectItem(item.id);
+                    return;
+                }
+                openItem(item);
+            }}
+            onLongPress={() => beginMultiSelectFromItem(item.id)}
             activeOpacity={0.9}
         >
             <Image
@@ -342,16 +595,27 @@ export default function WardrobeScreen() {
                 style={[styles.cardImage, { backgroundColor: theme.imageBg }]}
                 resizeMode="contain"
             />
-            <TouchableOpacity
-                style={[styles.favoriteBtn, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)' }]}
-                onPress={() => handleToggleFavorite(item.id)}
-            >
-                <Ionicons
-                    name={item.isFavorite ? 'heart' : 'heart-outline'}
-                    size={18}
-                    color={item.isFavorite ? Colors.amber : theme.textSecondary}
-                />
-            </TouchableOpacity>
+            {!selectionMode && (
+                <TouchableOpacity
+                    style={[styles.favoriteBtn, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)' }]}
+                    onPress={() => handleToggleFavorite(item.id)}
+                >
+                    <Ionicons
+                        name={item.isFavorite ? 'heart' : 'heart-outline'}
+                        size={18}
+                        color={item.isFavorite ? Colors.amber : theme.textSecondary}
+                    />
+                </TouchableOpacity>
+            )}
+            {selectionMode && (
+                <View style={styles.selectedBadge}>
+                    <Ionicons
+                        name={selectedItemIds.includes(item.id) ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={22}
+                        color={selectedItemIds.includes(item.id) ? Colors.gold : Colors.mediumGray}
+                    />
+                </View>
+            )}
             <View style={styles.cardInfo}>
                 <Text style={[styles.cardBrand, { color: theme.text }]} numberOfLines={1}>
                     {item.brand || item.category}
@@ -362,6 +626,56 @@ export default function WardrobeScreen() {
             </View>
         </TouchableOpacity>
     );
+
+    const renderSuggestion = ({ item }: { item: SuggestionItem }) => (
+        <View style={[styles.suggestionCard, { backgroundColor: theme.card }]}>
+            <Image
+                source={{ uri: item.imageUrl }}
+                style={[styles.suggestionImage, { backgroundColor: 'transparent' }]}
+                resizeMode="contain"
+            />
+            <View style={styles.suggestionInfo}>
+                {item.brand ? (
+                    <Text style={[styles.suggestionBrand, { color: theme.text }]} numberOfLines={1}>
+                        {item.brand}
+                    </Text>
+                ) : null}
+                <Text style={[styles.suggestionName, { color: theme.textSecondary }]} numberOfLines={1}>
+                    {item.name}
+                </Text>
+                <TouchableOpacity
+                    style={styles.suggestionAddBtn}
+                    onPress={() => addSuggestionToWardrobe(item)}
+                >
+                    <Ionicons name="add" size={14} color={Colors.white} />
+                    <Text style={styles.suggestionAddBtnText}>Add</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    const renderSuggestionsSection = (insideList: boolean = false) => {
+        if (visibleSuggestions.length === 0) return null;
+        return (
+            <View style={[styles.suggestionsSection, insideList && styles.suggestionsSectionInList]}>
+                <View style={styles.suggestionsHeaderRow}>
+                    <Text style={[styles.suggestionsTitle, { color: theme.text }]}>
+                        Suggested To Add
+                    </Text>
+                    <Text style={[styles.suggestionsHint, { color: theme.textSecondary }]}>
+                        PNG cutouts, ready to add
+                    </Text>
+                </View>
+                <View style={styles.suggestionsGridTwo}>
+                    {visibleSuggestions.map((item) => (
+                        <View key={item.id} style={styles.suggestionGridItem}>
+                            {renderSuggestion({ item })}
+                        </View>
+                    ))}
+                </View>
+            </View>
+        );
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -384,6 +698,36 @@ export default function WardrobeScreen() {
                     onChangeText={setSearchQuery}
                     onSubmitEditing={loadItems}
                 />
+            </View>
+
+            {/* Bulk move controls */}
+            <View style={[styles.bulkActionBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <Text style={[styles.bulkActionText, { color: theme.textSecondary }]}>
+                    {selectionMode
+                        ? `${selectedItemIds.length} selected`
+                        : 'Select items to move between sections'}
+                </Text>
+                <View style={styles.bulkActionButtons}>
+                    <TouchableOpacity
+                        style={[styles.bulkActionBtn, { borderColor: theme.border }]}
+                        onPress={toggleSelectionMode}
+                    >
+                        <Text style={[styles.bulkActionBtnText, { color: theme.text }]}>
+                            {selectionMode ? 'Cancel' : 'Select'}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[
+                            styles.bulkActionBtn,
+                            styles.bulkActionBtnPrimary,
+                            selectedItemIds.length === 0 && styles.bulkActionBtnDisabled,
+                        ]}
+                        onPress={openBulkMovePicker}
+                        disabled={selectedItemIds.length === 0}
+                    >
+                        <Text style={styles.bulkActionBtnPrimaryText}>Move</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Category Filters */}
@@ -445,10 +789,21 @@ export default function WardrobeScreen() {
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.emptyScrollContainer}
+                    scrollEventThrottle={16}
+                    onScroll={({ nativeEvent }) => {
+                        const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+                        const nearBottom =
+                            layoutMeasurement.height + contentOffset.y >= contentSize.height - 120;
+                        if (nearBottom) loadMoreSuggestions();
+                    }}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />
                     }
                 >
+                    <View style={styles.uploadedSectionHeader}>
+                        <Text style={[styles.uploadedSectionTitle, { color: theme.text }]}>Uploaded Items</Text>
+                        <Text style={[styles.uploadedSectionCount, { color: theme.textSecondary }]}>0</Text>
+                    </View>
                     <View style={styles.emptyHeaderContainer}>
                         <Ionicons name="shirt-outline" size={50} color={Colors.lightGray} />
                         <Text style={[styles.emptyTitle, { color: theme.text }]}>Your wardrobe is empty</Text>
@@ -456,39 +811,7 @@ export default function WardrobeScreen() {
                             Tap the + button to add your first clothing item, or get inspired by these staples!
                         </Text>
                     </View>
-
-                    <View style={styles.suggestionsHeader}>
-                        <Text style={[styles.suggestionsTitle, { color: theme.text }]}>Suggested Additions</Text>
-                    </View>
-
-                    <View style={styles.suggestionsGrid}>
-                        {SUGGESTED_ITEMS.map((item) => (
-                            <View key={item.id} style={[styles.card, { backgroundColor: theme.card }]}>
-                                <Image
-                                    source={{ uri: item.imageUrl }}
-                                    style={[styles.cardImage, { backgroundColor: theme.imageBg }]}
-                                    resizeMode="cover"
-                                />
-                                <TouchableOpacity
-                                    style={styles.addSuggestionBtn}
-                                    onPress={() => Alert.alert('Add to Wardrobe', `Would you like to find similar items to ${item.name}?`, [
-                                        { text: 'Not Now', style: 'cancel' },
-                                        { text: 'Search Similar', onPress: () => setSearchQuery(item.name) }
-                                    ])}
-                                >
-                                    <Ionicons name="add" size={18} color={Colors.white} />
-                                </TouchableOpacity>
-                                <View style={styles.cardInfo}>
-                                    <Text style={[styles.cardBrand, { color: theme.text }]} numberOfLines={1}>
-                                        {item.brand}
-                                    </Text>
-                                    <Text style={[styles.cardName, { color: theme.textSecondary }]} numberOfLines={1}>
-                                        {item.name}
-                                    </Text>
-                                </View>
-                            </View>
-                        ))}
-                    </View>
+                    {renderSuggestionsSection(false)}
                 </ScrollView>
             ) : (
                 <FlatList
@@ -496,9 +819,33 @@ export default function WardrobeScreen() {
                     renderItem={renderItem}
                     keyExtractor={(item) => item.id}
                     numColumns={2}
+                    extraData={{ selectionMode, selectedItemIds }}
                     contentContainerStyle={styles.gridContainer}
                     columnWrapperStyle={styles.gridRow}
                     showsVerticalScrollIndicator={false}
+                    onEndReachedThreshold={0.25}
+                    onEndReached={loadMoreSuggestions}
+                    ListHeaderComponent={
+                        <View style={styles.uploadedSectionHeader}>
+                            <Text style={[styles.uploadedSectionTitle, { color: theme.text }]}>Uploaded Items</Text>
+                            <Text style={[styles.uploadedSectionCount, { color: theme.textSecondary }]}>{items.length}</Text>
+                        </View>
+                    }
+                    ListFooterComponent={
+                        <View>
+                            {renderSuggestionsSection(true)}
+                            {hasMoreSuggestions ? (
+                                <View style={styles.suggestionLoader}>
+                                    <ActivityIndicator size="small" color={Colors.gold} />
+                                    <Text style={styles.suggestionLoaderText}>Loading more suggestions...</Text>
+                                </View>
+                            ) : (
+                                <View style={styles.suggestionLoader}>
+                                    <Text style={styles.suggestionLoaderText}>No more unique suggestions</Text>
+                                </View>
+                            )}
+                        </View>
+                    }
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />
                     }
@@ -525,7 +872,9 @@ export default function WardrobeScreen() {
                         <View style={styles.bottomSheetHandle} />
                         <Text style={[styles.bottomSheetTitle, { color: theme.text }]}>Add Clothing</Text>
                         <Text style={[styles.bottomSheetSubtitle, { color: theme.textSecondary }]}>
-                            Choose how to add your clothing item
+                            {selectedCategory === 'All Items'
+                                ? 'Choose how to add your clothing item'
+                                : `Items will be added to ${selectedCategory}`}
                         </Text>
 
                         <View style={styles.bottomSheetActions}>
@@ -557,7 +906,7 @@ export default function WardrobeScreen() {
                                 </View>
                                 <View style={styles.bottomSheetActionTextContainer}>
                                     <Text style={styles.bottomSheetActionTitle}>Choose from Gallery</Text>
-                                    <Text style={styles.bottomSheetActionSubtitle}>Pick an existing photo</Text>
+                                    <Text style={styles.bottomSheetActionSubtitle}>Pick one or more photos</Text>
                                 </View>
                             </TouchableOpacity>
 
@@ -626,10 +975,14 @@ export default function WardrobeScreen() {
                                                             const updated = await api.updateWardrobeItem(selectedItem.id, {
                                                                 name: nameInput.trim(),
                                                             });
+                                                            const normalizedUpdated = {
+                                                                ...updated,
+                                                                category: normalizeCategory(updated.category),
+                                                            };
                                                             setItems(prev =>
-                                                                prev.map(i => i.id === updated.id ? updated : i),
+                                                                prev.map(i => i.id === normalizedUpdated.id ? normalizedUpdated : i),
                                                             );
-                                                            setSelectedItem(updated);
+                                                            setSelectedItem(normalizedUpdated);
                                                             setEditingName(false);
                                                         } catch (e: any) {
                                                             Alert.alert('Update failed', e?.message || 'Could not rename item');
@@ -721,14 +1074,24 @@ export default function WardrobeScreen() {
                 visible={tagPickerVisible}
                 transparent
                 animationType="slide"
-                onRequestClose={() => setTagPickerVisible(false)}
+                onRequestClose={closeTagPicker}
             >
-                <Pressable style={styles.bottomSheetOverlay} onPress={() => setTagPickerVisible(false)}>
+                <Pressable style={styles.bottomSheetOverlay} onPress={closeTagPicker}>
                     <View style={[styles.bottomSheetContainer, { backgroundColor: theme.card }]}>
                         <View style={styles.bottomSheetHandle} />
-                        <Text style={[styles.bottomSheetTitle, { color: theme.text }]}>Tag this item</Text>
+                        <Text style={[styles.bottomSheetTitle, { color: theme.text }]}>
+                            {tagPickerMode === 'move'
+                                ? bulkMoveItemIds.length > 0
+                                    ? 'Move selected items'
+                                    : 'Move item'
+                                : 'Tag this item'}
+                        </Text>
                         <Text style={[styles.bottomSheetSubtitle, { color: theme.textSecondary }]}>
-                            What type of clothing is this?
+                            {tagPickerMode === 'move'
+                                ? bulkMoveItemIds.length > 0
+                                    ? `Move ${bulkMoveItemIds.length} items to which section?`
+                                    : 'Select the section you want to move this item to'
+                                : 'What type of clothing is this?'}
                         </Text>
 
                         <View style={styles.tagPickerGrid}>
@@ -761,7 +1124,7 @@ export default function WardrobeScreen() {
                         >
                             {savingTag
                                 ? <ActivityIndicator size="small" color={Colors.white} />
-                                : <Text style={styles.tagPickerSaveBtnText}>Save</Text>
+                                : <Text style={styles.tagPickerSaveBtnText}>{tagPickerMode === 'move' ? 'Move' : 'Save'}</Text>
                             }
                         </TouchableOpacity>
                     </View>
@@ -851,6 +1214,51 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.lg,
         gap: Spacing.sm,
     },
+    bulkActionBar: {
+        marginHorizontal: Spacing.xl,
+        marginBottom: Spacing.sm,
+        padding: Spacing.md,
+        borderRadius: BorderRadius.lg,
+        borderWidth: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        ...Shadows.sm,
+    },
+    bulkActionText: {
+        flex: 1,
+        fontSize: 12,
+        fontWeight: '500',
+        marginRight: Spacing.md,
+    },
+    bulkActionButtons: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+        alignItems: 'center',
+    },
+    bulkActionBtn: {
+        borderRadius: BorderRadius.md,
+        borderWidth: 1,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        backgroundColor: Colors.white,
+    },
+    bulkActionBtnPrimary: {
+        backgroundColor: Colors.gold,
+        borderColor: Colors.gold,
+    },
+    bulkActionBtnDisabled: {
+        opacity: 0.45,
+    },
+    bulkActionBtnText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    bulkActionBtnPrimaryText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: Colors.white,
+    },
     categoryChip: {
         paddingHorizontal: Spacing.lg,
         height: 36,
@@ -923,6 +1331,21 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.xl,
         paddingBottom: 100,
     },
+    uploadedSectionHeader: {
+        paddingHorizontal: Spacing.xl,
+        marginTop: Spacing.sm,
+        marginBottom: Spacing.md,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    uploadedSectionTitle: {
+        ...Typography.heading3,
+    },
+    uploadedSectionCount: {
+        fontSize: 12,
+        fontWeight: '700',
+    },
     gridRow: {
         gap: Spacing.md,
         marginBottom: Spacing.md,
@@ -933,6 +1356,10 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.lg,
         overflow: 'hidden',
         ...Shadows.sm,
+    },
+    cardSelected: {
+        borderWidth: 2,
+        borderColor: Colors.gold,
     },
     cardImage: {
         width: '100%',
@@ -946,6 +1373,17 @@ const styles = StyleSheet.create({
         width: 30,
         height: 30,
         borderRadius: 15,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    selectedBadge: {
+        position: 'absolute',
+        top: Spacing.sm,
+        right: Spacing.sm,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
         backgroundColor: 'rgba(255,255,255,0.9)',
         justifyContent: 'center',
         alignItems: 'center',
@@ -994,32 +1432,87 @@ const styles = StyleSheet.create({
         color: Colors.mediumGray,
         lineHeight: 20,
     },
-    suggestionsHeader: {
-        paddingHorizontal: Spacing.xl,
+    suggestionsSection: {
+        paddingHorizontal: SUGGESTION_SECTION_PADDING,
+        marginTop: Spacing.xl,
         marginBottom: Spacing.md,
+    },
+    // FlatList already has horizontal padding; cancel it so suggestions keep same edge alignment as empty-state layout.
+    suggestionsSectionInList: {
+        marginHorizontal: -Spacing.xl,
+    },
+    suggestionsHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Spacing.sm,
     },
     suggestionsTitle: {
         ...Typography.heading3,
         color: Colors.charcoal,
     },
-    suggestionsGrid: {
+    suggestionsHint: {
+        fontSize: 11,
+        fontWeight: '500',
+    },
+    suggestionsGridTwo: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        paddingHorizontal: Spacing.xl,
         justifyContent: 'space-between',
+        columnGap: SUGGESTION_GRID_GAP,
         rowGap: Spacing.md,
     },
-    addSuggestionBtn: {
-        position: 'absolute',
-        top: Spacing.sm,
-        right: Spacing.sm,
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: Colors.gold,
-        justifyContent: 'center',
-        alignItems: 'center',
+    suggestionGridItem: {
+        width: '48%',
+    },
+    suggestionCard: {
+        width: '100%',
+        borderRadius: BorderRadius.lg,
+        overflow: 'hidden',
         ...Shadows.sm,
+    },
+    suggestionImage: {
+        width: '100%',
+        height: 120,
+    },
+    suggestionInfo: {
+        padding: Spacing.sm,
+    },
+    suggestionBrand: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    suggestionName: {
+        fontSize: 11,
+        marginTop: 2,
+        marginBottom: Spacing.sm,
+    },
+    suggestionAddBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        gap: 4,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: 6,
+        borderRadius: BorderRadius.md,
+        backgroundColor: Colors.gold,
+    },
+    suggestionAddBtnText: {
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    suggestionLoader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Spacing.sm,
+        paddingVertical: Spacing.md,
+    },
+    suggestionLoaderText: {
+        fontSize: 12,
+        color: Colors.darkGray,
+        fontWeight: '500',
     },
     fab: {
         position: 'absolute',

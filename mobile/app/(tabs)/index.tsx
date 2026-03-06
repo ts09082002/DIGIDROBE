@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors as ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -60,6 +61,7 @@ const CARD_WIDTH = (width - 45) / 2;
 export default function HomeScreen() {
     const [activeTab, setActiveTab] = useState('Trending');
     const { isDarkMode, toggleTheme } = useTheme();
+    const router = useRouter();
 
     const colors = {
         background: isDarkMode ? '#1A1A1A' : '#F8F9FA',
@@ -89,6 +91,12 @@ export default function HomeScreen() {
                     <TouchableOpacity style={styles.iconButton}>
                         <Ionicons name="notifications" size={24} color={isDarkMode ? '#A0A0A0' : '#4A5568'} />
                         <View style={styles.notificationBadge} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => router.push('/(tabs)/profile')}
+                    >
+                        <Ionicons name="person-circle-outline" size={26} color={isDarkMode ? '#A0A0A0' : '#4A5568'} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -205,7 +213,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingTop: Platform.OS === 'android' ? 40 : 10,
         paddingBottom: 15,
     },
@@ -267,11 +275,12 @@ const styles = StyleSheet.create({
     },
     feedContainer: {
         paddingVertical: 15,
+        paddingBottom: 120,
     },
     followingGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        paddingHorizontal: 15,
+        paddingHorizontal: 16,
         justifyContent: 'space-between',
         gap: 15,
     },
@@ -304,7 +313,7 @@ const styles = StyleSheet.create({
     },
     postCard: {
         borderRadius: 20,
-        marginHorizontal: 15,
+        marginHorizontal: 16,
         marginBottom: 20,
         padding: 15,
         borderWidth: 1,

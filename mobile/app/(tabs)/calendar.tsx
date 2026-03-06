@@ -5,7 +5,6 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    SafeAreaView,
     StatusBar,
     ActivityIndicator,
     Modal,
@@ -19,6 +18,7 @@ import { Colors, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { api, OOTD, WardrobeItem } from '../../services/api';
 import { Toast } from '../../components/Toast';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 60) / 3;
@@ -41,6 +41,7 @@ export default function CalendarScreen() {
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+    const insets = useSafeAreaInsets();
 
     const theme = {
         background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
@@ -145,7 +146,7 @@ export default function CalendarScreen() {
             <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
                 <Text style={[styles.headerTitle, { color: theme.text }]}>Planning</Text>
                 <TouchableOpacity onPress={loadData} style={styles.refreshBtn}>
                     <Ionicons name="refresh" size={20} color={theme.text} />
@@ -382,7 +383,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.md,
+        paddingTop: 0,
         paddingBottom: Spacing.sm,
     },
     headerTitle: { fontSize: 28, fontWeight: '700' },
@@ -533,3 +534,6 @@ const styles = StyleSheet.create({
         textTransform: 'capitalize',
     },
 });
+
+
+

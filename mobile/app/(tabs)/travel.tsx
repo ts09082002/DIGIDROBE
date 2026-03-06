@@ -5,7 +5,6 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    SafeAreaView,
     StatusBar,
     TextInput,
     ActivityIndicator,
@@ -18,6 +17,7 @@ import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme
 import { useTheme } from '../../context/ThemeContext';
 import { api, WardrobeItem } from '../../services/api';
 import { Toast } from '../../components/Toast';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
@@ -31,6 +31,7 @@ export default function TravelScreen() {
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+    const insets = useSafeAreaInsets();
 
     const theme = {
         background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
@@ -91,7 +92,7 @@ export default function TravelScreen() {
             <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
                 <Text style={[styles.headerTitle, { color: theme.text }]}>Travel Pack</Text>
             </View>
 
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.md,
+        paddingTop: 0,
         paddingBottom: Spacing.sm,
     },
     headerTitle: {
@@ -209,7 +210,7 @@ const styles = StyleSheet.create({
         paddingBottom: 100,
     },
     formCard: {
-        marginHorizontal: 20,
+        marginHorizontal: Spacing.xl,
         padding: 20,
         borderRadius: 20,
         borderWidth: 1,
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
     },
     resultsContainer: {
         marginTop: 30,
-        paddingHorizontal: 20,
+        paddingHorizontal: Spacing.xl,
     },
     resultsHeader: {
         flexDirection: 'row',
@@ -304,3 +305,6 @@ const styles = StyleSheet.create({
         textTransform: 'capitalize',
     },
 });
+
+
+

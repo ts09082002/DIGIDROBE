@@ -21,6 +21,7 @@ export interface WardrobeItem {
 export declare class WardrobeService {
     private readonly logger;
     private readonly collection;
+    private sanitizeForFirestore;
     private docToItem;
     getAll(query?: {
         category?: string;

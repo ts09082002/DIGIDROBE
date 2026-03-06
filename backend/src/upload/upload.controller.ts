@@ -7,6 +7,7 @@ import {
     Get,
     Param,
     Res,
+    Body,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -42,12 +43,15 @@ export class UploadController {
             },
         }),
     )
-    async uploadClothing(@UploadedFile() file: any) {
+    async uploadClothing(
+        @UploadedFile() file: any,
+        @Body('category') category?: string,
+    ) {
         if (!file) {
             throw new BadRequestException('No image file provided');
         }
 
-        const result = await this.uploadService.processClothingImage(file);
+        const result = await this.uploadService.processClothingImage(file, category);
         return {
             success: true,
             data: result,

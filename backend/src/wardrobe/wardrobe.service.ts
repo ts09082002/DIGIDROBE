@@ -29,6 +29,11 @@ export interface WardrobeItem {
 export class WardrobeService {
     private readonly logger = new Logger(WardrobeService.name);
     private readonly collection = getFirebaseAdmin().firestore().collection('wardrobeItems');
+    private sanitizeForFirestore<T extends Record<string, any>>(data: T): Partial<T> {
+        return Object.fromEntries(
+            Object.entries(data).filter(([, value]) => value !== undefined),
+        ) as Partial<T>;
+    }
 
     private docToItem(id: string, data: FirebaseFirestore.DocumentData | undefined): WardrobeItem | null {
         if (!data) {
@@ -118,7 +123,7 @@ export class WardrobeService {
             colorPalette: data.colorPalette ?? undefined,
         };
 
-        await this.collection.doc(id).set(item);
+        await this.collection.doc(id).set(this.sanitizeForFirestore(item));
         return item;
     }
 
@@ -136,7 +141,7 @@ export class WardrobeService {
             updatedAt: new Date().toISOString(),
         };
 
-        await docRef.set(updated, { merge: true });
+        await docRef.set(this.sanitizeForFirestore(updated), { merge: true });
         return updated;
     }
 
@@ -151,7 +156,7 @@ export class WardrobeService {
             updatedAt: new Date().toISOString(),
         };
 
-        await docRef.set(updated, { merge: true });
+        await docRef.set(this.sanitizeForFirestore(updated), { merge: true });
         const finalDoc = await docRef.get();
         const item = this.docToItem(finalDoc.id, finalDoc.data());
         if (!item) throw new NotFoundException(`Item ${id} not found`);
