@@ -7,7 +7,6 @@ import {
     TouchableOpacity,
     Image,
     Dimensions,
-    SafeAreaView,
     StatusBar,
     ActivityIndicator,
     RefreshControl,
@@ -19,6 +18,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { api, StylistSuggestion, WardrobeItem } from '../../services/api';
 import { SavedLook, getSavedLooks, saveLook } from '../../storage/savedLooks';
 import { normalizeCategory } from '../../constants/categories';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - Spacing.xl * 2 - Spacing.md) / 2;
@@ -37,6 +37,7 @@ export default function OutfitsScreen() {
     const [looksLoading, setLooksLoading] = useState(false);
     const [expandedLookId, setExpandedLookId] = useState<string | null>(null);
     const [savingLook, setSavingLook] = useState(false);
+    const insets = useSafeAreaInsets();
 
     const theme = {
         background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
@@ -143,7 +144,7 @@ export default function OutfitsScreen() {
             <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
                 <View style={styles.headerLeft}>
                     <Ionicons name="sparkles" size={20} color={Colors.gold} />
                     <Text style={[styles.title, { color: theme.text }]}>My Outfits</Text>
@@ -475,7 +476,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.md,
+        paddingTop: 0,
         paddingBottom: Spacing.sm,
     },
     headerLeft: {
@@ -674,3 +675,6 @@ const styles = StyleSheet.create({
         marginRight: Spacing.sm,
     },
 });
+
+
+

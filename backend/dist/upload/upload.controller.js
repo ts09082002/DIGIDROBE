@@ -26,11 +26,11 @@ let UploadController = class UploadController {
     constructor(uploadService) {
         this.uploadService = uploadService;
     }
-    async uploadClothing(file) {
+    async uploadClothing(file, category) {
         if (!file) {
             throw new common_1.BadRequestException('No image file provided');
         }
-        const result = await this.uploadService.processClothingImage(file);
+        const result = await this.uploadService.processClothingImage(file, category);
         return {
             success: true,
             data: result,
@@ -62,8 +62,9 @@ __decorate([
         },
     })),
     __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Body)('category')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UploadController.prototype, "uploadClothing", null);
 __decorate([

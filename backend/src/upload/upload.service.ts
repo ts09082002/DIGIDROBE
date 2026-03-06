@@ -29,7 +29,7 @@ export class UploadService {
      * Save original image, create wardrobe item immediately, then kick off
      * background removal asynchronously to update the item when ready.
      */
-    async processClothingImage(file: any): Promise<WardrobeItem> {
+    async processClothingImage(file: any, preferredCategory?: string): Promise<WardrobeItem> {
         const id = uuidv4();
         this.logger.log(`Received clothing image: ${file.originalname} (${file.size} bytes)`);
 
@@ -47,7 +47,7 @@ export class UploadService {
             fs.copyFileSync(file.path, originalPath);
         }
 
-        const category = this.classifyClothing(file.originalname);
+        const category = this.normalizePreferredCategory(preferredCategory) || this.classifyClothing(file.originalname);
         const mimeType = file.mimetype;
         const size = fs.existsSync(originalPath) ? fs.statSync(originalPath).size : file.size;
         const createdAt = new Date().toISOString();
@@ -69,7 +69,7 @@ export class UploadService {
         });
 
         // Kick off background removal asynchronously; do not block response
-        this.startBackgroundProcessing(file, wardrobeItem.id).catch((err) => {
+        this.startBackgroundProcessing(file, wardrobeItem.id, preferredCategory).catch((err) => {
             this.logger.error(`Background processing failed for ${wardrobeItem.id}: ${err.message}`);
         });
 
@@ -105,6 +105,13 @@ export class UploadService {
         return 'tops'; // Default category
     }
 
+    private normalizePreferredCategory(category?: string): string | undefined {
+        if (!category) return undefined;
+        const c = category.toLowerCase().trim();
+        const allowed = new Set(['tops', 'bottoms', 'outerwear', 'shoes', 'accessories', 'dresses', 'unclassified']);
+        return allowed.has(c) ? c : undefined;
+    }
+
     private async storeMetadata(data: ProcessedImage): Promise<void> {
         const metaDir = join(__dirname, '..', '..', 'uploads', 'metadata');
         if (!fs.existsSync(metaDir)) {
@@ -127,7 +134,11 @@ export class UploadService {
     /**
      * Perform background removal and update the existing wardrobe item.
      */
-    private async startBackgroundProcessing(file: any, wardrobeItemId: string): Promise<void> {
+    private async startBackgroundProcessing(
+        file: any,
+        wardrobeItemId: string,
+        preferredCategory?: string,
+    ): Promise<void> {
         try {
             const processedDir = join(__dirname, '..', '..', 'uploads', 'processed');
             if (!fs.existsSync(processedDir)) {
@@ -174,7 +185,8 @@ export class UploadService {
                     'dresses': 'dresses'
                 };
 
-                if (aiCategory && aiCategory !== 'unclassified' && categoryMap[aiCategory]) {
+                const hasUserPreferredCategory = !!this.normalizePreferredCategory(preferredCategory);
+                if (!hasUserPreferredCategory && aiCategory && aiCategory !== 'unclassified' && categoryMap[aiCategory]) {
                     updatePayload.category = categoryMap[aiCategory];
                     updatePayload.name = this.buildDefaultName(updatePayload.category);
                 }

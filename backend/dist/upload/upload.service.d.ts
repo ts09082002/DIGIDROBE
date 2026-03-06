@@ -15,9 +15,10 @@ export declare class UploadService {
     private readonly wardrobeService;
     private readonly logger;
     constructor(bgRemovalService: BackgroundRemovalService, wardrobeService: WardrobeService);
-    processClothingImage(file: any): Promise<WardrobeItem>;
+    processClothingImage(file: any, preferredCategory?: string): Promise<WardrobeItem>;
     private buildDefaultName;
     private classifyClothing;
+    private normalizePreferredCategory;
     private storeMetadata;
     private startBackgroundProcessing;
 }

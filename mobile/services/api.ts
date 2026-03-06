@@ -76,13 +76,21 @@ class ApiService {
     }
 
     // Upload clothing image
-    async uploadClothingImage(imageUri: string, filename: string, mimeType?: string): Promise<UploadResult> {
+    async uploadClothingImage(
+        imageUri: string,
+        filename: string,
+        mimeType?: string,
+        category?: string,
+    ): Promise<UploadResult> {
         const formData = new FormData();
         formData.append('image', {
             uri: imageUri,
             type: mimeType || 'image/jpeg',
             name: filename || 'clothing.jpg',
         } as any);
+        if (category) {
+            formData.append('category', category);
+        }
         try {
             const response = await fetch(this.getFullUrl('/api/upload/clothing'), {
                 method: 'POST',
@@ -140,6 +148,13 @@ class ApiService {
         const url = this.getFullUrl(`/api/wardrobe${query ? `?${query}` : ''}`);
         const response = await fetch(url);
         const result: ApiResponse<WardrobeItem[]> = await response.json();
+        return result.data;
+    }
+
+    // Get single wardrobe item
+    async getWardrobeItem(id: string): Promise<WardrobeItem> {
+        const response = await fetch(this.getFullUrl(`/api/wardrobe/${id}`));
+        const result: ApiResponse<WardrobeItem> = await response.json();
         return result.data;
     }
 

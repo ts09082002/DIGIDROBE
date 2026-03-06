@@ -1,11 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, StyleSheet, Platform, TouchableOpacity } from 'react-native';
-import { Colors, Spacing } from '../../constants/theme';
+import { View, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-
-type TabIconName = 'home' | 'compass' | 'add' | 'shirt' | 'person';
-type TabIconOutlineName = 'home-outline' | 'compass-outline' | 'add-outline' | 'shirt-outline' | 'person-outline';
 
 const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
     index: { active: 'home', inactive: 'home-outline' },
@@ -13,7 +9,6 @@ const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
     wardrobe: { active: 'file-tray-stacked', inactive: 'file-tray-stacked-outline' },
     calendar: { active: 'calendar', inactive: 'calendar-outline' },
     travel: { active: 'airplane', inactive: 'airplane-outline' },
-    profile: { active: 'person', inactive: 'person-outline' },
 };
 
 // Standard Tab Layout
@@ -54,8 +49,8 @@ export default function TabLayout() {
             <Tabs.Screen name="wardrobe" options={{ title: 'Wardrobe' }} />
             <Tabs.Screen name="calendar" options={{ title: 'Calendar' }} />
             <Tabs.Screen name="travel" options={{ title: 'Travel' }} />
-            <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
 
+            <Tabs.Screen name="profile" options={{ href: null }} />
             <Tabs.Screen name="styling" options={{ href: null }} />
             <Tabs.Screen name="upload" options={{ href: null }} />
         </Tabs>

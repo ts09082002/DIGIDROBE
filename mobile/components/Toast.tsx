@@ -64,9 +64,9 @@ export function Toast({
 
     const palette =
         type === 'success'
-            ? { bg: Colors.successBg || '#DCFCE7', text: Colors.success || '#166534' }
+            ? { bg: '#DCFCE7', text: Colors.success || '#166534' }
             : type === 'error'
-                ? { bg: Colors.errorBg || '#FEE2E2', text: Colors.error || '#B91C1C' }
+                ? { bg: '#FEE2E2', text: Colors.error || '#B91C1C' }
                 : { bg: Colors.charcoal, text: Colors.white };
 
     return (

@@ -1,3 +1,6 @@
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
 /**
  * DGDORDE Design System
  * Premium luxury wardrobe app — gold accents, soft neutrals, clean typography
@@ -134,4 +137,19 @@ export const Shadows = {
     },
 };
 
-export const API_BASE_URL = 'http://192.168.1.65:3000'; // Updated to match local network IP
+function resolveApiBaseUrl(): string {
+    const envBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+    if (envBaseUrl) return envBaseUrl;
+
+    const hostUri =
+        (Constants.expoConfig as any)?.hostUri ||
+        (Constants as any)?.manifest2?.extra?.expoClient?.hostUri ||
+        '';
+    const host = hostUri.split(':')[0];
+
+    if (host) return `http://${host}:3000`;
+    if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
+    return 'http://localhost:3000';
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
