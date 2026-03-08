@@ -56,11 +56,45 @@ export interface OOTDStats {
 
 export interface StylistSuggestion {
     suggestedOutfit: WardrobeItem[];
+    alternativeOutfits: Array<{
+        id: string;
+        name: string;
+        note: string;
+        items: WardrobeItem[];
+        score: number;
+    }>;
     favorites: WardrobeItem[];
     stats: {
         totalItems: number;
         totalFavorites: number;
         categories: Record<string, number>;
+    };
+}
+
+export interface StyleProfilePayload {
+    bodyType?: 'Slim' | 'Athletic' | 'Average' | 'Heavy' | null;
+    skinTone?: 'Light' | 'Medium' | 'Tan' | 'Dark' | null;
+    height?: number;
+    waistSize?: string;
+    stylePreference?: 'Casual' | 'Streetwear' | 'Formal' | 'Minimal' | null;
+}
+
+export interface BodyPhotoUploadResult {
+    id: string;
+    originalFilename: string;
+    originalUrl: string;
+    processedUrl: string;
+    mimeType: string;
+    size: number;
+    createdAt: string;
+    status: 'processing' | 'done' | 'failed';
+    bodyBox?: {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+        imageWidth: number;
+        imageHeight: number;
     };
 }
 
@@ -266,6 +300,54 @@ class ApiService {
             return result.data as StylistSuggestion;
         } catch (error) {
             console.error('Error fetching stylist suggestion:', error);
+            throw error;
+        }
+    }
+
+    async uploadBodyPhoto(
+        imageUri: string,
+        filename: string,
+        mimeType?: string,
+    ): Promise<BodyPhotoUploadResult> {
+        const formData = new FormData();
+        formData.append('image', {
+            uri: imageUri,
+            type: mimeType || 'image/jpeg',
+            name: filename || 'body-photo.jpg',
+        } as any);
+
+        const response = await fetch(this.getFullUrl('/api/upload/body-photo'), {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            let message = 'Body photo upload failed';
+            try {
+                const error = await response.json();
+                message = error.message || message;
+            } catch {
+                // keep default
+            }
+            throw new Error(message);
+        }
+
+        const result: ApiResponse<BodyPhotoUploadResult> = await response.json();
+        return result.data;
+    }
+
+    async getPersonalizedStylistSuggestion(profile: StyleProfilePayload): Promise<StylistSuggestion> {
+        try {
+            const response = await fetch(`${this.baseUrl}/api/packing/stylist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(profile),
+            });
+            if (!response.ok) throw new Error('Failed to fetch personalized stylist suggestion');
+            const result = await response.json();
+            return result.data as StylistSuggestion;
+        } catch (error) {
+            console.error('Error fetching personalized stylist suggestion:', error);
             throw error;
         }
     }

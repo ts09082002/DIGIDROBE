@@ -55,7 +55,7 @@ export default function RootLayout() {
 
                 {showStartupSplash && (
                     <Animated.View style={[styles.splashContainer, { opacity }]}>
-                        <Image source={require('../assets/splash-icon.png')} style={styles.logo} resizeMode="contain" />
+                        <Image source={require('../assets/splash.png')} style={styles.logo} resizeMode="contain" />
                         <Text style={styles.appName}>Digidrobe</Text>
 
                         <View style={styles.progressTrack}>
