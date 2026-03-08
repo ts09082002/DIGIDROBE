@@ -50,68 +50,42 @@ type SuggestionItem = {
     backendCategory: string;
 };
 
-const SECTION_SUGGESTIONS: Record<'all' | CanonicalCategory, SuggestionItem[]> = {
-    all: [
-        { id: 't1', name: 'Classic White Tee', brand: 'Essentials', imageUrl: 'https://pngimg.com/d/tshirt_PNG5448.png', backendCategory: 'tops' },
-        { id: 'b1', name: 'Blue Denim Jeans', brand: 'Denim Co', imageUrl: 'https://pngimg.com/d/jeans_PNG5754.png', backendCategory: 'bottoms' },
-        { id: 'o1', name: 'Wool Blend Coat', brand: 'Atelier', imageUrl: 'https://pngimg.com/d/coat_PNG24.png', backendCategory: 'outerwear' },
-        { id: 's1', name: 'Everyday Sneakers', brand: 'Move', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5825.png', backendCategory: 'shoes' },
-        { id: 'a1', name: 'Leather Handbag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6394.png', backendCategory: 'accessories' },
-    ],
+const getSuggestionFallbackImage = (item: SuggestionItem) =>
+    `https://placehold.co/600x750/F5F1E8/7A6A58.png?text=${encodeURIComponent(item.name)}`;
+
+const SECTION_SUGGESTIONS: Record<CanonicalCategory, SuggestionItem[]> = {
     topwear: [
+        { id: 't1', name: 'Classic White Tee', brand: 'Essentials', imageUrl: 'https://pngimg.com/d/tshirt_PNG5448.png', backendCategory: 'tops' },
         { id: 't2', name: 'Crew Neck T-Shirt', brand: 'Core', imageUrl: 'https://pngimg.com/d/tshirt_PNG5447.png', backendCategory: 'tops' },
         { id: 't3', name: 'Striped Shirt', brand: 'Urban', imageUrl: 'https://pngimg.com/d/shirt_PNG6918.png', backendCategory: 'tops' },
         { id: 't4', name: 'Girls Soft Top', brand: 'Bloom', imageUrl: 'https://pngimg.com/d/top_PNG39.png', backendCategory: 'tops' },
     ],
     bottomwear: [
+        { id: 'b1', name: 'Blue Denim Jeans', brand: 'Denim Co', imageUrl: 'https://pngimg.com/d/jeans_PNG5754.png', backendCategory: 'bottoms' },
         { id: 'b2', name: 'Slim Fit Jeans', brand: 'Denim Co', imageUrl: 'https://pngimg.com/d/jeans_PNG5749.png', backendCategory: 'bottoms' },
         { id: 'b3', name: 'Formal Trousers', brand: 'Tailor', imageUrl: 'https://pngimg.com/d/trousers_PNG68.png', backendCategory: 'bottoms' },
         { id: 'b4', name: 'Pleated Skirt', brand: 'Bloom', imageUrl: 'https://pngimg.com/d/skirt_PNG35.png', backendCategory: 'bottoms' },
     ],
     outerwear: [
+        { id: 'o1', name: 'Wool Blend Coat', brand: 'Atelier', imageUrl: 'https://pngimg.com/d/coat_PNG24.png', backendCategory: 'outerwear' },
         { id: 'o2', name: 'Longline Coat', brand: 'Atelier', imageUrl: 'https://pngimg.com/d/coat_PNG8.png', backendCategory: 'outerwear' },
         { id: 'o3', name: 'Denim Jacket', brand: 'Street', imageUrl: 'https://pngimg.com/d/jacket_PNG8058.png', backendCategory: 'outerwear' },
         { id: 'o4', name: 'Casual Blazer', brand: 'Monarch', imageUrl: 'https://pngimg.com/d/blazer_PNG16.png', backendCategory: 'outerwear' },
     ],
     footwear: [
+        { id: 's1', name: 'Everyday Sneakers', brand: 'Move', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5825.png', backendCategory: 'shoes' },
         { id: 's2', name: 'White Sneakers', brand: 'Move', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5824.png', backendCategory: 'shoes' },
         { id: 's3', name: 'Ankle Boots', brand: 'Stride', imageUrl: 'https://pngimg.com/d/boots_PNG37.png', backendCategory: 'shoes' },
         { id: 's4', name: 'Flat Sandals', brand: 'Coast', imageUrl: 'https://pngimg.com/d/sandals_PNG26.png', backendCategory: 'shoes' },
     ],
     accessories: [
+        { id: 'a1', name: 'Leather Handbag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6394.png', backendCategory: 'accessories' },
         { id: 'a2', name: 'Mini Shoulder Bag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6388.png', backendCategory: 'accessories' },
         { id: 'a3', name: 'Classic Belt', brand: 'Line', imageUrl: 'https://pngimg.com/d/belt_PNG9592.png', backendCategory: 'accessories' },
         { id: 'a4', name: 'Winter Scarf', brand: 'Cloud', imageUrl: 'https://pngimg.com/d/scarf_PNG28.png', backendCategory: 'accessories' },
     ],
     unclassified: [],
 };
-
-const WEB_SUGGESTION_ITEMS: SuggestionItem[] = [
-    { id: 'w-t1', name: 'Cotton Tee', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/tshirt_PNG5448.png', backendCategory: 'tops' },
-    { id: 'w-t2', name: 'Round Neck Tee', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/tshirt_PNG5447.png', backendCategory: 'tops' },
-    { id: 'w-t3', name: 'Formal Shirt', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/shirt_PNG6918.png', backendCategory: 'tops' },
-    { id: 'w-t4', name: 'Girls Top', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/top_PNG39.png', backendCategory: 'tops' },
-
-    { id: 'w-b1', name: 'Blue Jeans', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/jeans_PNG5754.png', backendCategory: 'bottoms' },
-    { id: 'w-b2', name: 'Slim Jeans', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/jeans_PNG5749.png', backendCategory: 'bottoms' },
-    { id: 'w-b3', name: 'Trousers', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/trousers_PNG68.png', backendCategory: 'bottoms' },
-    { id: 'w-b4', name: 'Pleated Skirt', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/skirt_PNG35.png', backendCategory: 'bottoms' },
-
-    { id: 'w-o1', name: 'Long Coat', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/coat_PNG24.png', backendCategory: 'outerwear' },
-    { id: 'w-o2', name: 'Classic Coat', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/coat_PNG8.png', backendCategory: 'outerwear' },
-    { id: 'w-o3', name: 'Denim Jacket', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/jacket_PNG8058.png', backendCategory: 'outerwear' },
-    { id: 'w-o4', name: 'Tailored Blazer', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/blazer_PNG16.png', backendCategory: 'outerwear' },
-
-    { id: 'w-s1', name: 'Running Shoes', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5825.png', backendCategory: 'shoes' },
-    { id: 'w-s2', name: 'White Sneakers', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5824.png', backendCategory: 'shoes' },
-    { id: 'w-s3', name: 'Ankle Boots', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/boots_PNG37.png', backendCategory: 'shoes' },
-    { id: 'w-s4', name: 'Flat Sandals', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/sandals_PNG26.png', backendCategory: 'shoes' },
-
-    { id: 'w-a1', name: 'Leather Handbag', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/handbag_PNG6394.png', backendCategory: 'accessories' },
-    { id: 'w-a2', name: 'Mini Shoulder Bag', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/handbag_PNG6388.png', backendCategory: 'accessories' },
-    { id: 'w-a3', name: 'Classic Belt', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/belt_PNG9592.png', backendCategory: 'accessories' },
-    { id: 'w-a4', name: 'Winter Scarf', brand: 'Suggested', imageUrl: 'https://pngimg.com/d/scarf_PNG28.png', backendCategory: 'accessories' },
-];
 
 export default function WardrobeScreen() {
     const { isDarkMode } = useTheme();
@@ -136,6 +110,8 @@ export default function WardrobeScreen() {
     const [selectionMode, setSelectionMode] = useState(false);
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
     const [suggestionVisibleCount, setSuggestionVisibleCount] = useState(SUGGESTIONS_PAGE_SIZE);
+    const [failedSuggestionIds, setFailedSuggestionIds] = useState<string[]>([]);
+    const [fallbackSuggestionIds, setFallbackSuggestionIds] = useState<string[]>([]);
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
@@ -264,18 +240,15 @@ export default function WardrobeScreen() {
 
     const currentFilterCanonical = (FILTER_TO_CANONICAL[selectedCategory] ?? 'all') as CanonicalCategory | 'all';
     const suggestionPool = useMemo(() => {
-        const base = SECTION_SUGGESTIONS[currentFilterCanonical] || SECTION_SUGGESTIONS.all;
-        const uniqueBase = Array.from(new Map(base.map((item) => [item.id, item])).values());
-        const extra =
+        const base =
             currentFilterCanonical === 'all'
-                ? WEB_SUGGESTION_ITEMS
-                : WEB_SUGGESTION_ITEMS.filter(
-                    (item) => item.backendCategory === CANONICAL_TO_FILTER_PARAM[currentFilterCanonical],
-                );
+                ? Object.values(SECTION_SUGGESTIONS).flat()
+                : SECTION_SUGGESTIONS[currentFilterCanonical] || [];
+
         return Array.from(
-            new Map([...uniqueBase, ...extra].map((item) => [item.id, item])).values(),
+            new Map(base.map((item) => [`${item.backendCategory}-${item.imageUrl}`, item])).values(),
         );
-    }, [currentFilterCanonical, suggestionVisibleCount]);
+    }, [currentFilterCanonical]);
     const visibleSuggestions = useMemo(
         () => suggestionPool.slice(0, suggestionVisibleCount),
         [suggestionPool, suggestionVisibleCount],
@@ -284,6 +257,8 @@ export default function WardrobeScreen() {
 
     useEffect(() => {
         setSuggestionVisibleCount(SUGGESTIONS_PAGE_SIZE);
+        setFailedSuggestionIds([]);
+        setFallbackSuggestionIds([]);
     }, [currentFilterCanonical]);
 
     const loadMoreSuggestions = useCallback(() => {
@@ -630,9 +605,19 @@ export default function WardrobeScreen() {
     const renderSuggestion = ({ item }: { item: SuggestionItem }) => (
         <View style={[styles.suggestionCard, { backgroundColor: theme.card }]}>
             <Image
-                source={{ uri: item.imageUrl }}
+                source={{
+                    uri: fallbackSuggestionIds.includes(item.id)
+                        ? getSuggestionFallbackImage(item)
+                        : item.imageUrl,
+                }}
                 style={[styles.suggestionImage, { backgroundColor: 'transparent' }]}
                 resizeMode="contain"
+                onError={() => {
+                    if (!failedSuggestionIds.includes(item.id)) {
+                        setFailedSuggestionIds((prev) => [...prev, item.id]);
+                        setFallbackSuggestionIds((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]));
+                    }
+                }}
             />
             <View style={styles.suggestionInfo}>
                 {item.brand ? (

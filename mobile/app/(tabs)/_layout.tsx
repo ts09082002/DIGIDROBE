@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
     index: { active: 'home', inactive: 'home-outline' },
@@ -15,6 +16,7 @@ const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
 
 export default function TabLayout() {
     const { isDarkMode: isDark } = useTheme();
+    const insets = useSafeAreaInsets();
 
     const themeColors = {
         background: isDark ? '#1A1A1A' : '#FFFFFF',
@@ -29,7 +31,15 @@ export default function TabLayout() {
                 headerShown: false,
                 tabBarShowLabel: true,
                 tabBarLabelStyle: styles.tabBarLabel,
-                tabBarStyle: [styles.tabBar, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }],
+                tabBarStyle: [
+                    styles.tabBar,
+                    {
+                        backgroundColor: themeColors.background,
+                        borderTopColor: themeColors.border,
+                        height: (Platform.OS === 'ios' ? 60 : 58) + insets.bottom,
+                        paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12),
+                    },
+                ],
                 tabBarActiveTintColor: themeColors.activeTint,
                 tabBarInactiveTintColor: themeColors.inactiveTint,
                 tabBarIcon: ({ focused, color, size }) => {
@@ -59,8 +69,6 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
     tabBar: {
-        height: Platform.OS === 'ios' ? 85 : 65,
-        paddingBottom: Platform.OS === 'ios' ? 25 : 10,
         paddingTop: 8,
         borderTopWidth: 1,
         elevation: 8,
