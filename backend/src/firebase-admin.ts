@@ -38,4 +38,3 @@ export function getFirebaseAdmin(): admin.app.App {
 
   return app;
 }
-

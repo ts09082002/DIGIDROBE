@@ -13,7 +13,9 @@ const firebase_admin_1 = require("../firebase-admin");
 const uuid_1 = require("uuid");
 let WardrobeService = WardrobeService_1 = class WardrobeService {
     logger = new common_1.Logger(WardrobeService_1.name);
-    collection = (0, firebase_admin_1.getFirebaseAdmin)().firestore().collection('wardrobeItems');
+    collection = (0, firebase_admin_1.getFirebaseAdmin)()
+        .firestore()
+        .collection('wardrobeItems');
     sanitizeForFirestore(data) {
         return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
     }

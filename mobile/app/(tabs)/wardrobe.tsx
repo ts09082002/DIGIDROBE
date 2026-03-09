@@ -459,6 +459,27 @@ export default function WardrobeScreen() {
         }
     };
 
+    const askCaptureAnotherPhoto = () =>
+        new Promise<boolean>((resolve) => {
+            Alert.alert(
+                'Add another photo?',
+                'You can capture multiple clothing photos and upload them together.',
+                [
+                    {
+                        text: 'Upload now',
+                        onPress: () => resolve(false),
+                    },
+                    {
+                        text: 'Add another',
+                        onPress: () => resolve(true),
+                    },
+                ],
+                {
+                    cancelable: false,
+                },
+            );
+        });
+
     const handleCamera = async () => {
         try {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -469,15 +490,39 @@ export default function WardrobeScreen() {
                 return;
             }
 
-            const result = await ImagePicker.launchCameraAsync({
-                allowsEditing: false,
-                quality: 0.8,
-            });
+            const capturedAssets: ImagePicker.ImagePickerAsset[] = [];
+            let captureMore = true;
 
-            if (result.canceled || !result.assets[0]) return;
+            while (captureMore) {
+                const result = await ImagePicker.launchCameraAsync({
+                    allowsEditing: false,
+                    quality: 0.8,
+                });
+
+                if (result.canceled || !result.assets[0]) {
+                    // If at least one shot already exists, continue with upload.
+                    if (capturedAssets.length > 0) {
+                        break;
+                    }
+                    return;
+                }
+
+                capturedAssets.push(result.assets[0]);
+
+                if (capturedAssets.length >= 15) {
+                    setToastType('info');
+                    setToastMessage('Maximum 15 photos can be uploaded at once');
+                    setToastVisible(true);
+                    break;
+                }
+
+                captureMore = await askCaptureAnotherPhoto();
+            }
+
+            if (!capturedAssets.length) return;
 
             setUploading(true);
-            await uploadAssets(result.assets, 'camera');
+            await uploadAssets(capturedAssets, 'camera');
         } catch (error: any) {
             setToastType('error');
             setToastMessage(error.message || 'Something went wrong');

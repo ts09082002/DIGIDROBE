@@ -19,7 +19,13 @@ const multer_1 = require("multer");
 const path_1 = require("path");
 const uuid_1 = require("uuid");
 const upload_service_1 = require("./upload.service");
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const ALLOWED_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+];
 const MAX_SIZE = 20 * 1024 * 1024;
 let UploadController = class UploadController {
     uploadService;
@@ -31,6 +37,16 @@ let UploadController = class UploadController {
             throw new common_1.BadRequestException('No image file provided');
         }
         const result = await this.uploadService.processClothingImage(file, category);
+        return {
+            success: true,
+            data: result,
+        };
+    }
+    async uploadBodyPhoto(file) {
+        if (!file) {
+            throw new common_1.BadRequestException('No image file provided');
+        }
+        const result = await this.uploadService.processBodyPhoto(file);
         return {
             success: true,
             data: result,
@@ -67,6 +83,30 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UploadController.prototype, "uploadClothing", null);
+__decorate([
+    (0, common_1.Post)('body-photo'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('image', {
+        storage: (0, multer_1.diskStorage)({
+            destination: (0, path_1.join)(__dirname, '..', '..', 'uploads', 'body', 'originals'),
+            filename: (_req, file, cb) => {
+                const uniqueName = `${(0, uuid_1.v4)()}${(0, path_1.extname)(file.originalname)}`;
+                cb(null, uniqueName);
+            },
+        }),
+        limits: { fileSize: MAX_SIZE },
+        fileFilter: (_req, file, cb) => {
+            if (!ALLOWED_TYPES.includes(file.mimetype)) {
+                cb(new common_1.BadRequestException('Only JPEG, PNG, WebP, and HEIC images are allowed'), false);
+                return;
+            }
+            cb(null, true);
+        },
+    })),
+    __param(0, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UploadController.prototype, "uploadBodyPhoto", null);
 __decorate([
     (0, common_1.Get)('processed/:filename'),
     __param(0, (0, common_1.Param)('filename')),

@@ -3,8 +3,8 @@ import { WardrobeController } from './wardrobe.controller';
 import { WardrobeService } from './wardrobe.service';
 
 @Module({
-    controllers: [WardrobeController],
-    providers: [WardrobeService],
-    exports: [WardrobeService],
+  controllers: [WardrobeController],
+  providers: [WardrobeService],
+  exports: [WardrobeService],
 })
-export class WardrobeModule { }
+export class WardrobeModule {}

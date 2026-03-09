@@ -10,12 +10,32 @@ export interface ProcessedImage {
     size: number;
     createdAt: string;
 }
+export interface BodyPhotoResult {
+    id: string;
+    originalFilename: string;
+    originalUrl: string;
+    processedUrl: string;
+    mimeType: string;
+    size: number;
+    createdAt: string;
+    status: 'processing' | 'done' | 'failed';
+    bodyBox?: {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+        imageWidth: number;
+        imageHeight: number;
+    };
+}
 export declare class UploadService {
     private readonly bgRemovalService;
     private readonly wardrobeService;
     private readonly logger;
     constructor(bgRemovalService: BackgroundRemovalService, wardrobeService: WardrobeService);
     processClothingImage(file: any, preferredCategory?: string): Promise<WardrobeItem>;
+    processBodyPhoto(file: any): Promise<BodyPhotoResult>;
+    private extractBodyBox;
     private buildDefaultName;
     private classifyClothing;
     private normalizePreferredCategory;

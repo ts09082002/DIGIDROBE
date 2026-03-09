@@ -18,4 +18,4 @@ import { PackingModule } from './packing/packing.module';
     PackingModule,
   ],
 })
-export class AppModule { }
+export class AppModule {}

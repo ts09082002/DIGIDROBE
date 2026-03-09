@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const packing_controller_1 = require("./packing.controller");
 const packing_service_1 = require("./packing.service");
 const wardrobe_module_1 = require("../wardrobe/wardrobe.module");
+const try_on_service_1 = require("./try-on.service");
 let PackingModule = class PackingModule {
 };
 exports.PackingModule = PackingModule;
@@ -18,7 +19,7 @@ exports.PackingModule = PackingModule = __decorate([
     (0, common_1.Module)({
         imports: [wardrobe_module_1.WardrobeModule],
         controllers: [packing_controller_1.PackingController],
-        providers: [packing_service_1.PackingService],
+        providers: [packing_service_1.PackingService, try_on_service_1.TryOnService],
     })
 ], PackingModule);
 //# sourceMappingURL=packing.module.js.map
