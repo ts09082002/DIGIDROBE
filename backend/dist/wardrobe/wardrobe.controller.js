@@ -21,7 +21,11 @@ let WardrobeController = class WardrobeController {
         this.wardrobeService = wardrobeService;
     }
     async getAll(category, search, favorite) {
-        const data = await this.wardrobeService.getAll({ category, search, favorite });
+        const data = await this.wardrobeService.getAll({
+            category,
+            search,
+            favorite,
+        });
         return {
             success: true,
             data,

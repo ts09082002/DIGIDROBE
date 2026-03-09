@@ -11,29 +11,109 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var PackingService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PackingService = void 0;
+exports.categorize = categorize;
+exports.buildLookNote = buildLookNote;
 const common_1 = require("@nestjs/common");
 const wardrobe_service_1 = require("../wardrobe/wardrobe.service");
 function categorize(category) {
     const c = category.toLowerCase().trim();
-    if (['tops', 'topwear', 'shirt', 't-shirt', 'blouse', 'top', 'knitwear', 'polo'].some(k => c.includes(k)))
+    if ([
+        'tops',
+        'topwear',
+        'shirt',
+        't-shirt',
+        'blouse',
+        'top',
+        'knitwear',
+        'polo',
+    ].some((k) => c.includes(k)))
         return 'tops';
-    if (['bottoms', 'bottomwear', 'pants', 'jeans', 'trousers', 'skirt', 'shorts', 'leggings'].some(k => c.includes(k)))
+    if ([
+        'bottoms',
+        'bottomwear',
+        'pants',
+        'jeans',
+        'trousers',
+        'skirt',
+        'shorts',
+        'leggings',
+    ].some((k) => c.includes(k)))
         return 'bottoms';
-    if (['dress', 'dresses', 'jumpsuit', 'romper', 'gown'].some(k => c.includes(k)))
+    if (['dress', 'dresses', 'jumpsuit', 'romper', 'gown'].some((k) => c.includes(k)))
         return 'dresses';
-    if (['outerwear', 'jacket', 'coat', 'blazer', 'hoodie', 'sweater', 'cardigan'].some(k => c.includes(k)))
+    if ([
+        'outerwear',
+        'jacket',
+        'coat',
+        'blazer',
+        'hoodie',
+        'sweater',
+        'cardigan',
+    ].some((k) => c.includes(k)))
         return 'outerwear';
-    if (['footwear', 'shoes', 'boots', 'sneakers', 'sandals', 'heels', 'loafers'].some(k => c.includes(k)))
+    if ([
+        'footwear',
+        'shoes',
+        'boots',
+        'sneakers',
+        'sandals',
+        'heels',
+        'loafers',
+    ].some((k) => c.includes(k)))
         return 'footwear';
-    if (['accessories', 'accessory', 'bag', 'belt', 'hat', 'scarf', 'watch', 'jewel'].some(k => c.includes(k)))
+    if ([
+        'accessories',
+        'accessory',
+        'bag',
+        'belt',
+        'hat',
+        'scarf',
+        'watch',
+        'jewel',
+    ].some((k) => c.includes(k)))
         return 'accessories';
     return 'other';
 }
 function selectItems(arr, n) {
-    const favs = arr.filter(i => i.isFavorite);
-    const rest = arr.filter(i => !i.isFavorite).sort(() => 0.5 - Math.random());
+    const favs = arr.filter((i) => i.isFavorite);
+    const rest = arr.filter((i) => !i.isFavorite).sort(() => 0.5 - Math.random());
     const pool = [...favs, ...rest];
     return pool.slice(0, n);
+}
+function scoreItem(item, profile) {
+    if (!profile?.stylePreference)
+        return item.isFavorite ? 2 : 0;
+    const haystack = `${item.name} ${item.brand} ${item.originalFilename} ${item.category} ${(item.occasion || []).join(' ')} ${(item.season || []).join(' ')}`.toLowerCase();
+    const keywords = {
+        Casual: ['tee', 't-shirt', 'casual', 'sneaker', 'denim', 'cotton'],
+        Streetwear: ['street', 'oversized', 'cargo', 'hoodie', 'jacket', 'sneaker'],
+        Formal: ['formal', 'shirt', 'trouser', 'blazer', 'coat', 'loafer'],
+        Minimal: ['neutral', 'plain', 'classic', 'clean', 'white', 'black'],
+    };
+    let score = item.isFavorite ? 3 : 0;
+    for (const keyword of keywords[profile.stylePreference]) {
+        if (haystack.includes(keyword))
+            score += 2;
+    }
+    return score;
+}
+function buildLookNote(profile) {
+    const notes = [];
+    if (profile?.stylePreference)
+        notes.push(`${profile.stylePreference} priority`);
+    if (profile?.bodyType === 'Slim')
+        notes.push('balanced shape');
+    if (profile?.bodyType === 'Athletic')
+        notes.push('clean structure');
+    if (profile?.bodyType === 'Heavy')
+        notes.push('streamlined fit');
+    if (typeof profile?.height === 'number' && profile.height >= 180)
+        notes.push('long-line proportion');
+    if (typeof profile?.height === 'number' && profile.height <= 168)
+        notes.push('compact proportion');
+    if (profile?.waistSize)
+        notes.push(`waist ${profile.waistSize}`);
+    return notes.join(' • ') || 'Ranked from your wardrobe';
 }
 let PackingService = PackingService_1 = class PackingService {
     wardrobeService;
@@ -44,7 +124,7 @@ let PackingService = PackingService_1 = class PackingService {
     async generatePackingList(request) {
         this.logger.log(`Generating packing list for ${request.destination} (${request.days} days)`);
         const allItems = await this.wardrobeService.getAll({});
-        const ready = allItems.filter(i => i.status === 'done' && i.processedUrl);
+        const ready = allItems.filter((i) => i.status === 'done' && i.processedUrl);
         const grouped = {};
         for (const item of ready) {
             const cat = categorize(item.category);
@@ -68,17 +148,17 @@ let PackingService = PackingService_1 = class PackingService {
             ...selectItems(grouped['accessories'] || [], targetAccessories),
         ];
         const seen = new Set();
-        return list.filter(i => {
+        return list.filter((i) => {
             if (seen.has(i.id))
                 return false;
             seen.add(i.id);
             return true;
         });
     }
-    async getStylistSuggestion() {
+    async getStylistSuggestion(profile) {
         const allItems = await this.wardrobeService.getAll({});
-        const ready = allItems.filter(i => i.status === 'done' && i.processedUrl);
-        const favorites = ready.filter(i => i.isFavorite);
+        const ready = allItems.filter((i) => i.status === 'done' && i.processedUrl);
+        const favorites = ready.filter((i) => i.isFavorite);
         const stats = await this.wardrobeService.getStats();
         const grouped = {};
         for (const item of ready) {
@@ -87,19 +167,40 @@ let PackingService = PackingService_1 = class PackingService {
                 grouped[cat] = [];
             grouped[cat].push(item);
         }
-        const pick = (cat) => {
-            const arr = grouped[cat] || [];
-            const favFirst = [...arr.filter(i => i.isFavorite), ...arr.filter(i => !i.isFavorite)];
-            return favFirst[0] || null;
+        const sortedByStyle = (cat) => [...(grouped[cat] || [])].sort((a, b) => scoreItem(b, profile) - scoreItem(a, profile));
+        const tops = sortedByStyle('tops');
+        const bottoms = sortedByStyle('bottoms');
+        const dresses = sortedByStyle('dresses');
+        const outerwear = sortedByStyle('outerwear');
+        const footwear = sortedByStyle('footwear');
+        const accessories = sortedByStyle('accessories');
+        const createLook = (index) => {
+            const top = tops[index % Math.max(tops.length, 1)] || null;
+            const bottom = bottoms[index % Math.max(bottoms.length, 1)] ||
+                dresses[index % Math.max(dresses.length, 1)] ||
+                null;
+            const outer = outerwear[index % Math.max(outerwear.length, 1)] || null;
+            const shoe = footwear[index % Math.max(footwear.length, 1)] || null;
+            const accessory = accessories[index % Math.max(accessories.length, 1)] || null;
+            const items = [top, bottom, outer, shoe, accessory].filter((item) => Boolean(item));
+            const dedupedItems = items.filter((item, itemIndex, arr) => arr.findIndex((x) => x.id === item.id) === itemIndex);
+            const score = dedupedItems.reduce((sum, item) => sum + scoreItem(item, profile), 0);
+            return {
+                id: `look-${index}-${dedupedItems.map((item) => item.id).join('-')}`,
+                name: index === 0 ? 'Best For You' : `You Can Also Try ${index}`,
+                note: buildLookNote(profile),
+                items: dedupedItems,
+                score,
+            };
         };
-        const suggestedOutfit = [
-            pick('tops'),
-            pick('bottoms') || pick('dresses'),
-            pick('outerwear'),
-            pick('footwear'),
-        ].filter((i) => i !== null);
+        const alternativeOutfits = Array.from({ length: 4 }, (_, index) => createLook(index))
+            .filter((look) => look.items.length >= 2)
+            .filter((look, index, arr) => arr.findIndex((x) => x.id === look.id) === index)
+            .sort((a, b) => b.score - a.score);
+        const suggestedOutfit = alternativeOutfits[0]?.items || [];
         return {
             suggestedOutfit,
+            alternativeOutfits,
             favorites: favorites.slice(0, 10),
             stats: {
                 totalItems: stats.totalItems,

@@ -98,6 +98,16 @@ export interface BodyPhotoUploadResult {
     };
 }
 
+export interface TryOnPreviewResult {
+    previewUrl: string;
+    bodyPhotoUrl: string;
+    outfitItems: WardrobeItem[];
+    suggestedOutfit: WardrobeItem[];
+    note: string;
+    mode: 'local-compose';
+    bodyBox?: BodyPhotoUploadResult['bodyBox'];
+}
+
 class ApiService {
     private baseUrl: string;
 
@@ -350,6 +360,36 @@ class ApiService {
             console.error('Error fetching personalized stylist suggestion:', error);
             throw error;
         }
+    }
+
+    async generateTryOnPreview(
+        bodyPhotoUrl: string,
+        itemIds?: string[],
+        profile?: StyleProfilePayload,
+    ): Promise<TryOnPreviewResult> {
+        const response = await fetch(`${this.baseUrl}/api/packing/try-on/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bodyPhotoUrl,
+                itemIds,
+                profile,
+            }),
+        });
+
+        if (!response.ok) {
+            let message = 'Failed to generate try-on preview';
+            try {
+                const error = await response.json();
+                message = error.message || message;
+            } catch {
+                // Keep default message.
+            }
+            throw new Error(message);
+        }
+
+        const result: ApiResponse<TryOnPreviewResult> = await response.json();
+        return result.data;
     }
 }
 

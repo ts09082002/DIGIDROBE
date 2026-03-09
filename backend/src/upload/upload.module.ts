@@ -5,9 +5,9 @@ import { BackgroundRemovalService } from './background-removal.service';
 import { WardrobeModule } from '../wardrobe/wardrobe.module';
 
 @Module({
-    imports: [WardrobeModule],
-    controllers: [UploadController],
-    providers: [UploadService, BackgroundRemovalService],
-    exports: [UploadService],
+  imports: [WardrobeModule],
+  controllers: [UploadController],
+  providers: [UploadService, BackgroundRemovalService],
+  exports: [UploadService],
 })
-export class UploadModule { }
+export class UploadModule {}

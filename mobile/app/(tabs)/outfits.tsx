@@ -16,9 +16,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
-import { api, BodyPhotoUploadResult, StyleProfilePayload, StylistSuggestion, WardrobeItem } from '../../services/api';
+import { api, BodyPhotoUploadResult, StyleProfilePayload, StylistSuggestion, TryOnPreviewResult, WardrobeItem } from '../../services/api';
 import { SavedLook, getSavedLooks, saveLook } from '../../storage/savedLooks';
 import { normalizeCategory } from '../../constants/categories';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -73,15 +74,24 @@ type OverlayKey =
     | 'accessoryRight';
 
 type OverlayState = Record<OverlayKey, { x: number; y: number; scale: number }>;
-type OverlayFrame = { left: number; top: number; width: number; height: number };
+type OverlayFrame = { left: `${number}%`; top: `${number}%`; width: `${number}%`; height: `${number}%` };
 
-const DEFAULT_OVERLAY_STATE: OverlayState = {
-    top: { x: 0, y: 0, scale: 1 },
-    bottom: { x: 0, y: 0, scale: 1 },
-    outerwear: { x: 0, y: 0, scale: 1 },
-    footwear: { x: 0, y: 0, scale: 1 },
+const getDefaultOverlayState = (): OverlayState => ({
+    top: { x: 0, y: 12, scale: 1.22 },
+    bottom: { x: 0, y: 8, scale: 1.14 },
+    outerwear: { x: 0, y: 8, scale: 1.18 },
+    footwear: { x: 0, y: 10, scale: 1.26 },
     accessoryLeft: { x: 0, y: 0, scale: 1 },
     accessoryRight: { x: 0, y: 0, scale: 1 },
+});
+
+const MANNEQUIN_OVERLAY_FRAMES: Record<OverlayKey, OverlayFrame> = {
+    top: { left: '23%', top: '25%', width: '54%', height: '25%' },
+    bottom: { left: '24%', top: '47%', width: '52%', height: '34%' },
+    outerwear: { left: '19%', top: '24%', width: '62%', height: '29%' },
+    footwear: { left: '29%', top: '80%', width: '42%', height: '10%' },
+    accessoryLeft: { left: '16%', top: '32%', width: '12%', height: '12%' },
+    accessoryRight: { left: '72%', top: '32%', width: '12%', height: '12%' },
 };
 
 function getOverlayFrames(bodyBox?: BodyPhotoUploadResult['bodyBox']): Record<OverlayKey, OverlayFrame> {
@@ -94,42 +104,44 @@ function getOverlayFrames(bodyBox?: BodyPhotoUploadResult['bodyBox']): Record<Ov
         imageHeight: 1,
     };
 
+    const toPercent = (value: number) => `${Math.max(0, Math.min(100, value * 100))}%` as const;
+
     return {
         top: {
-            left: box.left + box.width * 0.18,
-            top: box.top + box.height * 0.10,
-            width: box.width * 0.64,
-            height: box.height * 0.28,
+            left: toPercent(box.left + box.width * 0.10),
+            top: toPercent(box.top + box.height * 0.16),
+            width: toPercent(box.width * 0.80),
+            height: toPercent(box.height * 0.24),
         },
         bottom: {
-            left: box.left + box.width * 0.23,
-            top: box.top + box.height * 0.36,
-            width: box.width * 0.54,
-            height: box.height * 0.34,
+            left: toPercent(box.left + box.width * 0.18),
+            top: toPercent(box.top + box.height * 0.40),
+            width: toPercent(box.width * 0.64),
+            height: toPercent(box.height * 0.38),
         },
         outerwear: {
-            left: box.left + box.width * 0.12,
-            top: box.top + box.height * 0.07,
-            width: box.width * 0.72,
-            height: box.height * 0.38,
+            left: toPercent(box.left + box.width * 0.06),
+            top: toPercent(box.top + box.height * 0.12),
+            width: toPercent(box.width * 0.88),
+            height: toPercent(box.height * 0.32),
         },
         footwear: {
-            left: box.left + box.width * 0.30,
-            top: box.top + box.height * 0.78,
-            width: box.width * 0.40,
-            height: box.height * 0.16,
+            left: toPercent(box.left + box.width * 0.20),
+            top: toPercent(box.top + box.height * 0.86),
+            width: toPercent(box.width * 0.60),
+            height: toPercent(box.height * 0.10),
         },
         accessoryLeft: {
-            left: box.left + box.width * 0.08,
-            top: box.top + box.height * 0.20,
-            width: box.width * 0.18,
-            height: box.height * 0.15,
+            left: toPercent(box.left + box.width * 0.08),
+            top: toPercent(box.top + box.height * 0.20),
+            width: toPercent(box.width * 0.18),
+            height: toPercent(box.height * 0.15),
         },
         accessoryRight: {
-            left: box.left + box.width * 0.74,
-            top: box.top + box.height * 0.20,
-            width: box.width * 0.18,
-            height: box.height * 0.15,
+            left: toPercent(box.left + box.width * 0.74),
+            top: toPercent(box.top + box.height * 0.20),
+            width: toPercent(box.width * 0.18),
+            height: toPercent(box.height * 0.15),
         },
     };
 }
@@ -228,7 +240,9 @@ export default function OutfitsScreen() {
     const [quizVisible, setQuizVisible] = useState(true);
     const [bodyPhoto, setBodyPhoto] = useState<BodyPhotoUploadResult | null>(null);
     const [bodyPhotoUploading, setBodyPhotoUploading] = useState(false);
-    const [overlayState, setOverlayState] = useState<OverlayState>(DEFAULT_OVERLAY_STATE);
+    const [tryOnPreview, setTryOnPreview] = useState<TryOnPreviewResult | null>(null);
+    const [tryOnLoading, setTryOnLoading] = useState(false);
+    const [overlayState, setOverlayState] = useState<OverlayState>(getDefaultOverlayState());
     const [selectedOverlayKey, setSelectedOverlayKey] = useState<OverlayKey | null>(null);
     const insets = useSafeAreaInsets();
 
@@ -358,7 +372,7 @@ export default function OutfitsScreen() {
     const overlayFrames = useMemo(() => getOverlayFrames(bodyPhoto?.bodyBox), [bodyPhoto?.bodyBox]);
 
     useEffect(() => {
-        setOverlayState(DEFAULT_OVERLAY_STATE);
+        setOverlayState(getDefaultOverlayState());
         setSelectedOverlayKey(null);
     }, [bodyPhoto?.id, suggestedOutfit.map((item) => item.id).join(',')]);
 
@@ -389,6 +403,36 @@ export default function OutfitsScreen() {
         });
     };
 
+    const refreshTryOnPreview = async (
+        nextBodyPhoto: BodyPhotoUploadResult,
+        nextSuggestedOutfit: WardrobeItem[],
+        nextProfile: StyleProfilePayload,
+    ) => {
+        if (!nextBodyPhoto.processedUrl && !nextBodyPhoto.originalUrl) {
+            setTryOnPreview(null);
+            return;
+        }
+        if (!nextSuggestedOutfit.length) {
+            setTryOnPreview(null);
+            return;
+        }
+
+        try {
+            setTryOnLoading(true);
+            const preview = await api.generateTryOnPreview(
+                nextBodyPhoto.processedUrl || nextBodyPhoto.originalUrl,
+                nextSuggestedOutfit.map((item) => item.id),
+                nextProfile,
+            );
+            setTryOnPreview(preview);
+        } catch (error) {
+            console.error('Try-on preview failed:', error);
+            setTryOnPreview(null);
+        } finally {
+            setTryOnLoading(false);
+        }
+    };
+
     const uploadBodyPhotoAsset = async (asset: ImagePicker.ImagePickerAsset) => {
         try {
             setBodyPhotoUploading(true);
@@ -398,6 +442,13 @@ export default function OutfitsScreen() {
                 asset.mimeType || 'image/jpeg',
             );
             setBodyPhoto(result);
+            await refreshTryOnPreview(result, suggestedOutfit, {
+                bodyType: styleProfile.bodyType,
+                skinTone: styleProfile.skinTone,
+                height: styleProfile.height,
+                waistSize: styleProfile.waistSize,
+                stylePreference: styleProfile.stylePreference,
+            });
         } catch (error: any) {
             Alert.alert('Upload failed', error?.message || 'Could not upload body photo');
         } finally {
@@ -455,6 +506,27 @@ export default function OutfitsScreen() {
             setSavingLook(false);
         }
     };
+
+    useEffect(() => {
+        if (!bodyPhoto || !suggestedOutfit.length) {
+            if (!bodyPhoto) {
+                setTryOnPreview(null);
+            }
+            return;
+        }
+
+        void refreshTryOnPreview(bodyPhoto, suggestedOutfit, {
+            bodyType: styleProfile.bodyType,
+            skinTone: styleProfile.skinTone,
+            height: styleProfile.height,
+            waistSize: styleProfile.waistSize,
+            stylePreference: styleProfile.stylePreference,
+        });
+    }, [
+        bodyPhoto?.processedUrl,
+        bodyPhoto?.originalUrl,
+        suggestedOutfit.map((item) => item.id).join(','),
+    ]);
 
     const renderQuizChoiceCard = (
         label: string,
@@ -787,78 +859,98 @@ export default function OutfitsScreen() {
                                         {bodyPhoto ? (
                                             <View style={styles.styledPreviewCard}>
                                                 <View style={styles.styledPreviewStage}>
-                                                    <Image
-                                                        source={{ uri: api.getImageUrl(bodyPhoto.processedUrl || bodyPhoto.originalUrl) }}
-                                                        style={styles.styledPreviewImage}
-                                                        resizeMode="contain"
-                                                    />
-                                                    {layeredOutfitItems.bottom ? (
-                                                        <DraggableCanvasItem
-                                                            uri={api.getImageUrl(layeredOutfitItems.bottom.processedUrl)}
-                                                            baseStyle={[styles.overlayLayer, overlayFrames.bottom]}
-                                                            state={overlayState.bottom}
-                                                            selected={selectedOverlayKey === 'bottom'}
-                                                            onSelect={() => setSelectedOverlayKey('bottom')}
-                                                            onChange={(next) => updateOverlayTransform('bottom', next)}
+                                                    {tryOnPreview?.previewUrl ? (
+                                                        <Image
+                                                            source={{ uri: api.getImageUrl(tryOnPreview.previewUrl) }}
+                                                            style={styles.styledPreviewImage}
+                                                            resizeMode="contain"
                                                         />
+                                                    ) : (
+                                                        <>
+                                                            <Image
+                                                                source={{ uri: api.getImageUrl(bodyPhoto.processedUrl || bodyPhoto.originalUrl) }}
+                                                                style={styles.styledPreviewImage}
+                                                                resizeMode="contain"
+                                                            />
+                                                            {layeredOutfitItems.bottom ? (
+                                                                <DraggableCanvasItem
+                                                                    uri={api.getImageUrl(layeredOutfitItems.bottom.processedUrl)}
+                                                                    baseStyle={[styles.overlayLayer, overlayFrames.bottom]}
+                                                                    state={overlayState.bottom}
+                                                                    selected={selectedOverlayKey === 'bottom'}
+                                                                    onSelect={() => setSelectedOverlayKey('bottom')}
+                                                                    onChange={(next) => updateOverlayTransform('bottom', next)}
+                                                                />
+                                                            ) : null}
+                                                            {layeredOutfitItems.top ? (
+                                                                <DraggableCanvasItem
+                                                                    uri={api.getImageUrl(layeredOutfitItems.top.processedUrl)}
+                                                                    baseStyle={[styles.overlayLayer, overlayFrames.top]}
+                                                                    state={overlayState.top}
+                                                                    selected={selectedOverlayKey === 'top'}
+                                                                    onSelect={() => setSelectedOverlayKey('top')}
+                                                                    onChange={(next) => updateOverlayTransform('top', next)}
+                                                                />
+                                                            ) : null}
+                                                            {layeredOutfitItems.outerwear ? (
+                                                                <DraggableCanvasItem
+                                                                    uri={api.getImageUrl(layeredOutfitItems.outerwear.processedUrl)}
+                                                                    baseStyle={[styles.overlayLayer, overlayFrames.outerwear]}
+                                                                    state={overlayState.outerwear}
+                                                                    selected={selectedOverlayKey === 'outerwear'}
+                                                                    onSelect={() => setSelectedOverlayKey('outerwear')}
+                                                                    onChange={(next) => updateOverlayTransform('outerwear', next)}
+                                                                />
+                                                            ) : null}
+                                                            {layeredOutfitItems.footwear ? (
+                                                                <DraggableCanvasItem
+                                                                    uri={api.getImageUrl(layeredOutfitItems.footwear.processedUrl)}
+                                                                    baseStyle={[styles.overlayLayer, overlayFrames.footwear]}
+                                                                    state={overlayState.footwear}
+                                                                    selected={selectedOverlayKey === 'footwear'}
+                                                                    onSelect={() => setSelectedOverlayKey('footwear')}
+                                                                    onChange={(next) => updateOverlayTransform('footwear', next)}
+                                                                />
+                                                            ) : null}
+                                                            {layeredOutfitItems.accessories.slice(0, 2).map((item, index) => (
+                                                                <DraggableCanvasItem
+                                                                    key={item.id}
+                                                                    uri={api.getImageUrl(item.processedUrl)}
+                                                                    baseStyle={[
+                                                                        styles.overlayLayer,
+                                                                        index === 0 ? overlayFrames.accessoryLeft : overlayFrames.accessoryRight,
+                                                                    ]}
+                                                                    state={index === 0 ? overlayState.accessoryLeft : overlayState.accessoryRight}
+                                                                    selected={selectedOverlayKey === (index === 0 ? 'accessoryLeft' : 'accessoryRight')}
+                                                                    onSelect={() => setSelectedOverlayKey(index === 0 ? 'accessoryLeft' : 'accessoryRight')}
+                                                                    onChange={(next) =>
+                                                                        updateOverlayTransform(index === 0 ? 'accessoryLeft' : 'accessoryRight', next)
+                                                                    }
+                                                                />
+                                                            ))}
+                                                        </>
+                                                    )}
+                                                    {tryOnLoading ? (
+                                                        <View style={styles.tryOnLoadingBadge}>
+                                                            <ActivityIndicator size="small" color={Colors.white} />
+                                                            <Text style={styles.tryOnLoadingText}>Generating try-on</Text>
+                                                        </View>
                                                     ) : null}
-                                                    {layeredOutfitItems.top ? (
-                                                        <DraggableCanvasItem
-                                                            uri={api.getImageUrl(layeredOutfitItems.top.processedUrl)}
-                                                            baseStyle={[styles.overlayLayer, overlayFrames.top]}
-                                                            state={overlayState.top}
-                                                            selected={selectedOverlayKey === 'top'}
-                                                            onSelect={() => setSelectedOverlayKey('top')}
-                                                            onChange={(next) => updateOverlayTransform('top', next)}
-                                                        />
-                                                    ) : null}
-                                                    {layeredOutfitItems.outerwear ? (
-                                                        <DraggableCanvasItem
-                                                            uri={api.getImageUrl(layeredOutfitItems.outerwear.processedUrl)}
-                                                            baseStyle={[styles.overlayLayer, overlayFrames.outerwear]}
-                                                            state={overlayState.outerwear}
-                                                            selected={selectedOverlayKey === 'outerwear'}
-                                                            onSelect={() => setSelectedOverlayKey('outerwear')}
-                                                            onChange={(next) => updateOverlayTransform('outerwear', next)}
-                                                        />
-                                                    ) : null}
-                                                    {layeredOutfitItems.footwear ? (
-                                                        <DraggableCanvasItem
-                                                            uri={api.getImageUrl(layeredOutfitItems.footwear.processedUrl)}
-                                                            baseStyle={[styles.overlayLayer, overlayFrames.footwear]}
-                                                            state={overlayState.footwear}
-                                                            selected={selectedOverlayKey === 'footwear'}
-                                                            onSelect={() => setSelectedOverlayKey('footwear')}
-                                                            onChange={(next) => updateOverlayTransform('footwear', next)}
-                                                        />
-                                                    ) : null}
-                                                    {layeredOutfitItems.accessories.slice(0, 2).map((item, index) => (
-                                                        <DraggableCanvasItem
-                                                            key={item.id}
-                                                            uri={api.getImageUrl(item.processedUrl)}
-                                                            baseStyle={[
-                                                                styles.overlayLayer,
-                                                                index === 0 ? overlayFrames.accessoryLeft : overlayFrames.accessoryRight,
-                                                            ]}
-                                                            state={index === 0 ? overlayState.accessoryLeft : overlayState.accessoryRight}
-                                                            selected={selectedOverlayKey === (index === 0 ? 'accessoryLeft' : 'accessoryRight')}
-                                                            onSelect={() => setSelectedOverlayKey(index === 0 ? 'accessoryLeft' : 'accessoryRight')}
-                                                            onChange={(next) =>
-                                                                updateOverlayTransform(index === 0 ? 'accessoryLeft' : 'accessoryRight', next)
-                                                            }
-                                                        />
-                                                    ))}
                                                 </View>
                                                 <View style={styles.styledPreviewMeta}>
                                                     <Text style={[styles.styledPreviewTitle, { color: theme.text }]}>Styled On You</Text>
                                                     <Text style={[styles.styledPreviewSubtitle, { color: theme.textSecondary }]}>
-                                                        Your uploaded body photo with the selected outfit layered onto the body preview
+                                                        {tryOnPreview?.previewUrl
+                                                            ? 'Server-generated preview with softened original clothing and composed outfit fit'
+                                                            : 'Your uploaded body photo with the selected outfit layered onto the body preview'}
                                                     </Text>
                                                     <View style={styles.canvasHintRow}>
                                                         <Text style={[styles.canvasHintText, { color: theme.textSecondary }]}>
-                                                            Drag a clothing layer to position it. Select a layer to resize it.
+                                                            {tryOnPreview?.previewUrl
+                                                                ? 'If the generated fit is not ideal yet, the app falls back to manual overlay while the backend preview improves.'
+                                                                : 'Drag a clothing layer to position it. Select a layer to resize it.'}
                                                         </Text>
-                                                        {selectedOverlayKey ? (
+                                                        {!tryOnPreview?.previewUrl && selectedOverlayKey ? (
                                                             <View style={styles.canvasControls}>
                                                                 <TouchableOpacity style={styles.canvasControlBtn} onPress={() => resizeSelectedOverlay(-0.08)}>
                                                                     <Ionicons name="remove" size={16} color={Colors.goldDark} />
@@ -871,7 +963,138 @@ export default function OutfitsScreen() {
                                                     </View>
                                                 </View>
                                             </View>
-                                        ) : null}
+                                        ) : (
+                                            <View style={styles.styledPreviewCard}>
+                                                <View style={styles.styledPreviewStage}>
+                                                    <View style={styles.mannequinStage}>
+                                                        <LinearGradient
+                                                            colors={['#2B3541', '#1D252E']}
+                                                            start={{ x: 0, y: 0 }}
+                                                            end={{ x: 1, y: 1 }}
+                                                            style={styles.mannequinBackdrop}
+                                                        />
+                                                        <View style={styles.mannequinFloorShadow} />
+                                                        <LinearGradient
+                                                            colors={['#F2E8DA', '#D8C7B2']}
+                                                            style={styles.mannequinHead}
+                                                            start={{ x: 0.2, y: 0 }}
+                                                            end={{ x: 0.8, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#EAD9C4', '#D8C4AA']}
+                                                            style={styles.mannequinNeck}
+                                                            start={{ x: 0.3, y: 0 }}
+                                                            end={{ x: 0.8, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#EFE3D2', '#D9C9B4']}
+                                                            style={styles.mannequinShoulderFrame}
+                                                            start={{ x: 0.1, y: 0 }}
+                                                            end={{ x: 0.9, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#EEDFCB', '#D3BEA2']}
+                                                            style={styles.mannequinTorso}
+                                                            start={{ x: 0.15, y: 0 }}
+                                                            end={{ x: 0.9, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#E9D8C2', '#CEB597']}
+                                                            style={[styles.mannequinArm, styles.mannequinArmLeft]}
+                                                            start={{ x: 0.2, y: 0 }}
+                                                            end={{ x: 0.9, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#E9D8C2', '#CEB597']}
+                                                            style={[styles.mannequinArm, styles.mannequinArmRight]}
+                                                            start={{ x: 0.2, y: 0 }}
+                                                            end={{ x: 0.9, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#EADAC7', '#CBB293']}
+                                                            style={styles.mannequinHip}
+                                                            start={{ x: 0.2, y: 0 }}
+                                                            end={{ x: 0.8, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#E5D2BA', '#C4A989']}
+                                                            style={[styles.mannequinLeg, styles.mannequinLegLeft]}
+                                                            start={{ x: 0.25, y: 0 }}
+                                                            end={{ x: 0.9, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#E5D2BA', '#C4A989']}
+                                                            style={[styles.mannequinLeg, styles.mannequinLegRight]}
+                                                            start={{ x: 0.25, y: 0 }}
+                                                            end={{ x: 0.9, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#D4B593', '#B8946E']}
+                                                            style={[styles.mannequinFoot, styles.mannequinFootLeft]}
+                                                            start={{ x: 0.2, y: 0 }}
+                                                            end={{ x: 0.9, y: 1 }}
+                                                        />
+                                                        <LinearGradient
+                                                            colors={['#D4B593', '#B8946E']}
+                                                            style={[styles.mannequinFoot, styles.mannequinFootRight]}
+                                                            start={{ x: 0.2, y: 0 }}
+                                                            end={{ x: 0.9, y: 1 }}
+                                                        />
+
+                                                        {layeredOutfitItems.bottom ? (
+                                                            <Image
+                                                                source={{ uri: api.getImageUrl(layeredOutfitItems.bottom.processedUrl) }}
+                                                                style={[styles.mannequinOverlay, MANNEQUIN_OVERLAY_FRAMES.bottom]}
+                                                                resizeMode="contain"
+                                                            />
+                                                        ) : null}
+                                                        {layeredOutfitItems.top ? (
+                                                            <Image
+                                                                source={{ uri: api.getImageUrl(layeredOutfitItems.top.processedUrl) }}
+                                                                style={[styles.mannequinOverlay, MANNEQUIN_OVERLAY_FRAMES.top]}
+                                                                resizeMode="contain"
+                                                            />
+                                                        ) : null}
+                                                        {layeredOutfitItems.outerwear ? (
+                                                            <Image
+                                                                source={{ uri: api.getImageUrl(layeredOutfitItems.outerwear.processedUrl) }}
+                                                                style={[styles.mannequinOverlay, MANNEQUIN_OVERLAY_FRAMES.outerwear]}
+                                                                resizeMode="contain"
+                                                            />
+                                                        ) : null}
+                                                        {layeredOutfitItems.footwear ? (
+                                                            <Image
+                                                                source={{ uri: api.getImageUrl(layeredOutfitItems.footwear.processedUrl) }}
+                                                                style={[styles.mannequinOverlay, MANNEQUIN_OVERLAY_FRAMES.footwear]}
+                                                                resizeMode="contain"
+                                                            />
+                                                        ) : null}
+                                                        {layeredOutfitItems.accessories.slice(0, 2).map((item, index) => (
+                                                            <Image
+                                                                key={item.id}
+                                                                source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                                                style={[
+                                                                    styles.mannequinOverlay,
+                                                                    index === 0
+                                                                        ? MANNEQUIN_OVERLAY_FRAMES.accessoryLeft
+                                                                        : MANNEQUIN_OVERLAY_FRAMES.accessoryRight,
+                                                                ]}
+                                                                resizeMode="contain"
+                                                            />
+                                                        ))}
+                                                    </View>
+                                                </View>
+                                                <View style={styles.styledPreviewMeta}>
+                                                    <Text style={[styles.styledPreviewTitle, { color: theme.text }]}>Styled On Avatar</Text>
+                                                    <Text style={[styles.styledPreviewSubtitle, { color: theme.textSecondary }]}>
+                                                        Suggested outfit on a simple mannequin preview before you upload your body photo
+                                                    </Text>
+                                                    <Text style={[styles.mannequinHintText, { color: theme.textSecondary }]}>
+                                                        Upload your photo to replace the mannequin with a personal preview.
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        )}
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.outfitStrip}>
                                             {suggestedOutfit.map((item, i) => (
                                                 <View key={i} style={styles.outfitItem}>
@@ -1653,11 +1876,117 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
     },
+    mannequinStage: {
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    mannequinBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        opacity: 0.94,
+    },
+    mannequinFloorShadow: {
+        position: 'absolute',
+        bottom: '8%',
+        width: '52%',
+        height: 28,
+        borderRadius: 20,
+        backgroundColor: 'rgba(15,18,25,0.24)',
+    },
+    mannequinHead: {
+        position: 'absolute',
+        top: '11%',
+        width: 76,
+        height: 90,
+        borderRadius: 40,
+    },
+    mannequinNeck: {
+        position: 'absolute',
+        top: '26%',
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+    },
+    mannequinShoulderFrame: {
+        position: 'absolute',
+        top: '28%',
+        width: 194,
+        height: 80,
+        borderRadius: 34,
+    },
+    mannequinTorso: {
+        position: 'absolute',
+        top: '31%',
+        width: 132,
+        height: 142,
+        borderTopLeftRadius: 48,
+        borderTopRightRadius: 48,
+        borderBottomLeftRadius: 28,
+        borderBottomRightRadius: 28,
+    },
+    mannequinArm: {
+        position: 'absolute',
+        top: '34%',
+        width: 28,
+        height: 138,
+        borderRadius: 18,
+    },
+    mannequinArmLeft: {
+        left: '23%',
+        transform: [{ rotate: '8deg' }],
+    },
+    mannequinArmRight: {
+        right: '23%',
+        transform: [{ rotate: '-8deg' }],
+    },
+    mannequinHip: {
+        position: 'absolute',
+        top: '60%',
+        width: 104,
+        height: 56,
+        borderRadius: 22,
+    },
+    mannequinLeg: {
+        position: 'absolute',
+        top: '66%',
+        width: 34,
+        height: 112,
+        borderRadius: 18,
+    },
+    mannequinLegLeft: {
+        left: '43%',
+        transform: [{ rotate: '1deg' }],
+    },
+    mannequinLegRight: {
+        right: '43%',
+        transform: [{ rotate: '-1deg' }],
+    },
+    mannequinFoot: {
+        position: 'absolute',
+        top: '90%',
+        width: 44,
+        height: 14,
+        borderRadius: 8,
+    },
+    mannequinFootLeft: {
+        left: '41%',
+        transform: [{ rotate: '4deg' }],
+    },
+    mannequinFootRight: {
+        right: '41%',
+        transform: [{ rotate: '-4deg' }],
+    },
+    mannequinOverlay: {
+        position: 'absolute',
+    },
     overlaySelected: {
-        borderWidth: 1.5,
-        borderColor: Colors.gold,
+        borderWidth: 1,
+        borderColor: 'rgba(201,168,76,0.32)',
         borderRadius: BorderRadius.md,
-        backgroundColor: 'rgba(242,169,0,0.06)',
+        backgroundColor: 'rgba(201,168,76,0.02)',
     },
     overlayTouchable: {
         width: '100%',
@@ -1670,6 +1999,23 @@ const styles = StyleSheet.create({
     overlayLayer: {
         position: 'absolute',
     },
+    tryOnLoadingBadge: {
+        position: 'absolute',
+        right: Spacing.md,
+        top: Spacing.md,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderRadius: BorderRadius.round,
+        backgroundColor: 'rgba(26,26,46,0.78)',
+    },
+    tryOnLoadingText: {
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: '600',
+    },
     styledPreviewMeta: {
         padding: Spacing.md,
     },
@@ -1680,6 +2026,11 @@ const styles = StyleSheet.create({
     styledPreviewSubtitle: {
         fontSize: 12,
         marginTop: 4,
+        lineHeight: 18,
+    },
+    mannequinHintText: {
+        fontSize: 12,
+        marginTop: Spacing.sm,
         lineHeight: 18,
     },
     canvasHintRow: {

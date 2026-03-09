@@ -15,10 +15,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PackingController = void 0;
 const common_1 = require("@nestjs/common");
 const packing_service_1 = require("./packing.service");
+const try_on_service_1 = require("./try-on.service");
 let PackingController = class PackingController {
     packingService;
-    constructor(packingService) {
+    tryOnService;
+    constructor(packingService, tryOnService) {
         this.packingService = packingService;
+        this.tryOnService = tryOnService;
     }
     async generate(body) {
         if (!body.destination || !body.days) {
@@ -29,6 +32,14 @@ let PackingController = class PackingController {
     }
     async getStylistSuggestion() {
         const data = await this.packingService.getStylistSuggestion();
+        return { success: true, data };
+    }
+    async getPersonalizedStylistSuggestion(body) {
+        const data = await this.packingService.getStylistSuggestion(body);
+        return { success: true, data };
+    }
+    async generateTryOnPreview(body) {
+        const data = await this.tryOnService.generatePreview(body);
         return { success: true, data };
     }
 };
@@ -46,8 +57,23 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], PackingController.prototype, "getStylistSuggestion", null);
+__decorate([
+    (0, common_1.Post)('stylist'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PackingController.prototype, "getPersonalizedStylistSuggestion", null);
+__decorate([
+    (0, common_1.Post)('try-on/preview'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PackingController.prototype, "generateTryOnPreview", null);
 exports.PackingController = PackingController = __decorate([
     (0, common_1.Controller)('api/packing'),
-    __metadata("design:paramtypes", [packing_service_1.PackingService])
+    __metadata("design:paramtypes", [packing_service_1.PackingService,
+        try_on_service_1.TryOnService])
 ], PackingController);
 //# sourceMappingURL=packing.controller.js.map

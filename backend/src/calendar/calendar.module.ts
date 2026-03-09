@@ -3,8 +3,8 @@ import { CalendarController } from './calendar.controller';
 import { CalendarService } from './calendar.service';
 
 @Module({
-    controllers: [CalendarController],
-    providers: [CalendarService],
-    exports: [CalendarService],
+  controllers: [CalendarController],
+  providers: [CalendarService],
+  exports: [CalendarService],
 })
-export class CalendarModule { }
+export class CalendarModule {}

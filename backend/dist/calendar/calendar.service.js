@@ -13,7 +13,9 @@ const firebase_admin_1 = require("../firebase-admin");
 const uuid_1 = require("uuid");
 let CalendarService = CalendarService_1 = class CalendarService {
     logger = new common_1.Logger(CalendarService_1.name);
-    collection = (0, firebase_admin_1.getFirebaseAdmin)().firestore().collection('outfits_calendar');
+    collection = (0, firebase_admin_1.getFirebaseAdmin)()
+        .firestore()
+        .collection('outfits_calendar');
     docToOOTD(id, data) {
         if (!data)
             return null;
@@ -39,7 +41,10 @@ let CalendarService = CalendarService_1 = class CalendarService {
             .sort((a, b) => a.date.localeCompare(b.date));
     }
     async saveOOTD(date, itemIds, notes = '') {
-        const snapshot = await this.collection.where('date', '==', date).limit(1).get();
+        const snapshot = await this.collection
+            .where('date', '==', date)
+            .limit(1)
+            .get();
         let id = (0, uuid_1.v4)();
         let createdAt = new Date().toISOString();
         if (!snapshot.empty) {
@@ -66,7 +71,7 @@ let CalendarService = CalendarService_1 = class CalendarService {
             .where('date', '>=', dateString)
             .get();
         const itemCounts = {};
-        snapshot.docs.forEach(doc => {
+        snapshot.docs.forEach((doc) => {
             const data = doc.data();
             const items = data.itemIds || [];
             items.forEach((itemId) => {
@@ -78,7 +83,7 @@ let CalendarService = CalendarService_1 = class CalendarService {
             .sort((a, b) => b.count - a.count);
         return {
             mostWorn: sortedItems.slice(0, 5),
-            leastWorn: sortedItems.slice().reverse().slice(0, 5)
+            leastWorn: sortedItems.slice().reverse().slice(0, 5),
         };
     }
 };

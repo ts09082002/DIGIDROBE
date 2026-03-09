@@ -83,7 +83,7 @@ let BackgroundRemovalService = BackgroundRemovalService_1 = class BackgroundRemo
             };
         }
         catch (error) {
-            console.error("Background removal error:", error);
+            console.error('Background removal error:', error);
             this.logger.error(`AI service background removal failed: ${error.message}`);
             await this.fallbackRemoval(inputPath, outputPath);
             const fallbackBuffer = fs.readFileSync(outputPath);
