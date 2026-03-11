@@ -52,6 +52,7 @@ const fs = __importStar(require("fs"));
 const path_1 = require("path");
 const sharp_1 = __importDefault(require("sharp"));
 const uuid_1 = require("uuid");
+const replicate_1 = __importDefault(require("replicate"));
 const wardrobe_service_1 = require("../wardrobe/wardrobe.service");
 const packing_service_1 = require("./packing.service");
 let TryOnService = TryOnService_1 = class TryOnService {
@@ -60,9 +61,18 @@ let TryOnService = TryOnService_1 = class TryOnService {
     logger = new common_1.Logger(TryOnService_1.name);
     uploadsRoot = (0, path_1.join)(__dirname, '..', '..', 'uploads');
     generatedDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'tryon', 'generated');
+    replicate = null;
     constructor(wardrobeService, packingService) {
         this.wardrobeService = wardrobeService;
         this.packingService = packingService;
+        const token = process.env.REPLICATE_API_TOKEN;
+        if (token) {
+            this.replicate = new replicate_1.default({ auth: token });
+            this.logger.log('Replicate client initialized for IDM-VTON');
+        }
+        else {
+            this.logger.warn('REPLICATE_API_TOKEN not set — IDM-VTON try-on will be unavailable');
+        }
     }
     async generatePreview(request) {
         if (!request.bodyPhotoUrl) {
@@ -81,52 +91,200 @@ let TryOnService = TryOnService_1 = class TryOnService {
             throw new common_1.NotFoundException(`Body photo not found for ${request.bodyPhotoUrl}`);
         }
         fs.mkdirSync(this.generatedDir, { recursive: true });
-        const bodyBuffer = fs.readFileSync(bodyPhotoPath);
-        const bodyBox = await this.extractBodyBox(bodyBuffer);
-        const previewBuffer = await this.composePreview(bodyBuffer, bodyBox, outfitItems);
-        const filename = `${(0, uuid_1.v4)()}_preview.png`;
-        const outputPath = (0, path_1.join)(this.generatedDir, filename);
-        fs.writeFileSync(outputPath, previewBuffer);
+        const garment = this.pickPrimaryGarment(outfitItems);
+        const garmentPath = this.resolveUploadPath(garment.processedUrl || garment.originalUrl);
+        if (!fs.existsSync(garmentPath)) {
+            throw new common_1.NotFoundException(`Garment image not found for ${garment.originalFilename}`);
+        }
+        let previewUrl;
+        let mode = 'idm-vton';
+        try {
+            previewUrl = await this.runIdmVton(bodyPhotoPath, garmentPath, garment);
+            this.logger.log('IDM-VTON succeeded!');
+        }
+        catch (error) {
+            this.logger.error(`IDM-VTON failed: ${error?.message || error}`, error?.stack);
+            mode = 'local-compose';
+            try {
+                previewUrl = await this.localComposeFallback(bodyPhotoPath, outfitItems);
+            }
+            catch (fallbackError) {
+                this.logger.error(`Local compose fallback also failed: ${fallbackError?.message || fallbackError}`);
+                const filename = `${(0, uuid_1.v4)()}_bodyphoto.png`;
+                const outputPath = (0, path_1.join)(this.generatedDir, filename);
+                fs.copyFileSync(bodyPhotoPath, outputPath);
+                previewUrl = `/uploads/tryon/generated/${filename}`;
+            }
+        }
         return {
-            previewUrl: `/uploads/tryon/generated/${filename}`,
+            previewUrl,
             bodyPhotoUrl: request.bodyPhotoUrl,
             outfitItems,
             suggestedOutfit,
-            bodyBox,
-            note: `${(0, packing_service_1.buildLookNote)(request.profile)} | server-composed preview`,
-            mode: 'local-compose',
+            note: `${(0, packing_service_1.buildLookNote)(request.profile)} | ${mode} preview`,
+            mode,
         };
     }
-    resolveUploadPath(urlOrPath) {
-        const raw = (urlOrPath || '').trim();
-        if (!raw) {
-            throw new common_1.BadRequestException('Missing upload path');
+    async runIdmVton(bodyPhotoPath, garmentPath, garment) {
+        if (!this.replicate) {
+            throw new Error('Replicate client not initialized — REPLICATE_API_TOKEN missing');
         }
-        let pathname = raw;
-        if (raw.startsWith('http://') || raw.startsWith('https://')) {
-            pathname = new URL(raw).pathname;
+        const bodyBuffer = fs.readFileSync(bodyPhotoPath);
+        const garmentBuffer = fs.readFileSync(garmentPath);
+        const bodyJpeg = await (0, sharp_1.default)(bodyBuffer)
+            .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 90 })
+            .toBuffer();
+        const garmentJpeg = await (0, sharp_1.default)(garmentBuffer)
+            .flatten({ background: { r: 255, g: 255, b: 255 } })
+            .resize({ width: 768, height: 1024, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 90 })
+            .toBuffer();
+        const bodyBase64 = `data:image/jpeg;base64,${bodyJpeg.toString('base64')}`;
+        const garmentBase64 = `data:image/jpeg;base64,${garmentJpeg.toString('base64')}`;
+        const cat = (0, packing_service_1.categorize)(garment.category);
+        let vtonCategory = 'upper_body';
+        if (cat === 'bottoms' || cat === 'dresses') {
+            vtonCategory = 'lower_body';
         }
-        const uploadPrefix = '/uploads/';
-        const index = pathname.indexOf(uploadPrefix);
-        if (index === -1) {
-            throw new common_1.BadRequestException(`Unsupported upload path: ${urlOrPath}`);
+        if (cat === 'dresses') {
+            vtonCategory = 'dresses';
         }
-        const relativePath = pathname.slice(index + uploadPrefix.length);
-        const resolved = (0, path_1.normalize)((0, path_1.join)(this.uploadsRoot, relativePath));
-        const normalizedRoot = (0, path_1.normalize)(this.uploadsRoot);
-        if (!resolved.startsWith(normalizedRoot)) {
-            throw new common_1.BadRequestException('Invalid upload path');
+        this.logger.log(`Calling IDM-VTON on Replicate — category: ${vtonCategory}, garment: ${garment.originalFilename}`);
+        const output = await this.replicate.run('cuuupid/idm-vton:0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985', {
+            input: {
+                human_img: bodyBase64,
+                garm_img: garmentBase64,
+                garment_des: garment.name || 'A clothing garment',
+                category: vtonCategory,
+                auto_mask: true,
+                auto_crop: true,
+                seed: 42,
+                num_inference_steps: 30,
+            },
+        });
+        this.logger.log(`IDM-VTON raw output type: ${typeof output}, isArray: ${Array.isArray(output)}, value preview: ${String(output).substring(0, 200)}`);
+        const resultUrl = this.extractResultUrl(output);
+        const filename = `${(0, uuid_1.v4)()}_idmvton.png`;
+        const outputPath = (0, path_1.join)(this.generatedDir, filename);
+        if (resultUrl.startsWith('http')) {
+            this.logger.log(`Downloading IDM-VTON result from: ${resultUrl.substring(0, 100)}...`);
+            const response = await fetch(resultUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to download IDM-VTON result: ${response.status} ${response.statusText}`);
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            fs.writeFileSync(outputPath, Buffer.from(arrayBuffer));
         }
-        return resolved;
+        else if (resultUrl.startsWith('data:')) {
+            const base64Data = resultUrl.split(',')[1];
+            fs.writeFileSync(outputPath, Buffer.from(base64Data, 'base64'));
+        }
+        else {
+            throw new Error(`Unexpected IDM-VTON output format: ${resultUrl.substring(0, 100)}`);
+        }
+        this.logger.log(`IDM-VTON result saved to ${outputPath}`);
+        return `/uploads/tryon/generated/${filename}`;
+    }
+    extractResultUrl(output) {
+        if (typeof output === 'string' && output.length > 0) {
+            return output;
+        }
+        if (Array.isArray(output) && output.length > 0) {
+            const first = output[0];
+            if (typeof first === 'string')
+                return first;
+            if (first && typeof first === 'object') {
+                if ('url' in first && typeof first.url === 'function') {
+                    return first.url();
+                }
+                if ('url' in first && typeof first.url === 'string') {
+                    return first.url;
+                }
+                if ('href' in first && typeof first.href === 'string') {
+                    return first.href;
+                }
+                const str = String(first);
+                if (str.startsWith('http') || str.startsWith('data:'))
+                    return str;
+            }
+        }
+        if (output && typeof output === 'object' && !Array.isArray(output)) {
+            const obj = output;
+            if ('url' in obj && typeof obj.url === 'function')
+                return obj.url();
+            if ('url' in obj && typeof obj.url === 'string')
+                return obj.url;
+            if ('href' in obj && typeof obj.href === 'string')
+                return obj.href;
+            const str = String(obj);
+            if (str.startsWith('http') || str.startsWith('data:'))
+                return str;
+        }
+        throw new Error(`Could not extract URL from IDM-VTON output. Type: ${typeof output}, value: ${String(output).substring(0, 300)}`);
+    }
+    pickPrimaryGarment(outfitItems) {
+        const priority = ['tops', 'dresses', 'outerwear', 'bottoms'];
+        for (const cat of priority) {
+            const item = outfitItems.find((i) => (0, packing_service_1.categorize)(i.category) === cat);
+            if (item)
+                return item;
+        }
+        return outfitItems[0];
+    }
+    async localComposeFallback(bodyPhotoPath, outfitItems) {
+        const bodyBuffer = fs.readFileSync(bodyPhotoPath);
+        const bodyMeta = await (0, sharp_1.default)(bodyBuffer).metadata();
+        const width = bodyMeta.width ?? 0;
+        const height = bodyMeta.height ?? 0;
+        if (!width || !height) {
+            throw new common_1.BadRequestException('Body image is invalid');
+        }
+        const bodyBox = await this.extractBodyBox(bodyBuffer);
+        const normalizedBox = bodyBox ?? {
+            left: 0.2,
+            top: 0.06,
+            width: 0.6,
+            height: 0.88,
+            imageWidth: width,
+            imageHeight: height,
+        };
+        let working = await (0, sharp_1.default)(bodyBuffer).ensureAlpha().png().toBuffer();
+        for (const region of this.getSuppressionRegions(normalizedBox, width, height)) {
+            const clamped = this.clampRegion(region, width, height);
+            if (clamped.width > 0 && clamped.height > 0) {
+                working = await this.eraseAndNeutralizeRegion(working, clamped);
+            }
+        }
+        const placements = await this.buildGarmentPlacements(normalizedBox, width, height, outfitItems);
+        const previewBuffer = await (0, sharp_1.default)(working)
+            .composite(placements)
+            .png()
+            .toBuffer();
+        const filename = `${(0, uuid_1.v4)()}_fallback.png`;
+        const outputPath = (0, path_1.join)(this.generatedDir, filename);
+        fs.writeFileSync(outputPath, previewBuffer);
+        return `/uploads/tryon/generated/${filename}`;
+    }
+    clampRegion(region, imageWidth, imageHeight) {
+        const left = Math.max(0, Math.min(region.left, imageWidth - 1));
+        const top = Math.max(0, Math.min(region.top, imageHeight - 1));
+        const right = Math.min(imageWidth, left + region.width);
+        const bottom = Math.min(imageHeight, top + region.height);
+        return {
+            left,
+            top,
+            width: Math.max(1, right - left),
+            height: Math.max(1, bottom - top),
+        };
     }
     async extractBodyBox(imageBuffer) {
         const image = (0, sharp_1.default)(imageBuffer).ensureAlpha();
         const metadata = await image.metadata();
         const width = metadata.width ?? 0;
         const height = metadata.height ?? 0;
-        if (!width || !height) {
+        if (!width || !height)
             return undefined;
-        }
         const { data, info } = await image
             .raw()
             .toBuffer({ resolveWithObject: true });
@@ -171,38 +329,13 @@ let TryOnService = TryOnService_1 = class TryOnService {
             imageHeight: height,
         };
     }
-    async composePreview(bodyBuffer, bodyBox, outfitItems) {
-        const bodyMeta = await (0, sharp_1.default)(bodyBuffer).metadata();
-        const width = bodyMeta.width ?? 0;
-        const height = bodyMeta.height ?? 0;
-        if (!width || !height) {
-            throw new common_1.BadRequestException('Body image is invalid');
-        }
-        const normalizedBox = bodyBox ?? {
-            left: 0.2,
-            top: 0.06,
-            width: 0.6,
-            height: 0.88,
-            imageWidth: width,
-            imageHeight: height,
-        };
-        let working = await (0, sharp_1.default)(bodyBuffer).ensureAlpha().png().toBuffer();
-        for (const region of this.getSuppressionRegions(normalizedBox, width, height)) {
-            working = await this.eraseAndNeutralizeRegion(working, region);
-        }
-        const placements = await this.buildGarmentPlacements(normalizedBox, width, height, outfitItems);
-        return (0, sharp_1.default)(working)
-            .composite(placements)
-            .png()
-            .toBuffer();
-    }
     getSuppressionRegions(bodyBox, imageWidth, imageHeight) {
         const box = this.toPixels(bodyBox, imageWidth, imageHeight);
         return [
             {
-                left: Math.round(box.left + box.width * 0.10),
+                left: Math.round(box.left + box.width * 0.1),
                 top: Math.round(box.top + box.height * 0.09),
-                width: Math.round(box.width * 0.80),
+                width: Math.round(box.width * 0.8),
                 height: Math.round(box.height * 0.34),
             },
             {
@@ -212,9 +345,6 @@ let TryOnService = TryOnService_1 = class TryOnService {
                 height: Math.round(box.height * 0.42),
             },
         ];
-    }
-    async blurAndSoftenRegion(sourceBuffer, region) {
-        return this.eraseAndNeutralizeRegion(sourceBuffer, region);
     }
     async eraseAndNeutralizeRegion(sourceBuffer, region) {
         const safeRegion = {
@@ -260,64 +390,45 @@ let TryOnService = TryOnService_1 = class TryOnService {
         const layout = [
             {
                 item: grouped.bottom,
-                region: {
+                region: this.clampRegion({
                     left: Math.round(box.left + box.width * 0.14),
                     top: Math.round(box.top + box.height * 0.32),
                     width: Math.round(box.width * 0.72),
                     height: Math.round(box.height * 0.54),
-                },
+                }, imageWidth, imageHeight),
             },
             {
                 item: grouped.top,
-                region: {
+                region: this.clampRegion({
                     left: Math.round(box.left + box.width * 0.04),
                     top: Math.round(box.top + box.height * 0.06),
                     width: Math.round(box.width * 0.92),
                     height: Math.round(box.height * 0.38),
-                },
+                }, imageWidth, imageHeight),
             },
             {
                 item: grouped.outerwear,
-                region: {
+                region: this.clampRegion({
                     left: Math.round(box.left + box.width * 0.02),
                     top: Math.round(box.top + box.height * 0.04),
                     width: Math.round(box.width * 0.96),
                     height: Math.round(box.height * 0.46),
-                },
+                }, imageWidth, imageHeight),
             },
             {
                 item: grouped.footwear,
-                region: {
+                region: this.clampRegion({
                     left: Math.round(box.left + box.width * 0.18),
                     top: Math.round(box.top + box.height * 0.84),
                     width: Math.round(box.width * 0.64),
                     height: Math.round(box.height * 0.13),
-                },
-            },
-            {
-                item: grouped.accessories[0],
-                region: {
-                    left: Math.round(box.left + box.width * 0.06),
-                    top: Math.round(box.top + box.height * 0.22),
-                    width: Math.round(box.width * 0.20),
-                    height: Math.round(box.height * 0.16),
-                },
-            },
-            {
-                item: grouped.accessories[1],
-                region: {
-                    left: Math.round(box.left + box.width * 0.74),
-                    top: Math.round(box.top + box.height * 0.22),
-                    width: Math.round(box.width * 0.20),
-                    height: Math.round(box.height * 0.16),
-                },
+                }, imageWidth, imageHeight),
             },
         ].filter((entry) => Boolean(entry.item));
         const overlays = [];
         for (const entry of layout) {
-            if (!entry.item) {
+            if (!entry.item)
                 continue;
-            }
             const garmentBuffer = await this.prepareGarmentOverlay(entry.item, entry.region);
             overlays.push({
                 input: garmentBuffer,
@@ -378,11 +489,7 @@ let TryOnService = TryOnService_1 = class TryOnService {
             },
         })
             .composite([
-            {
-                input: garment,
-                left,
-                top,
-            },
+            { input: garment, left, top },
             {
                 input: Buffer.from(`<svg width="${targetWidth}" height="${targetHeight}" xmlns="http://www.w3.org/2000/svg">
               <rect width="100%" height="100%" fill="rgba(255,255,255,0.03)" />
@@ -408,6 +515,28 @@ let TryOnService = TryOnService_1 = class TryOnService {
             width: Math.max(1, Math.round(bodyBox.width * imageWidth)),
             height: Math.max(1, Math.round(bodyBox.height * imageHeight)),
         };
+    }
+    resolveUploadPath(urlOrPath) {
+        const raw = (urlOrPath || '').trim();
+        if (!raw) {
+            throw new common_1.BadRequestException('Missing upload path');
+        }
+        let pathname = raw;
+        if (raw.startsWith('http://') || raw.startsWith('https://')) {
+            pathname = new URL(raw).pathname;
+        }
+        const uploadPrefix = '/uploads/';
+        const index = pathname.indexOf(uploadPrefix);
+        if (index === -1) {
+            throw new common_1.BadRequestException(`Unsupported upload path: ${urlOrPath}`);
+        }
+        const relativePath = pathname.slice(index + uploadPrefix.length);
+        const resolved = (0, path_1.normalize)((0, path_1.join)(this.uploadsRoot, relativePath));
+        const normalizedRoot = (0, path_1.normalize)(this.uploadsRoot);
+        if (!resolved.startsWith(normalizedRoot)) {
+            throw new common_1.BadRequestException('Invalid upload path');
+        }
+        return resolved;
     }
 };
 exports.TryOnService = TryOnService;

@@ -104,7 +104,7 @@ export interface TryOnPreviewResult {
     outfitItems: WardrobeItem[];
     suggestedOutfit: WardrobeItem[];
     note: string;
-    mode: 'local-compose';
+    mode: 'idm-vton' | 'local-compose';
     bodyBox?: BodyPhotoUploadResult['bodyBox'];
 }
 

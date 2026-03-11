@@ -933,22 +933,32 @@ export default function OutfitsScreen() {
                                                     {tryOnLoading ? (
                                                         <View style={styles.tryOnLoadingBadge}>
                                                             <ActivityIndicator size="small" color={Colors.white} />
-                                                            <Text style={styles.tryOnLoadingText}>Generating try-on</Text>
+                                                            <Text style={styles.tryOnLoadingText}>AI Try-On (may take ~20s)...</Text>
+                                                        </View>
+                                                    ) : null}
+                                                    {tryOnPreview?.mode === 'idm-vton' && !tryOnLoading ? (
+                                                        <View style={[styles.tryOnLoadingBadge, { backgroundColor: 'rgba(76,175,80,0.85)' }]}>
+                                                            <Ionicons name="sparkles" size={14} color={Colors.white} />
+                                                            <Text style={styles.tryOnLoadingText}>AI Generated (IDM-VTON)</Text>
                                                         </View>
                                                     ) : null}
                                                 </View>
                                                 <View style={styles.styledPreviewMeta}>
                                                     <Text style={[styles.styledPreviewTitle, { color: theme.text }]}>Styled On You</Text>
                                                     <Text style={[styles.styledPreviewSubtitle, { color: theme.textSecondary }]}>
-                                                        {tryOnPreview?.previewUrl
-                                                            ? 'Server-generated preview with softened original clothing and composed outfit fit'
-                                                            : 'Your uploaded body photo with the selected outfit layered onto the body preview'}
+                                                        {tryOnPreview?.mode === 'idm-vton'
+                                                            ? 'AI-generated virtual try-on powered by IDM-VTON — realistic garment fitting'
+                                                            : tryOnPreview?.previewUrl
+                                                                ? 'Server-generated preview with composed outfit fit'
+                                                                : 'Your uploaded body photo with the selected outfit layered onto the body preview'}
                                                     </Text>
                                                     <View style={styles.canvasHintRow}>
                                                         <Text style={[styles.canvasHintText, { color: theme.textSecondary }]}>
-                                                            {tryOnPreview?.previewUrl
-                                                                ? 'If the generated fit is not ideal yet, the app falls back to manual overlay while the backend preview improves.'
-                                                                : 'Drag a clothing layer to position it. Select a layer to resize it.'}
+                                                            {tryOnPreview?.mode === 'idm-vton'
+                                                                ? 'This is a realistic AI-generated image. Upload a clear full-body photo for the best results.'
+                                                                : tryOnPreview?.previewUrl
+                                                                    ? 'If the generated fit is not ideal yet, the app falls back to manual overlay while the backend preview improves.'
+                                                                    : 'Drag a clothing layer to position it. Select a layer to resize it.'}
                                                         </Text>
                                                         {!tryOnPreview?.previewUrl && selectedOverlayKey ? (
                                                             <View style={styles.canvasControls}>

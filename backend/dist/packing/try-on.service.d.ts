@@ -1,13 +1,5 @@
 import { WardrobeItem, WardrobeService } from '../wardrobe/wardrobe.service';
 import { PackingService, StyleProfileRequest } from './packing.service';
-type NormalizedBox = {
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-    imageWidth: number;
-    imageHeight: number;
-};
 export interface TryOnPreviewRequest {
     bodyPhotoUrl: string;
     itemIds?: string[];
@@ -18,9 +10,8 @@ export interface TryOnPreviewResult {
     bodyPhotoUrl: string;
     outfitItems: WardrobeItem[];
     suggestedOutfit: WardrobeItem[];
-    bodyBox?: NormalizedBox;
     note: string;
-    mode: 'local-compose';
+    mode: 'idm-vton' | 'local-compose';
 }
 export declare class TryOnService {
     private readonly wardrobeService;
@@ -28,17 +19,20 @@ export declare class TryOnService {
     private readonly logger;
     private readonly uploadsRoot;
     private readonly generatedDir;
+    private replicate;
     constructor(wardrobeService: WardrobeService, packingService: PackingService);
     generatePreview(request: TryOnPreviewRequest): Promise<TryOnPreviewResult>;
-    private resolveUploadPath;
+    private runIdmVton;
+    private extractResultUrl;
+    private pickPrimaryGarment;
+    private localComposeFallback;
+    private clampRegion;
     private extractBodyBox;
-    private composePreview;
     private getSuppressionRegions;
-    private blurAndSoftenRegion;
     private eraseAndNeutralizeRegion;
     private buildGarmentPlacements;
     private prepareGarmentOverlay;
     private groupOutfitItems;
     private toPixels;
+    private resolveUploadPath;
 }
-export {};
