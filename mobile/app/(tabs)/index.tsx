@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -9,196 +9,287 @@ import {
     Dimensions,
     SafeAreaView,
     StatusBar,
-    Platform
+    Platform,
+    FlatList,
+    ActivityIndicator,
+    Alert,
+    Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors as ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { useRouter } from 'expo-router';
+import { api, WardrobeItem } from '../../services/api';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const CARD_WIDTH = width * 0.38;
 
-// Mock Data
-const POSTS = [
-    {
-        id: '1',
-        user: { name: 'Elena Rosé', location: 'Paris', avatar: 'https://i.pravatar.cc/150?u=elena' },
-        time: '2 hours ago',
-        image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800',
-        rating: 4.9,
-        likes: '1.2k',
-        comments: '84',
-        taggedItems: [
-            'https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&q=80&w=150',
-            'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&q=80&w=150',
-            'https://images.unsplash.com/photo-1584916201218-f4242ceb4809?auto=format&fit=crop&q=80&w=150'
-        ]
-    },
-    {
-        id: '2',
-        user: { name: 'Julian Vane', location: 'London', avatar: 'https://i.pravatar.cc/150?u=julian' },
-        time: '5 hours ago',
-        image: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?auto=format&fit=crop&q=80&w=800',
-        rating: 4.7,
-        likes: '856',
-        comments: '32',
-        taggedItems: [
-            'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&q=80&w=150',
-            'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=150'
-        ]
-    }
-];
+const CATEGORIES = ['All Items', 'Tops', 'Bottoms', 'Footwear', 'Outerwear', 'Accessories'];
 
-const FOLLOWING_ITEMS = [
-    { id: 'f1', name: 'Summer Essentials', items: 12, image: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=500' },
-    { id: 'f2', name: 'Streetwear Fits', items: 8, image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&q=80&w=500' },
-    { id: 'f3', name: 'Office Minimal', items: 24, image: 'https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?auto=format&fit=crop&q=80&w=500' },
-    { id: 'f4', name: 'Evening Elegance', items: 6, image: 'https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?auto=format&fit=crop&q=80&w=500' },
-];
+const CATEGORY_MAP: Record<string, string> = {
+    'All Items': '',
+    'Tops': 'top',
+    'Bottoms': 'bottom',
+    'Footwear': 'footwear',
+    'Outerwear': 'outerwear',
+    'Accessories': 'accessories',
+};
 
-const CARD_WIDTH = (width - 45) / 2;
+// Sub-labels for visual flair
+function getSubLabel(item: WardrobeItem): string {
+    const labels: Record<string, string> = {
+        top: 'Urban Wear',
+        bottom: 'Tech Series',
+        footwear: 'Footwear Co.',
+        outerwear: 'Street Style',
+        accessories: 'Lifestyle',
+    };
+    return labels[item.category?.toLowerCase()] || 'Collection';
+}
 
 export default function HomeScreen() {
-    const [activeTab, setActiveTab] = useState('Trending');
+    const [activeCategory, setActiveCategory] = useState('All Items');
+    const [arMode, setArMode] = useState(false);
+    const [items, setItems] = useState<WardrobeItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedItem, setSelectedItem] = useState<WardrobeItem | null>(null);
     const { isDarkMode, toggleTheme } = useTheme();
     const router = useRouter();
 
-    const colors = {
-        background: isDarkMode ? '#1A1A1A' : '#F8F9FA',
-        card: isDarkMode ? '#242424' : '#FFFFFF',
-        text: isDarkMode ? '#FFFFFF' : '#1A1A1A',
-        textSecondary: isDarkMode ? '#A0A0A0' : '#8E8E93',
-        border: isDarkMode ? '#333333' : '#E5E5EA',
-        primary: '#F2A900', // Gold color from logo
+    const fetchItems = useCallback(async () => {
+        try {
+            setLoading(true);
+            const category = CATEGORY_MAP[activeCategory] || undefined;
+            const data = await api.getWardrobeItems(category ? { category } : undefined);
+            setItems(data || []);
+        } catch (e) {
+            console.log('Failed to fetch wardrobe items', e);
+            setItems([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [activeCategory]);
+
+    useEffect(() => {
+        fetchItems();
+    }, [fetchItems]);
+
+    const handleTryOn = (item: WardrobeItem) => {
+        setSelectedItem(item);
+        Alert.alert(
+            '✨ Coming Soon',
+            `Virtual try-on for "${item.name}" will be available in the next update!`,
+            [{ text: 'OK', style: 'default' }],
+        );
+    };
+
+    const handleArToggle = (val: boolean) => {
+        setArMode(val);
+        if (val) {
+            Alert.alert(
+                '🔮 AR Mode — Coming Soon',
+                'Augmented Reality try-on is under development. Stay tuned!',
+                [{ text: 'Cool!', style: 'default', onPress: () => setArMode(false) }],
+            );
+        }
+    };
+
+    // Colors
+    const bg = '#1A1410';
+    const cardBg = '#2A2018';
+    const surfaceBg = '#332A1E';
+    const gold = '#D4A843';
+    const goldLight = '#F2D06B';
+    const textPrimary = '#FFFFFF';
+    const textSecondary = '#A09080';
+    const textMuted = '#6A5E52';
+
+    const renderClothingCard = ({ item }: { item: WardrobeItem }) => {
+        const imageUrl = item.processedUrl || item.originalUrl;
+        const resolvedUrl = imageUrl ? api.getImageUrl(imageUrl) : null;
+
+        return (
+            <View style={styles.clothingCard}>
+                <View style={[styles.clothingImageContainer, { backgroundColor: surfaceBg }]}>
+                    {resolvedUrl ? (
+                        <Image
+                            source={{ uri: resolvedUrl }}
+                            style={styles.clothingImage}
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        <Ionicons name="shirt-outline" size={40} color={textMuted} />
+                    )}
+                </View>
+                <View style={styles.clothingInfo}>
+                    <Text style={[styles.clothingSubLabel, { color: textMuted }]} numberOfLines={1}>
+                        {getSubLabel(item)}
+                    </Text>
+                    <Text style={[styles.clothingName, { color: textPrimary }]} numberOfLines={1}>
+                        {item.name || 'Unnamed'}
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={[styles.tryOnButton, { backgroundColor: gold }]}
+                    onPress={() => handleTryOn(item)}
+                    activeOpacity={0.8}
+                >
+                    <Text style={styles.tryOnText}>TRY ON</Text>
+                </TouchableOpacity>
+            </View>
+        );
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+            <StatusBar barStyle="light-content" backgroundColor={bg} />
 
-            {/* Header */}
+            {/* ─── Header ─── */}
             <View style={styles.header}>
                 <View style={styles.logoContainer}>
                     <View style={styles.logoIconBg}>
-                        <Ionicons name="diamond" size={16} color="#000" />
+                        <Ionicons name="diamond" size={14} color="#000" />
                     </View>
-                    <Text style={[styles.logoText, { color: colors.text }]}>Digidrobe</Text>
+                    <Text style={[styles.logoText, { color: textPrimary }]}>Digidrobe</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <TouchableOpacity onPress={toggleTheme} style={styles.iconButton}>
-                        <Ionicons name={isDarkMode ? "sunny" : "moon"} size={22} color={colors.text} />
+                    <TouchableOpacity onPress={toggleTheme} style={styles.iconBtn}>
+                        <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={20} color={textSecondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconButton}>
-                        <Ionicons name="notifications" size={24} color={isDarkMode ? '#A0A0A0' : '#4A5568'} />
-                        <View style={styles.notificationBadge} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => router.push('/(tabs)/profile')}
-                    >
-                        <Ionicons name="person-circle-outline" size={26} color={isDarkMode ? '#A0A0A0' : '#4A5568'} />
-                    </TouchableOpacity>
+                    <View style={styles.arToggle}>
+                        <Text style={[styles.arLabel, { color: goldLight }]}>AR MODE</Text>
+                        <Switch
+                            value={arMode}
+                            onValueChange={handleArToggle}
+                            trackColor={{ false: surfaceBg, true: gold }}
+                            thumbColor={arMode ? '#FFF' : textMuted}
+                            ios_backgroundColor={surfaceBg}
+                            style={styles.arSwitch}
+                        />
+                    </View>
                 </View>
             </View>
 
-            {/* Tabs */}
-            <View style={[styles.tabsContainer, { borderBottomColor: colors.border }]}>
-                {['Trending', 'Following', 'Newest'].map((tab) => (
-                    <TouchableOpacity
-                        key={tab}
-                        style={[styles.tab, activeTab === tab && { borderBottomColor: colors.primary }]}
-                        onPress={() => setActiveTab(tab)}
-                    >
-                        <Text style={[
-                            styles.tabText,
-                            { color: activeTab === tab ? colors.text : colors.textSecondary },
-                            activeTab === tab && styles.tabTextActive
-                        ]}>
-                            {tab}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            {/* Feed */}
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.feedContainer}>
-                {activeTab === 'Following' ? (
-                    <View style={styles.followingGrid}>
-                        {FOLLOWING_ITEMS.map(item => (
-                            <TouchableOpacity key={item.id} style={[styles.followingCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                                <Image source={{ uri: item.image }} style={styles.followingImage} />
-                                <View style={styles.followingInfo}>
-                                    <Text style={[styles.followingName, { color: colors.text }]}>{item.name}</Text>
-                                    <Text style={[styles.followingItems, { color: colors.textSecondary }]}>{item.items} items</Text>
-                                </View>
-                            </TouchableOpacity>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
+                {/* ─── Model Viewer ─── */}
+                <View style={[styles.modelContainer, { backgroundColor: cardBg }]}>
+                    <Image
+                        source={require('../../assets/model-placeholder.png')}
+                        style={styles.modelImage}
+                        resizeMode="contain"
+                    />
+                    <LinearGradient
+                        colors={['transparent', 'rgba(26,20,16,0.9)']}
+                        style={styles.modelGradient}
+                    />
+                    {/* Dots pagination indicator */}
+                    <View style={styles.dotsContainer}>
+                        {[0, 1, 2].map((i) => (
+                            <View
+                                key={i}
+                                style={[
+                                    styles.dot,
+                                    { backgroundColor: i === 0 ? gold : textMuted },
+                                ]}
+                            />
                         ))}
                     </View>
+                </View>
+
+                {/* ─── Category Filter ─── */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.categoryScroll}
+                    contentContainerStyle={styles.categoryContainer}
+                >
+                    {CATEGORIES.map((cat) => {
+                        const isActive = activeCategory === cat;
+                        return (
+                            <TouchableOpacity
+                                key={cat}
+                                style={[
+                                    styles.categoryPill,
+                                    {
+                                        backgroundColor: isActive ? gold : surfaceBg,
+                                        borderColor: isActive ? gold : textMuted,
+                                    },
+                                ]}
+                                onPress={() => setActiveCategory(cat)}
+                                activeOpacity={0.7}
+                            >
+                                <Text
+                                    style={[
+                                        styles.categoryText,
+                                        { color: isActive ? '#000' : textSecondary },
+                                        isActive && styles.categoryTextActive,
+                                    ]}
+                                >
+                                    {cat}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+
+                {/* ─── Clothing Items ─── */}
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color={gold} />
+                        <Text style={[styles.loadingText, { color: textSecondary }]}>
+                            Loading your wardrobe...
+                        </Text>
+                    </View>
+                ) : items.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                        <Ionicons name="shirt-outline" size={48} color={textMuted} />
+                        <Text style={[styles.emptyTitle, { color: textSecondary }]}>
+                            No items found
+                        </Text>
+                        <Text style={[styles.emptySubtitle, { color: textMuted }]}>
+                            Upload clothes in the Wardrobe tab to see them here
+                        </Text>
+                    </View>
                 ) : (
-                    POSTS.map(post => (
-                        <View key={post.id} style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-
-                            {/* Post Header */}
-                            <View style={styles.postHeader}>
-                                <View style={styles.postUserInfo}>
-                                    <Image source={{ uri: post.user.avatar }} style={styles.avatar} />
-                                    <View>
-                                        <Text style={[styles.userName, { color: colors.text }]}>{post.user.name}</Text>
-                                        <Text style={[styles.timeLocation, { color: colors.textSecondary }]}>
-                                            {post.time} • {post.user.location}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <TouchableOpacity>
-                                    <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Post Image Container */}
-                            <View style={styles.imageContainer}>
-                                <Image source={{ uri: post.image }} style={styles.postImage} resizeMode="cover" />
-                                <View style={styles.ratingBadge}>
-                                    <Ionicons name="star" size={12} color="#F2A900" />
-                                    <Text style={styles.ratingText}>{post.rating}</Text>
-                                </View>
-                            </View>
-
-                            {/* Actions */}
-                            <View style={styles.actionsContainer}>
-                                <View style={styles.leftActions}>
-                                    <TouchableOpacity style={styles.actionButton}>
-                                        <Ionicons name="heart" size={24} color="#4A5568" />
-                                        <Text style={[styles.actionText, { color: colors.text }]}>{post.likes}</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.actionButton}>
-                                        <Ionicons name="chatbubble" size={22} color="#4A5568" />
-                                        <Text style={[styles.actionText, { color: colors.text }]}>{post.comments}</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.actionButton}>
-                                        <Ionicons name="paper-plane" size={24} color="#4A5568" />
-                                    </TouchableOpacity>
-                                </View>
-                                <TouchableOpacity>
-                                    <Ionicons name="bookmark" size={24} color="#4A5568" />
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Tagged Items */}
-                            <View style={styles.taggedSection}>
-                                <Text style={[styles.taggedTitle, { color: colors.textSecondary }]}>TAGGED ITEMS</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.taggedList}>
-                                    {post.taggedItems.map((item, index) => (
-                                        <View key={index} style={[styles.taggedItemWrapper, { borderColor: colors.border }]}>
-                                            <Image source={{ uri: item }} style={styles.taggedItemImage} />
-                                        </View>
-                                    ))}
-                                </ScrollView>
-                            </View>
-
-                        </View>
-                    ))
+                    <FlatList
+                        data={items}
+                        horizontal
+                        keyExtractor={(item) => item.id}
+                        renderItem={renderClothingCard}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.clothingListContent}
+                        scrollEnabled={true}
+                        nestedScrollEnabled={true}
+                    />
                 )}
-                {/* Spacer for bottom tab bar and FAB */}
+
+                {/* ─── Quick Stats ─── */}
+                <View style={styles.statsRow}>
+                    <View style={[styles.statCard, { backgroundColor: surfaceBg }]}>
+                        <Ionicons name="shirt" size={22} color={gold} />
+                        <Text style={[styles.statNumber, { color: textPrimary }]}>{items.length}</Text>
+                        <Text style={[styles.statLabel, { color: textSecondary }]}>Items</Text>
+                    </View>
+                    <View style={[styles.statCard, { backgroundColor: surfaceBg }]}>
+                        <Ionicons name="heart" size={22} color="#E8445A" />
+                        <Text style={[styles.statNumber, { color: textPrimary }]}>
+                            {items.filter((i) => i.isFavorite).length}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: textSecondary }]}>Favorites</Text>
+                    </View>
+                    <View style={[styles.statCard, { backgroundColor: surfaceBg }]}>
+                        <Ionicons name="layers" size={22} color="#5B8DEF" />
+                        <Text style={[styles.statNumber, { color: textPrimary }]}>
+                            {new Set(items.map((i) => i.category)).size}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: textSecondary }]}>Categories</Text>
+                    </View>
+                </View>
+
+                {/* Bottom spacer */}
                 <View style={{ height: 100 }} />
             </ScrollView>
         </SafeAreaView>
@@ -209,13 +300,15 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
+
+    /* ── Header ── */
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingTop: Platform.OS === 'android' ? 40 : 10,
-        paddingBottom: 15,
+        paddingBottom: 10,
     },
     logoContainer: {
         flexDirection: 'row',
@@ -223,205 +316,199 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     logoIconBg: {
-        backgroundColor: '#F2A900',
-        width: 32,
-        height: 32,
+        backgroundColor: '#D4A843',
+        width: 30,
+        height: 30,
         borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center',
     },
     logoText: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: '700',
         letterSpacing: -0.5,
     },
     headerRight: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 15,
+        gap: 12,
     },
-    iconButton: {
-        position: 'relative',
+    iconBtn: {
+        padding: 4,
     },
-    notificationBadge: {
-        position: 'absolute',
-        top: 0,
-        right: 2,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#F2A900',
-        borderWidth: 1,
-        borderColor: '#FFF',
-    },
-    tabsContainer: {
+    arToggle: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 30,
-        borderBottomWidth: 1,
-        paddingBottom: 0,
-    },
-    tab: {
-        paddingVertical: 12,
-        borderBottomWidth: 2,
-        borderBottomColor: 'transparent',
-    },
-    tabText: {
-        fontSize: 15,
-        fontWeight: '500',
-    },
-    tabTextActive: {
-        fontWeight: '700',
-    },
-    feedContainer: {
-        paddingVertical: 15,
-        paddingBottom: 120,
-    },
-    followingGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        paddingHorizontal: 16,
-        justifyContent: 'space-between',
-        gap: 15,
-    },
-    followingCard: {
-        width: CARD_WIDTH,
-        borderRadius: 16,
-        borderWidth: 1,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    followingImage: {
-        width: '100%',
-        height: CARD_WIDTH * 1.2,
-        backgroundColor: '#EAEAEA',
-    },
-    followingInfo: {
-        padding: 12,
-    },
-    followingName: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    followingItems: {
-        fontSize: 12,
-    },
-    postCard: {
+        alignItems: 'center',
+        backgroundColor: '#332A1E',
         borderRadius: 20,
+        paddingLeft: 12,
+        paddingRight: 4,
+        paddingVertical: 4,
+        gap: 6,
+    },
+    arLabel: {
+        fontSize: 11,
+        fontWeight: '800',
+        letterSpacing: 1,
+    },
+    arSwitch: {
+        transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
+    },
+
+    scrollContent: {
+        paddingBottom: 20,
+    },
+
+    /* ── Model Viewer ── */
+    modelContainer: {
         marginHorizontal: 16,
-        marginBottom: 20,
-        padding: 15,
-        borderWidth: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
-    },
-    postHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    postUserInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    avatar: {
-        width: 40,
-        height: 40,
         borderRadius: 20,
-    },
-    userName: {
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    timeLocation: {
-        fontSize: 12,
-        marginTop: 2,
-    },
-    imageContainer: {
-        position: 'relative',
-        borderRadius: 15,
         overflow: 'hidden',
-        height: 400,
-        backgroundColor: '#EAEAEA',
+        height: height * 0.45,
+        position: 'relative',
+        marginBottom: 16,
     },
-    postImage: {
+    modelImage: {
         width: '100%',
         height: '100%',
     },
-    ratingBadge: {
+    modelGradient: {
         position: 'absolute',
-        bottom: 15,
-        right: 15,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 20,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 80,
     },
-    ratingText: {
-        color: '#FFF',
-        fontSize: 12,
-        fontWeight: '700',
-    },
-    actionsContainer: {
+    dotsContainer: {
+        position: 'absolute',
+        bottom: 14,
+        alignSelf: 'center',
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 15,
-        marginBottom: 15,
-    },
-    leftActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 20,
-    },
-    actionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
         gap: 6,
     },
-    actionText: {
-        fontSize: 14,
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+
+    /* ── Category Filters ── */
+    categoryScroll: {
+        marginBottom: 16,
+    },
+    categoryContainer: {
+        paddingHorizontal: 16,
+        gap: 10,
+    },
+    categoryPill: {
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 25,
+        borderWidth: 1,
+    },
+    categoryText: {
+        fontSize: 13,
         fontWeight: '600',
     },
-    taggedSection: {
-        marginTop: 5,
-    },
-    taggedTitle: {
-        fontSize: 10,
+    categoryTextActive: {
         fontWeight: '700',
-        letterSpacing: 1,
-        marginBottom: 10,
     },
-    taggedList: {
-        flexDirection: 'row',
+
+    /* ── Clothing Cards ── */
+    clothingListContent: {
+        paddingHorizontal: 16,
+        gap: 12,
     },
-    taggedItemWrapper: {
-        width: 50,
-        height: 50,
-        borderRadius: 8,
-        borderWidth: 1,
-        marginRight: 10,
+    clothingCard: {
+        width: CARD_WIDTH,
+    },
+    clothingImageContainer: {
+        width: '100%',
+        height: CARD_WIDTH * 0.95,
+        borderRadius: 14,
         overflow: 'hidden',
-        backgroundColor: '#F8F9FA',
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: 8,
     },
-    taggedItemImage: {
-        width: '80%',
-        height: '80%',
-        resizeMode: 'contain',
-    }
+    clothingImage: {
+        width: '100%',
+        height: '100%',
+    },
+    clothingInfo: {
+        marginBottom: 8,
+        paddingHorizontal: 2,
+    },
+    clothingSubLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+        marginBottom: 2,
+    },
+    clothingName: {
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    tryOnButton: {
+        paddingVertical: 10,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tryOnText: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: '#000',
+        letterSpacing: 1,
+    },
+
+    /* ── Loading / Empty ── */
+    loadingContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+        gap: 12,
+    },
+    loadingText: {
+        fontSize: 14,
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+        gap: 8,
+    },
+    emptyTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    emptySubtitle: {
+        fontSize: 13,
+        textAlign: 'center',
+        paddingHorizontal: 40,
+    },
+
+    /* ── Stats Row ── */
+    statsRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        gap: 10,
+        marginTop: 20,
+    },
+    statCard: {
+        flex: 1,
+        borderRadius: 14,
+        padding: 14,
+        alignItems: 'center',
+        gap: 4,
+    },
+    statNumber: {
+        fontSize: 22,
+        fontWeight: '800',
+    },
+    statLabel: {
+        fontSize: 11,
+        fontWeight: '500',
+    },
 });
