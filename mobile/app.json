@@ -27,7 +27,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5F0E8"
       },
-      "package": "com.dgdorde.app"
+      "package": "com.dgdorde.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -43,6 +46,12 @@
           "cameraPermission": "Digidrobe needs camera access to photograph clothing items."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "305d74eb-3319-430d-b7d9-1cd270ec6128"
+      }
+    }
   }
 }
