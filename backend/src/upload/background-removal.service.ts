@@ -3,25 +3,28 @@ import * as path from 'path';
 import * as fs from 'fs';
 import sharp from 'sharp';
 
-const AI_TIMEOUT_MS = 10000; // 10s timeout per attempt
+const AI_TIMEOUT_MS = 45000; // 45s timeout per attempt
 const AI_MAX_RETRIES = 0; // no retries by default
 
 export interface AiProcessResult {
   /** Buffer of the processed (background-removed) PNG image */
   imageBuffer: Buffer;
-  /** Classification info from the AI service */
+  /** Classification info from the AI service (Google Cloud Vision API) */
   classification?: {
     category: string;
     sub_category: string;
     confidence: number;
     is_low_confidence: boolean;
+    ml_labels?: string[];
   };
   /** Dominant color hex */
   dominantColor?: string;
   /** Human-readable color name */
   colorName?: string;
-  /** Top-3 color palette [{hex, name}] */
+  /** Color palette [{hex, name}] from ColorThief / Palette API */
   palette?: { hex: string; name: string }[];
+  /** Raw ML labels from Google Cloud Vision API */
+  mlLabels?: string[];
 }
 
 @Injectable()
@@ -161,6 +164,7 @@ export class BackgroundRemovalService {
             dominantColor: attributes?.dominant_color ?? undefined,
             colorName: attributes?.color_name ?? undefined,
             palette: attributes?.palette ?? undefined,
+            mlLabels: classification?.ml_labels ?? undefined,
           };
         }
 

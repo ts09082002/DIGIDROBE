@@ -62,7 +62,7 @@ let UploadService = UploadService_1 = class UploadService {
         this.bgRemovalService = bgRemovalService;
         this.wardrobeService = wardrobeService;
     }
-    async processClothingImage(file, preferredCategory) {
+    async processClothingImage(file, preferredCategory, preferredSubCategory, preferredMlLabels) {
         const id = (0, uuid_1.v4)();
         this.logger.log(`Received clothing image: ${file.originalname} (${file.size} bytes)`);
         const originalsDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'originals');
@@ -94,8 +94,10 @@ let UploadService = UploadService_1 = class UploadService {
             size,
             createdAt,
             status: 'processing',
+            subCategory: preferredSubCategory,
+            mlLabels: preferredMlLabels,
         });
-        this.startBackgroundProcessing(file, wardrobeItem.id, preferredCategory).catch((err) => {
+        this.startBackgroundProcessing(file, wardrobeItem.id, preferredCategory, preferredMlLabels).catch((err) => {
             this.logger.error(`Background processing failed for ${wardrobeItem.id}: ${err.message}`);
         });
         return wardrobeItem;
@@ -235,6 +237,10 @@ let UploadService = UploadService_1 = class UploadService {
                 'leggings',
                 'chinos',
                 'joggers',
+                'lower',
+                'lowers',
+                'sweatpants',
+                'trackpants',
             ],
             outerwear: [
                 'jacket',
@@ -280,22 +286,34 @@ let UploadService = UploadService_1 = class UploadService {
                 return category;
             }
         }
-        return 'tops';
+        return 'unclassified';
     }
     normalizePreferredCategory(category) {
         if (!category)
             return undefined;
         const c = category.toLowerCase().trim();
+        const MAPPING = {
+            shoes: 'footwear',
+            shoe: 'footwear',
+            top: 'tops',
+            bottom: 'bottoms',
+            bag: 'bags',
+            handbag: 'bags',
+            accessory: 'accessories',
+            dress: 'dresses',
+        };
+        const finalCategory = MAPPING[c] || c;
         const allowed = new Set([
             'tops',
             'bottoms',
             'outerwear',
-            'shoes',
+            'footwear',
+            'bags',
             'accessories',
             'dresses',
             'unclassified',
         ]);
-        return allowed.has(c) ? c : undefined;
+        return allowed.has(finalCategory) ? finalCategory : undefined;
     }
     async storeMetadata(data) {
         const metaDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'metadata');
@@ -311,7 +329,7 @@ let UploadService = UploadService_1 = class UploadService {
         items.push(data);
         fs.writeFileSync(itemsFile, JSON.stringify(items, null, 2));
     }
-    async startBackgroundProcessing(file, wardrobeItemId, preferredCategory) {
+    async startBackgroundProcessing(file, wardrobeItemId, preferredCategory, mobileMlLabels) {
         try {
             const processedDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'processed');
             if (!fs.existsSync(processedDir)) {
@@ -355,6 +373,15 @@ let UploadService = UploadService_1 = class UploadService {
                     updatePayload.category = categoryMap[aiCategory];
                     updatePayload.name = this.buildDefaultName(updatePayload.category);
                 }
+                if (aiResult.classification.sub_category) {
+                    updatePayload.subCategory = aiResult.classification.sub_category;
+                }
+            }
+            const finalMlLabels = aiResult.mlLabels && aiResult.mlLabels.length > 0
+                ? aiResult.mlLabels
+                : mobileMlLabels;
+            if (finalMlLabels && finalMlLabels.length > 0) {
+                updatePayload.mlLabels = finalMlLabels;
             }
             if (aiResult.palette && aiResult.palette.length > 0) {
                 updatePayload.colorPalette = JSON.stringify(aiResult.palette);

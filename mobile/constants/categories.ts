@@ -4,6 +4,7 @@ export type CanonicalCategory =
     | 'outerwear'
     | 'footwear'
     | 'accessories'
+    | 'bags'
     | 'unclassified';
 
 export const CATEGORY_LABELS: Record<CanonicalCategory, string> = {
@@ -12,6 +13,7 @@ export const CATEGORY_LABELS: Record<CanonicalCategory, string> = {
     outerwear: 'Outerwear',
     footwear: 'Footwear',
     accessories: 'Accessories',
+    bags: 'Bags',
     unclassified: 'Unclassified',
 };
 
@@ -21,7 +23,9 @@ export const FILTER_TO_CANONICAL: Record<string, CanonicalCategory | 'all'> = {
     Bottoms: 'bottomwear',
     Outerwear: 'outerwear',
     Shoes: 'footwear',
+    Footwear: 'footwear',
     Accessories: 'accessories',
+    Bags: 'bags',
 };
 
 export const CANONICAL_TO_FILTER_PARAM: Record<CanonicalCategory | 'all', string> = {
@@ -29,8 +33,9 @@ export const CANONICAL_TO_FILTER_PARAM: Record<CanonicalCategory | 'all', string
     topwear: 'tops',
     bottomwear: 'bottoms',
     outerwear: 'outerwear',
-    footwear: 'shoes',
+    footwear: 'footwear',
     accessories: 'accessories',
+    bags: 'bags',
     unclassified: 'unclassified',
 };
 
@@ -42,8 +47,9 @@ export function normalizeCategory(raw?: string | null): CanonicalCategory {
     if (value === 'bottomwear' || value === 'bottom' || value === 'bottoms' || value === 'trousers' || value === 'pants' || value === 'jeans')
         return 'bottomwear';
     if (value === 'outerwear' || value === 'jacket' || value === 'coat') return 'outerwear';
-    if (value === 'footwear' || value === 'shoes' || value === 'sneakers' || value === 'boots') return 'footwear';
+    if (value === 'footwear' || value === 'shoes' || value === 'sneakers' || value === 'boots' || value === 'shoe' || value === 'boot') return 'footwear';
     if (value === 'accessories' || value === 'accessory') return 'accessories';
+    if (value === 'bags' || value === 'bag' || value === 'handbag') return 'bags';
 
     return 'unclassified';
 }

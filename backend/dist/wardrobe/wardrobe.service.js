@@ -29,6 +29,7 @@ let WardrobeService = WardrobeService_1 = class WardrobeService {
             originalUrl: data.originalUrl ?? '',
             processedUrl: data.processedUrl ?? '',
             category: data.category ?? 'tops',
+            subCategory: data.subCategory ?? '',
             name: data.name ?? data.originalFilename ?? 'Untitled',
             brand: data.brand ?? '',
             color: data.color ?? '',
@@ -42,6 +43,7 @@ let WardrobeService = WardrobeService_1 = class WardrobeService {
             status: data.status ?? 'done',
             isLowConfidence: data.isLowConfidence ?? false,
             colorPalette: data.colorPalette ?? undefined,
+            mlLabels: data.mlLabels ?? [],
         };
     }
     async getAll(query) {
@@ -80,6 +82,7 @@ let WardrobeService = WardrobeService_1 = class WardrobeService {
             originalUrl: data.originalUrl || '',
             processedUrl: data.processedUrl || '',
             category: data.category || 'tops',
+            subCategory: data.subCategory || '',
             name: data.name || data.originalFilename || 'Untitled',
             brand: data.brand || '',
             color: data.color || '',
@@ -93,6 +96,7 @@ let WardrobeService = WardrobeService_1 = class WardrobeService {
             status: data.status || 'pending',
             isLowConfidence: data.isLowConfidence ?? false,
             colorPalette: data.colorPalette ?? undefined,
+            mlLabels: data.mlLabels ?? [],
         };
         await this.collection.doc(id).set(this.sanitizeForFirestore(item));
         return item;

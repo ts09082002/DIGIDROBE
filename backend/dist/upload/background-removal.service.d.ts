@@ -5,6 +5,7 @@ export interface AiProcessResult {
         sub_category: string;
         confidence: number;
         is_low_confidence: boolean;
+        ml_labels?: string[];
     };
     dominantColor?: string;
     colorName?: string;
@@ -12,6 +13,7 @@ export interface AiProcessResult {
         hex: string;
         name: string;
     }[];
+    mlLabels?: string[];
 }
 export declare class BackgroundRemovalService {
     private readonly logger;

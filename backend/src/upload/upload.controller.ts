@@ -27,7 +27,7 @@ const MAX_SIZE = 20 * 1024 * 1024; // 20MB
 
 @Controller('api/upload')
 export class UploadController {
-  constructor(private readonly uploadService: UploadService) {}
+  constructor(private readonly uploadService: UploadService) { }
 
   @Post('clothing')
   @UseInterceptors(
@@ -57,14 +57,27 @@ export class UploadController {
   async uploadClothing(
     @UploadedFile() file: any,
     @Body('category') category?: string,
+    @Body('subCategory') subCategory?: string,
+    @Body('mlLabels') mlLabelsJson?: string,
   ) {
     if (!file) {
       throw new BadRequestException('No image file provided');
     }
 
+    let mlLabels: string[] | undefined;
+    if (mlLabelsJson) {
+      try {
+        mlLabels = JSON.parse(mlLabelsJson);
+      } catch {
+        mlLabels = undefined;
+      }
+    }
+
     const result = await this.uploadService.processClothingImage(
       file,
       category,
+      subCategory,
+      mlLabels,
     );
     return {
       success: true,
