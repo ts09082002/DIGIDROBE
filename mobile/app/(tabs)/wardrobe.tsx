@@ -27,6 +27,7 @@ import {
     CanonicalCategory,
 } from '../../constants/categories';
 import { api, WardrobeItem } from '../../services/api';
+import { classifyClothing, canonicalToBackend } from '../../services/ml-classifier';
 import { useTheme } from '../../context/ThemeContext';
 import { Toast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -40,7 +41,7 @@ const SUGGESTIONS_MAX = 120;
 const TARGET_WIDTH = 800;
 const TARGET_ASPECT_RATIO = 4 / 5;
 
-const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Outerwear', 'Shoes', 'Accessories'];
+const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Outerwear', 'Footwear', 'Bags', 'Accessories'];
 
 type SuggestionItem = {
     id: string;
@@ -73,16 +74,18 @@ const SECTION_SUGGESTIONS: Record<CanonicalCategory, SuggestionItem[]> = {
         { id: 'o4', name: 'Casual Blazer', brand: 'Monarch', imageUrl: 'https://pngimg.com/d/blazer_PNG16.png', backendCategory: 'outerwear' },
     ],
     footwear: [
-        { id: 's1', name: 'Everyday Sneakers', brand: 'Move', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5825.png', backendCategory: 'shoes' },
-        { id: 's2', name: 'White Sneakers', brand: 'Move', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5824.png', backendCategory: 'shoes' },
-        { id: 's3', name: 'Ankle Boots', brand: 'Stride', imageUrl: 'https://pngimg.com/d/boots_PNG37.png', backendCategory: 'shoes' },
-        { id: 's4', name: 'Flat Sandals', brand: 'Coast', imageUrl: 'https://pngimg.com/d/sandals_PNG26.png', backendCategory: 'shoes' },
+        { id: 's1', name: 'Everyday Sneakers', brand: 'Move', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5825.png', backendCategory: 'footwear' },
+        { id: 's2', name: 'White Sneakers', brand: 'Move', imageUrl: 'https://pngimg.com/d/running_shoes_PNG5824.png', backendCategory: 'footwear' },
+        { id: 's3', name: 'Ankle Boots', brand: 'Stride', imageUrl: 'https://pngimg.com/d/boots_PNG37.png', backendCategory: 'footwear' },
+        { id: 's4', name: 'Flat Sandals', brand: 'Coast', imageUrl: 'https://pngimg.com/d/sandals_PNG26.png', backendCategory: 'footwear' },
+    ],
+    bags: [
+        { id: 'bg1', name: 'Leather Handbag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6394.png', backendCategory: 'bags' },
+        { id: 'bg2', name: 'Mini Shoulder Bag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6388.png', backendCategory: 'bags' },
     ],
     accessories: [
-        { id: 'a1', name: 'Leather Handbag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6394.png', backendCategory: 'accessories' },
-        { id: 'a2', name: 'Mini Shoulder Bag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6388.png', backendCategory: 'accessories' },
-        { id: 'a3', name: 'Classic Belt', brand: 'Line', imageUrl: 'https://pngimg.com/d/belt_PNG9592.png', backendCategory: 'accessories' },
-        { id: 'a4', name: 'Winter Scarf', brand: 'Cloud', imageUrl: 'https://pngimg.com/d/scarf_PNG28.png', backendCategory: 'accessories' },
+        { id: 'acc1', name: 'Classic Belt', brand: 'Line', imageUrl: 'https://pngimg.com/d/belt_PNG9592.png', backendCategory: 'accessories' },
+        { id: 'acc2', name: 'Winter Scarf', brand: 'Cloud', imageUrl: 'https://pngimg.com/d/scarf_PNG28.png', backendCategory: 'accessories' },
     ],
     unclassified: [],
 };
@@ -399,16 +402,42 @@ export default function WardrobeScreen() {
         if (!assets.length) return;
 
         const start = Date.now();
-        const preferredCategory = getPreferredUploadCategory();
+        // Only use the UI filter category as an override if the user has explicitly chosen one.
+        const preferredCategoryFromFilter = getPreferredUploadCategory();
+
         const uploadedItems = await Promise.all(
             assets.map(async (asset) => {
                 const filename = asset.fileName || `${source}_photo.jpg`;
                 const uploadUri = await autoCropAndResize(asset.uri, asset.width, asset.height);
+
+                // ── On-Device ML Kit Classification ──────────────────────
+                // Always run ML Kit on the image first to get accurate category.
+                // Only fall back to the UI filter category if ML Kit returns unclassified.
+                let finalCategory: string | undefined = preferredCategoryFromFilter;
+
+                const mlResult = await classifyClothing(uploadUri);
+                console.log(
+                    `[ML Kit] ${filename} → category: ${mlResult.category}, ` +
+                    `subCategory: ${mlResult.subCategory}, confidence: ${mlResult.confidence}, ` +
+                    `labels: [${mlResult.mlLabels.slice(0, 5).join(', ')}]`
+                );
+
+                if (!mlResult.isLowConfidence && mlResult.category !== 'unclassified') {
+                    // ML Kit is confident — use its result regardless of UI filter
+                    finalCategory = canonicalToBackend(mlResult.category);
+                } else if (preferredCategoryFromFilter) {
+                    // If ML Kit is uncertain/missing, use the current folder/filter the user is in
+                    finalCategory = preferredCategoryFromFilter;
+                }
+                // ─────────────────────────────────────────────────────────
+
                 const newItem = await api.uploadClothingImage(
                     uploadUri,
                     filename,
                     'image/jpeg',
-                    preferredCategory,
+                    finalCategory,
+                    mlResult.mlLabels,
+                    mlResult.subCategory,
                 );
                 return {
                     ...newItem,
@@ -438,7 +467,7 @@ export default function WardrobeScreen() {
     const handleUpload = async () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 allowsEditing: false,
                 quality: 1,
                 allowsMultipleSelection: true,
@@ -638,7 +667,7 @@ export default function WardrobeScreen() {
             )}
             <View style={styles.cardInfo}>
                 <Text style={[styles.cardBrand, { color: theme.text }]} numberOfLines={1}>
-                    {item.brand || item.category}
+                    {item.brand || item.subCategory || item.category}
                 </Text>
                 <Text style={[styles.cardName, { color: theme.textSecondary }]} numberOfLines={1}>
                     {item.name}
@@ -982,7 +1011,7 @@ export default function WardrobeScreen() {
 
                                 <View style={styles.modalInfo}>
                                     <Text style={[styles.modalBrand, { color: theme.text }]}>
-                                        {selectedItem.brand || selectedItem.category}
+                                        {selectedItem.brand || selectedItem.subCategory || selectedItem.category}
                                     </Text>
 
                                     <View style={styles.nameRow}>
@@ -1045,6 +1074,16 @@ export default function WardrobeScreen() {
                                             </>
                                         )}
                                     </View>
+
+                                    {selectedItem.mlLabels && selectedItem.mlLabels.length > 0 && (
+                                        <View style={styles.labelsChipContainer}>
+                                            {selectedItem.mlLabels.slice(0, 3).map((lbl, idx) => (
+                                                <View key={idx} style={styles.labelChip}>
+                                                    <Text style={styles.labelChipText}>{lbl}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
 
                                     <View style={styles.modalActions}>
                                         <TouchableOpacity
@@ -1781,5 +1820,25 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '700',
         color: Colors.white,
+    },
+    labelsChipContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 12,
+        marginBottom: 8,
+    },
+    labelChip: {
+        backgroundColor: '#F3F4F6',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    labelChipText: {
+        fontSize: 11,
+        color: '#4B5563',
+        fontWeight: '500',
     },
 });

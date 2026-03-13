@@ -48,7 +48,7 @@ const common_1 = require("@nestjs/common");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const sharp_1 = __importDefault(require("sharp"));
-const AI_TIMEOUT_MS = 10000;
+const AI_TIMEOUT_MS = 45000;
 const AI_MAX_RETRIES = 0;
 let BackgroundRemovalService = BackgroundRemovalService_1 = class BackgroundRemovalService {
     logger = new common_1.Logger(BackgroundRemovalService_1.name);
@@ -131,6 +131,7 @@ let BackgroundRemovalService = BackgroundRemovalService_1 = class BackgroundRemo
                         dominantColor: attributes?.dominant_color ?? undefined,
                         colorName: attributes?.color_name ?? undefined,
                         palette: attributes?.palette ?? undefined,
+                        mlLabels: classification?.ml_labels ?? undefined,
                     };
                 }
                 return { imageBuffer: Buffer.from(await response.arrayBuffer()) };

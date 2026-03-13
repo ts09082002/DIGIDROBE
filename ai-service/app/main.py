@@ -1,6 +1,8 @@
 """
 DGDORDE AI Background Removal Microservice
 Uses rembg (U2Net) for production-grade background removal.
+Uses Google Cloud Vision API for clothing classification.
+Uses ColorThief (Median Cut / Palette API) for color extraction.
 
 Install: pip install -r requirements.txt
 Run: uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -13,8 +15,9 @@ from starlette.concurrency import run_in_threadpool
 import uuid
 import os
 import io
+import logging
 from pathlib import Path
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
 
 import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
@@ -68,47 +71,137 @@ def _remove_background_sync(image_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 
-CATEGORY_LEVEL1 = [
-    "topwear",
-    "bottomwear",
-    "outerwear",
-    "footwear",
-    "accessories",
-]
+logger = logging.getLogger("digidrobe-ai")
 
-CATEGORY_LEVEL2_BY_PARENT: Dict[str, Dict[str, str]] = {
-    "topwear": {
-        "t_shirt": "t-shirt",
-        "shirt": "shirt",
-        "hoodie": "hoodie",
-        "sweater": "sweater",
-        "tank_top": "tank top",
-    },
-    "bottomwear": {
-        "jeans": "jeans",
-        "shorts": "shorts",
-        "trousers": "trousers",
-        "skirt": "skirt",
-    },
-    "outerwear": {
-        "jacket": "jacket",
-        "coat": "coat",
-    },
-    "footwear": {
-        "sneakers": "sneakers",
-        "formal_shoes": "formal shoes",
-        "boots": "boots",
-        "sandals": "sandals",
-    },
-    "accessories": {
-        "belt": "belt",
-        "hat": "hat",
-        "scarf": "scarf",
-        "bag": "bag",
-    },
+# ──────────────────────────────────────────────────────────────────────────────
+# Google Cloud Vision API client (server-side ML Kit equivalent)
+# ──────────────────────────────────────────────────────────────────────────────
+_vision_client = None
+
+
+def _get_vision_client():
+    """Lazily initialize Google Cloud Vision client."""
+    global _vision_client
+    if _vision_client is None:
+        try:
+            from google.cloud import vision  # type: ignore
+
+            # Looks for GOOGLE_APPLICATION_CREDENTIALS env var or
+            # google-credentials.json in ai-service root
+            creds_path = Path(__file__).resolve().parent.parent / "google-credentials.json"
+            if creds_path.exists():
+                logger.info(f"Found credentials at {creds_path}, setting GOOGLE_APPLICATION_CREDENTIALS")
+                os.environ.setdefault("GOOGLE_APPLICATION_CREDENTIALS", str(creds_path))
+            else:
+                logger.warning(f"Google credentials file NOT FOUND at {creds_path}. Vision API will be disabled.")
+
+            _vision_client = vision.ImageAnnotatorClient()
+            logger.info("Google Cloud Vision client initialized successfully")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Vision client (likely missing credentials): {e}")
+            _vision_client = "fallback"
+    return _vision_client
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Clothing classification via Vision API labels
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Maps Vision API label descriptions (lowercase) → (category, sub_category)
+_VISION_LABEL_MAP: Dict[str, Tuple[str, str]] = {
+    # Topwear
+    "t-shirt": ("topwear", "t_shirt"),
+    "t shirt": ("topwear", "t_shirt"),
+    "shirt": ("topwear", "shirt"),
+    "polo shirt": ("topwear", "shirt"),
+    "blouse": ("topwear", "shirt"),
+    "top": ("topwear", "t_shirt"),
+    "hoodie": ("topwear", "hoodie"),
+    "sweatshirt": ("topwear", "hoodie"),
+    "sweater": ("topwear", "sweater"),
+    "pullover": ("topwear", "sweater"),
+    "cardigan": ("topwear", "sweater"),
+    "tank top": ("topwear", "tank_top"),
+    "sleeveless shirt": ("topwear", "tank_top"),
+    "vest": ("topwear", "tank_top"),
+    "crop top": ("topwear", "tank_top"),
+    "jersey": ("topwear", "t_shirt"),
+    "active shirt": ("topwear", "t_shirt"),
+    # Bottomwear
+    "jeans": ("bottomwear", "jeans"),
+    "denim": ("bottomwear", "jeans"),
+    "shorts": ("bottomwear", "shorts"),
+    "bermuda shorts": ("bottomwear", "shorts"),
+    "trousers": ("bottomwear", "trousers"),
+    "pants": ("bottomwear", "trousers"),
+    "chinos": ("bottomwear", "trousers"),
+    "joggers": ("bottomwear", "trousers"),
+    "sweatpants": ("bottomwear", "trousers"),
+    "leggings": ("bottomwear", "trousers"),
+    "cargo pants": ("bottomwear", "trousers"),
+    "skirt": ("bottomwear", "skirt"),
+    "lower": ("bottomwear", "trousers"),
+    "lowers": ("bottomwear", "trousers"),
+    # Dresses
+    "dress": ("dresses", "dress"),
+    "gown": ("dresses", "dress"),
+    "cocktail dress": ("dresses", "dress"),
+    "one-piece garment": ("dresses", "dress"),
+    "romper": ("dresses", "dress"),
+    "jumpsuit": ("dresses", "dress"),
+    # Outerwear
+    "jacket": ("outerwear", "jacket"),
+    "coat": ("outerwear", "coat"),
+    "blazer": ("outerwear", "jacket"),
+    "parka": ("outerwear", "coat"),
+    "windbreaker": ("outerwear", "jacket"),
+    "overcoat": ("outerwear", "coat"),
+    "trench coat": ("outerwear", "coat"),
+    "leather jacket": ("outerwear", "jacket"),
+    "denim jacket": ("outerwear", "jacket"),
+    "bomber jacket": ("outerwear", "jacket"),
+    "raincoat": ("outerwear", "coat"),
+    # Footwear
+    "shoe": ("footwear", "formal_shoes"),
+    "sneakers": ("footwear", "sneakers"),
+    "running shoe": ("footwear", "sneakers"),
+    "athletic shoe": ("footwear", "sneakers"),
+    "walking shoe": ("footwear", "sneakers"),
+    "tennis shoe": ("footwear", "sneakers"),
+    "boot": ("footwear", "boots"),
+    "hiking boot": ("footwear", "boots"),
+    "ankle boot": ("footwear", "boots"),
+    "sandal": ("footwear", "sandals"),
+    "flip-flops": ("footwear", "sandals"),
+    "slipper": ("footwear", "sandals"),
+    "loafer": ("footwear", "formal_shoes"),
+    "high heels": ("footwear", "formal_shoes"),
+    "formal shoes": ("footwear", "formal_shoes"),
+    "oxford shoe": ("footwear", "formal_shoes"),
+    # Accessories
+    "belt": ("accessories", "belt"),
+    "hat": ("accessories", "hat"),
+    "cap": ("accessories", "hat"),
+    "baseball cap": ("accessories", "hat"),
+    "beanie": ("accessories", "hat"),
+    "scarf": ("accessories", "scarf"),
+    "bag": ("accessories", "bag"),
+    "handbag": ("accessories", "bag"),
+    "backpack": ("accessories", "bag"),
+    "purse": ("accessories", "bag"),
+    "tote bag": ("accessories", "bag"),
+    "watch": ("accessories", "watch"),
+    "sunglasses": ("accessories", "sunglasses"),
+    "glasses": ("accessories", "sunglasses"),
+    "necklace": ("accessories", "jewelry"),
+    "bracelet": ("accessories", "jewelry"),
+    "earring": ("accessories", "jewelry"),
+    "ring": ("accessories", "jewelry"),
+    "tie": ("accessories", "tie"),
+    "bow tie": ("accessories", "tie"),
 }
 
-# Simple keyword-based fallback classification that maps filenames to the 2-level schema.
+# Simple keyword-based fallback classification (used when Vision API unavailable)
 _FILENAME_KEYWORDS: Dict[str, Tuple[str, str]] = {
     "tshirt": ("topwear", "t_shirt"),
     "t-shirt": ("topwear", "t_shirt"),
@@ -125,7 +218,7 @@ _FILENAME_KEYWORDS: Dict[str, Tuple[str, str]] = {
     "trousers": ("bottomwear", "trousers"),
     "pants": ("bottomwear", "trousers"),
     "skirt": ("bottomwear", "skirt"),
-    "dress": ("bottomwear", "skirt"),
+    "dress": ("dresses", "dress"),
     "coat": ("outerwear", "coat"),
     "jacket": ("outerwear", "jacket"),
     "blazer": ("outerwear", "jacket"),
@@ -148,78 +241,101 @@ LOW_CONFIDENCE_THRESHOLD = 0.4
 
 
 def _predict_category_from_filename(filename: str) -> Tuple[str, str, float]:
+    """Keyword-based fallback classification from filename."""
     name = (filename or "").lower()
+    logger.info(f"Attempting fallback classification for filename: {name}")
     for keyword, (cat, subcat) in _FILENAME_KEYWORDS.items():
         if keyword in name:
+            logger.info(f"Fallback match found: {keyword} -> {cat}/{subcat}")
             return cat, subcat, 0.7
-    # Default fallback — low confidence because nothing matched
-    return "topwear", "t_shirt", 0.3
+    logger.info("No fallback keywords matched filename, defaulting to unclassified")
+    return "unclassified", "other", 0.3
 
 
-_classifier = None
+def _classify_with_vision_api(image_bytes: bytes) -> Optional[Dict[str, Any]]:
+    """
+    Use Google Cloud Vision API (ML Kit server-side equivalent) to label
+    the image. Returns classification dict or None on failure.
+    """
+    client = _get_vision_client()
+    if client == "fallback" or client is None:
+        return None
 
-def get_clip_classifier():
-    global _classifier
-    if _classifier is None:
-        try:
-            from transformers import pipeline
-            # Initialize zero-shot image classification model lazily
-            _classifier = pipeline("zero-shot-image-classification", model="openai/clip-vit-base-patch32")
-        except Exception as e:
-            print(f"Failed to load CLIP classifier: {e}")
-            _classifier = "fallback"
-    return _classifier
+    try:
+        from google.cloud import vision  # type: ignore
+
+        image = vision.Image(content=image_bytes)
+        response = client.label_detection(image=image, max_results=15)
+
+        if response.error.message:
+            logger.error(f"Vision API error: {response.error.message}")
+            return None
+
+        labels = response.label_annotations
+        raw_labels = [lbl.description for lbl in labels]
+        logger.info(f"Vision API labels: {raw_labels}")
+
+        # Walk labels in score order and find the first clothing-specific match
+        best_category = None
+        best_sub = None
+        best_score = 0.0
+
+        for lbl in labels:
+            desc_lower = lbl.description.lower()
+            # Try exact match first
+            if desc_lower in _VISION_LABEL_MAP:
+                cat, sub = _VISION_LABEL_MAP[desc_lower]
+                if lbl.score > best_score:
+                    best_category = cat
+                    best_sub = sub
+                    best_score = lbl.score
+                    break  # First matched label is highest confidence
+            # Try partial / substring match for compound labels
+            else:
+                for key, (cat, sub) in _VISION_LABEL_MAP.items():
+                    if key in desc_lower or desc_lower in key:
+                        if lbl.score > best_score:
+                            best_category = cat
+                            best_sub = sub
+                            best_score = lbl.score
+                        break
+
+        if best_category:
+            return {
+                "category": best_category,
+                "sub_category": best_sub,
+                "confidence": round(best_score, 3),
+                "is_low_confidence": best_score < LOW_CONFIDENCE_THRESHOLD,
+                "ml_labels": raw_labels,
+            }
+
+        # Vision API responded but no clothing labels matched our taxonomy
+        return {
+            "category": "unclassified",
+            "sub_category": "other",
+            "confidence": 0.0,
+            "is_low_confidence": True,
+            "ml_labels": raw_labels,
+        }
+
+    except Exception as e:
+        logger.error(f"Vision API classification error: {e}")
+        return None
+
 
 def classify_image(image_bytes: bytes, filename: str | None = None) -> Dict[str, Any]:
     """
-    CLIP-based zero-shot image classifier.
-    Falls back to keyword-based classification if model fails to load.
+    Classify clothing image using Google Cloud Vision API.
+    Falls back to keyword-based classification if Vision API is unavailable.
     """
-    classifier = get_clip_classifier()
-    
-    if classifier == "fallback":
-        category, sub_category, confidence = _predict_category_from_filename(filename or "")
-    else:
-        try:
-            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-            
-            # Map candidate labels directly to our internal taxonomy
-            label_map = {
-                "a t-shirt": ("topwear", "t_shirt"),
-                "a casual shirt": ("topwear", "shirt"),
-                "a formal shirt": ("topwear", "shirt"),
-                "a hoodie": ("topwear", "hoodie"),
-                "a sweater": ("topwear", "sweater"),
-                "a tank top": ("topwear", "tank_top"),
-                "a pair of jeans": ("bottomwear", "jeans"),
-                "a pair of shorts": ("bottomwear", "shorts"),
-                "a pair of trousers": ("bottomwear", "trousers"),
-                "a skirt": ("bottomwear", "skirt"),
-                "a dress": ("dresses", "dress"),
-                "a jacket": ("outerwear", "jacket"),
-                "a coat": ("outerwear", "coat"),
-                "a pair of sneakers": ("footwear", "sneakers"),
-                "a pair of formal shoes": ("footwear", "formal_shoes"),
-                "a pair of boots": ("footwear", "boots"),
-                "a pair of sandals": ("footwear", "sandals"),
-                "a belt": ("accessories", "belt"),
-                "a hat": ("accessories", "hat"),
-                "a scarf": ("accessories", "scarf"),
-                "a bag or purse": ("accessories", "bag"),
-            }
-            
-            candidate_labels = list(label_map.keys())
-            results = classifier(img, candidate_labels=candidate_labels)
-            
-            top_result = results[0]
-            label = top_result["label"]
-            confidence = float(top_result["score"])
-            
-            category, sub_category = label_map.get(label, ("topwear", "t_shirt"))
-            
-        except Exception as e:
-            print(f"Classification error: {e}")
-            category, sub_category, confidence = _predict_category_from_filename(filename or "")
+    # Try Vision API first
+    vision_result = _classify_with_vision_api(image_bytes)
+    if vision_result is not None:
+        return vision_result
+
+    # Fallback: keyword-based classification from filename
+    logger.info("Using filename-based fallback classification")
+    category, sub_category, confidence = _predict_category_from_filename(filename or "")
 
     is_low_confidence = confidence < LOW_CONFIDENCE_THRESHOLD
     if is_low_confidence:
@@ -228,6 +344,7 @@ def classify_image(image_bytes: bytes, filename: str | None = None) -> Dict[str,
             "sub_category": "other",
             "confidence": round(confidence, 3),
             "is_low_confidence": True,
+            "ml_labels": [],
         }
 
     return {
@@ -235,9 +352,15 @@ def classify_image(image_bytes: bytes, filename: str | None = None) -> Dict[str,
         "sub_category": sub_category,
         "confidence": round(confidence, 3),
         "is_low_confidence": False,
+        "ml_labels": [],
     }
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Color extraction using ColorThief (Palette API / Median Cut algorithm)
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Named color palette for mapping RGB → human-readable names
 COLOR_PALETTE: Dict[str, Tuple[int, int, int]] = {
     "White": (245, 245, 245),
     "Black": (10, 10, 10),
@@ -246,16 +369,33 @@ COLOR_PALETTE: Dict[str, Tuple[int, int, int]] = {
     "Navy Blue": (44, 62, 80),
     "Blue": (52, 152, 219),
     "Sky Blue": (135, 206, 235),
+    "Royal Blue": (65, 105, 225),
     "Red": (192, 57, 43),
     "Burgundy": (123, 36, 28),
+    "Maroon": (128, 0, 0),
     "Pink": (233, 79, 134),
+    "Light Pink": (255, 182, 193),
+    "Hot Pink": (255, 105, 180),
     "Orange": (230, 126, 34),
+    "Coral": (255, 127, 80),
     "Yellow": (241, 196, 15),
+    "Gold": (255, 215, 0),
+    "Cream": (255, 253, 208),
     "Beige": (245, 222, 179),
+    "Tan": (210, 180, 140),
     "Brown": (121, 85, 72),
+    "Chocolate": (139, 69, 19),
     "Olive": (128, 128, 0),
+    "Khaki": (189, 183, 107),
     "Green": (39, 174, 96),
+    "Forest Green": (34, 139, 34),
+    "Mint": (152, 255, 152),
     "Teal": (22, 160, 133),
+    "Turquoise": (64, 224, 208),
+    "Purple": (128, 0, 128),
+    "Lavender": (230, 230, 250),
+    "Violet": (148, 103, 189),
+    "Indigo": (75, 0, 130),
 }
 
 
@@ -265,6 +405,7 @@ def _rgb_to_hex(rgb: Tuple[int, int, int]) -> str:
 
 
 def _nearest_color_name(rgb: Tuple[int, int, int]) -> str:
+    """Map an RGB tuple to the nearest named color."""
     r, g, b = rgb
     best_name = "Unknown"
     best_dist = float("inf")
@@ -283,67 +424,95 @@ def extract_dominant_color(
     processed_png_bytes: bytes,
 ) -> Tuple[str, str, List[Dict[str, str]]]:
     """
-    Compute dominant color and a top-3 color palette from an RGBA PNG,
-    ignoring fully transparent pixels.
+    Extract dominant color and palette using ColorThief (Median Cut algorithm),
+    which is the same approach as Android's Palette API.
+
+    For RGBA images, transparent pixels are masked out before analysis.
 
     Returns:
         (dominant_hex, dominant_name, palette)
-        where palette is a list of up to 3 {hex, name} dicts sorted by cluster size.
+        where palette is a list of {hex, name, population} dicts.
     """
     _fallback_palette = [{"hex": "#B0B0B0", "name": "Light Grey"}]
 
     try:
+        # First, handle transparency: flatten RGBA onto white background
+        # but only keep opaque pixel regions for analysis
         img = Image.open(io.BytesIO(processed_png_bytes)).convert("RGBA")
-    except Exception:
+        arr = np.array(img)
+
+        if arr.shape[-1] == 4:
+            alpha = arr[:, :, 3]
+            mask = alpha > 10  # ignore near-transparent pixels
+            if not mask.any():
+                return "#B0B0B0", "Light Grey", _fallback_palette
+
+            # Create an opaque-only image for ColorThief
+            opaque_pixels = arr[:, :, :3].copy()
+            # Set transparent pixels to a neutral color to avoid skewing
+            opaque_pixels[~mask] = [128, 128, 128]
+            opaque_img = Image.fromarray(opaque_pixels, mode="RGB")
+        else:
+            opaque_img = img.convert("RGB")
+
+        # Save to buffer for ColorThief
+        buf = io.BytesIO()
+        opaque_img.save(buf, format="PNG")
+        buf.seek(0)
+
+        from colorthief import ColorThief  # type: ignore
+
+        ct = ColorThief(buf)
+
+        # Get dominant color
+        dominant_rgb = ct.get_color(quality=5)
+
+        # Get palette (up to 6 colors for variety)
+        try:
+            palette_rgb = ct.get_palette(color_count=6, quality=5)
+        except Exception:
+            palette_rgb = [dominant_rgb]
+
+        # Build palette entries
+        palette_entries: List[Dict[str, str]] = []
+        seen_names = set()
+        for rgb_tuple in palette_rgb:
+            hex_c = _rgb_to_hex(rgb_tuple)
+            name_c = _nearest_color_name(rgb_tuple)
+            # Deduplicate by color name to keep palette diverse
+            if name_c not in seen_names:
+                palette_entries.append({"hex": hex_c, "name": name_c})
+                seen_names.add(name_c)
+            if len(palette_entries) >= 5:
+                break
+
+        # Ensure dominant color is first
+        dominant_hex = _rgb_to_hex(dominant_rgb)
+        dominant_name = _nearest_color_name(dominant_rgb)
+
+        # If the dominant color is not already in the palette, insert it
+        if not palette_entries or palette_entries[0]["hex"] != dominant_hex:
+            palette_entries.insert(0, {"hex": dominant_hex, "name": dominant_name})
+
+        return dominant_hex, dominant_name, palette_entries
+
+    except Exception as e:
+        logger.error(f"Color extraction error: {e}")
+        # Fallback to numpy mean color
+        try:
+            img = Image.open(io.BytesIO(processed_png_bytes)).convert("RGBA")
+            arr = np.array(img)
+            alpha = arr[:, :, 3]
+            mask = alpha > 0
+            if mask.any():
+                rgb = arr[:, :, :3][mask]
+                mean_color = tuple(int(x) for x in rgb.mean(axis=0))
+                hex_color = _rgb_to_hex(mean_color)  # type: ignore[arg-type]
+                name = _nearest_color_name(mean_color)  # type: ignore[arg-type]
+                return hex_color, name, [{"hex": hex_color, "name": name}]
+        except Exception:
+            pass
         return "#B0B0B0", "Light Grey", _fallback_palette
-
-    arr = np.array(img)
-    if arr.shape[-1] != 4:
-        rgb = arr.reshape(-1, 3)
-    else:
-        alpha = arr[:, :, 3]
-        mask = alpha > 0
-        if not mask.any():
-            return "#B0B0B0", "Light Grey", _fallback_palette
-        rgb = arr[:, :, :3][mask]
-
-    # Downsample for speed
-    MAX_PIXELS = 5000
-    if rgb.shape[0] > MAX_PIXELS:
-        idx = np.random.choice(rgb.shape[0], MAX_PIXELS, replace=False)
-        rgb = rgb[idx]
-
-    # Try K-Means clustering for richer palette (k=3)
-    palette_entries: List[Dict[str, str]] = []
-    try:
-        from sklearn.cluster import KMeans  # type: ignore
-
-        k = min(3, rgb.shape[0])
-        km = KMeans(n_clusters=k, n_init=5, random_state=0)
-        km.fit(rgb)
-
-        labels = km.labels_
-        centers = km.cluster_centers_
-
-        # Count pixels per cluster and sort by count descending
-        counts = np.bincount(labels, minlength=k)
-        order = np.argsort(-counts)
-
-        for idx_c in order:
-            center = tuple(int(x) for x in centers[idx_c])
-            hex_c = _rgb_to_hex(center)  # type: ignore[arg-type]
-            name_c = _nearest_color_name(center)  # type: ignore[arg-type]
-            palette_entries.append({"hex": hex_c, "name": name_c})
-
-    except Exception:
-        # Fallback: simple mean color only
-        mean_color = tuple(int(x) for x in rgb.mean(axis=0))
-        hex_color = _rgb_to_hex(mean_color)  # type: ignore[arg-type]
-        name = _nearest_color_name(mean_color)  # type: ignore[arg-type]
-        palette_entries = [{"hex": hex_color, "name": name}]
-
-    dominant = palette_entries[0] if palette_entries else {"hex": "#B0B0B0", "name": "Light Grey"}
-    return dominant["hex"], dominant["name"], palette_entries
 
 
 def apply_studio_look(bg_removed_png_bytes: bytes) -> bytes:
@@ -434,9 +603,11 @@ def apply_studio_look(bg_removed_png_bytes: bytes) -> bytes:
 
 @app.get("/health")
 async def health_check():
+    vision_ok = _get_vision_client() != "fallback"
     return {
         "status": "healthy",
         "rembg_available": REMBG_SESSION is not None,
+        "vision_api_available": vision_ok,
     }
 
 

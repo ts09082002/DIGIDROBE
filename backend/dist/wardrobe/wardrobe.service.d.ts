@@ -4,6 +4,7 @@ export interface WardrobeItem {
     originalUrl: string;
     processedUrl: string;
     category: string;
+    subCategory: string;
     name: string;
     brand: string;
     color: string;
@@ -17,6 +18,7 @@ export interface WardrobeItem {
     status: string;
     isLowConfidence?: boolean;
     colorPalette?: string;
+    mlLabels?: string[];
 }
 export declare class WardrobeService {
     private readonly logger;
