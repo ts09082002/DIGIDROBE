@@ -73,16 +73,27 @@ type OverlayKey =
     | 'accessoryLeft'
     | 'accessoryRight';
 
-type OverlayState = Record<OverlayKey, { x: number; y: number; scale: number }>;
-type OverlayFrame = { left: `${number}%`; top: `${number}%`; width: `${number}%`; height: `${number}%` };
+type OverlayState = Record<OverlayKey, { x: number; y: number; scale: number; rotateDeg: number }>;
+type OverlayFrame = {
+    left: number | `${number}%`;
+    top: number | `${number}%`;
+    width: number | `${number}%`;
+    height: number | `${number}%`;
+};
 
-const getDefaultOverlayState = (): OverlayState => ({
-    top: { x: 0, y: 12, scale: 1.22 },
-    bottom: { x: 0, y: 8, scale: 1.14 },
-    outerwear: { x: 0, y: 8, scale: 1.18 },
-    footwear: { x: 0, y: 10, scale: 1.26 },
-    accessoryLeft: { x: 0, y: 0, scale: 1 },
-    accessoryRight: { x: 0, y: 0, scale: 1 },
+type StageSize = { width: number; height: number };
+
+function clamp(value: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, value));
+}
+
+const getDefaultOverlayState = (rotateDeg = 0): OverlayState => ({
+    top: { x: 0, y: 10, scale: 1.06, rotateDeg },
+    bottom: { x: 0, y: 8, scale: 1.04, rotateDeg },
+    outerwear: { x: 0, y: 8, scale: 1.08, rotateDeg },
+    footwear: { x: 0, y: 6, scale: 1.06, rotateDeg: rotateDeg * 0.6 },
+    accessoryLeft: { x: 0, y: 0, scale: 1, rotateDeg },
+    accessoryRight: { x: 0, y: 0, scale: 1, rotateDeg },
 });
 
 const MANNEQUIN_OVERLAY_FRAMES: Record<OverlayKey, OverlayFrame> = {
@@ -146,6 +157,93 @@ function getOverlayFrames(bodyBox?: BodyPhotoUploadResult['bodyBox']): Record<Ov
     };
 }
 
+function getOverlayFramesInStage({
+    bodyBox,
+    pose,
+    stage,
+}: {
+    bodyBox: NonNullable<BodyPhotoUploadResult['bodyBox']>;
+    pose?: BodyPhotoUploadResult['pose'];
+    stage: StageSize;
+}): Record<OverlayKey, OverlayFrame> {
+    const imgW = Math.max(1, bodyBox.imageWidth || 1);
+    const imgH = Math.max(1, bodyBox.imageHeight || 1);
+    const stageW = Math.max(1, stage.width);
+    const stageH = Math.max(1, stage.height);
+
+    // `resizeMode="contain"` mapping for coordinates measured in the source image.
+    const scale = Math.min(stageW / imgW, stageH / imgH);
+    const drawnW = imgW * scale;
+    const drawnH = imgH * scale;
+    const offsetX = (stageW - drawnW) / 2;
+    const offsetY = (stageH - drawnH) / 2;
+
+    const toStage = (p: { x: number; y: number }) => ({
+        x: offsetX + p.x * imgW * scale,
+        y: offsetY + p.y * imgH * scale,
+    });
+
+    const fallbackPose = {
+        leftShoulder: { x: bodyBox.left + bodyBox.width * 0.28, y: bodyBox.top + bodyBox.height * 0.20 },
+        rightShoulder: { x: bodyBox.left + bodyBox.width * 0.72, y: bodyBox.top + bodyBox.height * 0.20 },
+        leftHip: { x: bodyBox.left + bodyBox.width * 0.34, y: bodyBox.top + bodyBox.height * 0.54 },
+        rightHip: { x: bodyBox.left + bodyBox.width * 0.66, y: bodyBox.top + bodyBox.height * 0.54 },
+        leftAnkle: { x: bodyBox.left + bodyBox.width * 0.38, y: bodyBox.top + bodyBox.height * 0.93 },
+        rightAnkle: { x: bodyBox.left + bodyBox.width * 0.62, y: bodyBox.top + bodyBox.height * 0.93 },
+    };
+
+    const p = {
+        leftShoulder: pose?.leftShoulder ?? fallbackPose.leftShoulder,
+        rightShoulder: pose?.rightShoulder ?? fallbackPose.rightShoulder,
+        leftHip: pose?.leftHip ?? fallbackPose.leftHip,
+        rightHip: pose?.rightHip ?? fallbackPose.rightHip,
+        leftAnkle: pose?.leftAnkle ?? fallbackPose.leftAnkle,
+        rightAnkle: pose?.rightAnkle ?? fallbackPose.rightAnkle,
+    };
+    const leftShoulder = toStage(p.leftShoulder);
+    const rightShoulder = toStage(p.rightShoulder);
+    const leftHip = toStage(p.leftHip);
+    const rightHip = toStage(p.rightHip);
+    const leftAnkle = toStage(p.leftAnkle);
+    const rightAnkle = toStage(p.rightAnkle);
+
+    const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+    const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+    const ankleMid = { x: (leftAnkle.x + rightAnkle.x) / 2, y: (leftAnkle.y + rightAnkle.y) / 2 };
+
+    const shoulderW = Math.max(1, Math.abs(rightShoulder.x - leftShoulder.x));
+    const hipW = Math.max(1, Math.abs(rightHip.x - leftHip.x));
+    const torsoH = Math.max(1, Math.abs(hipMid.y - shoulderMid.y));
+    const legH = Math.max(1, Math.abs(ankleMid.y - hipMid.y));
+
+    const makeRect = (cx: number, cy: number, w: number, h: number) => {
+        const width = Math.max(1, w);
+        const height = Math.max(1, h);
+        const left = clamp(cx - width / 2, 0, stageW - width);
+        const top = clamp(cy - height / 2, 0, stageH - height);
+        return { left, top, width, height } as const;
+    };
+
+    const top = makeRect(shoulderMid.x, shoulderMid.y + torsoH * 0.56, shoulderW * 1.55, torsoH * 1.45);
+    const outerwear = makeRect(shoulderMid.x, shoulderMid.y + torsoH * 0.58, shoulderW * 1.75, torsoH * 1.65);
+    const bottom = makeRect(hipMid.x, hipMid.y + legH * 0.54, hipW * 1.35, legH * 1.12);
+    const footwear = makeRect(ankleMid.x, ankleMid.y + legH * 0.03, Math.max(shoulderW * 0.70, hipW * 0.70), Math.max(legH * 0.20, 44));
+
+    const accSize = Math.max(26, shoulderW * 0.35);
+    const accY = shoulderMid.y + torsoH * 0.12;
+    const accessoryLeft = makeRect(leftShoulder.x - shoulderW * 0.25, accY, accSize, accSize);
+    const accessoryRight = makeRect(rightShoulder.x + shoulderW * 0.25, accY, accSize, accSize);
+
+    return {
+        top,
+        bottom,
+        outerwear,
+        footwear,
+        accessoryLeft,
+        accessoryRight,
+    };
+}
+
 function DraggableCanvasItem({
     uri,
     baseStyle,
@@ -156,7 +254,7 @@ function DraggableCanvasItem({
 }: {
     uri: string;
     baseStyle: any;
-    state: { x: number; y: number; scale: number };
+    state: { x: number; y: number; scale: number; rotateDeg: number };
     selected: boolean;
     onSelect: () => void;
     onChange: (next: { x: number; y: number; scale: number }) => void;
@@ -204,6 +302,7 @@ function DraggableCanvasItem({
                         { translateX: pan.x },
                         { translateY: pan.y },
                         { scale: state.scale },
+                        { rotate: `${state.rotateDeg}deg` },
                     ],
                 },
             ]}
@@ -369,10 +468,21 @@ export default function OutfitsScreen() {
         return { top, bottom, outerwear, footwear, accessories };
     }, [suggestedOutfit]);
 
-    const overlayFrames = useMemo(() => getOverlayFrames(bodyPhoto?.bodyBox), [bodyPhoto?.bodyBox]);
+    const [previewStageSize, setPreviewStageSize] = useState<StageSize | null>(null);
+
+    const overlayFrames = useMemo(() => {
+        if (bodyPhoto?.bodyBox && previewStageSize) {
+            return getOverlayFramesInStage({
+                bodyBox: bodyPhoto.bodyBox,
+                pose: bodyPhoto.pose,
+                stage: previewStageSize,
+            });
+        }
+        return getOverlayFrames(bodyPhoto?.bodyBox);
+    }, [bodyPhoto?.bodyBox, bodyPhoto?.pose, previewStageSize]);
 
     useEffect(() => {
-        setOverlayState(getDefaultOverlayState());
+        setOverlayState(getDefaultOverlayState(bodyPhoto?.pose?.torsoAngleDeg ?? 0));
         setSelectedOverlayKey(null);
     }, [bodyPhoto?.id, suggestedOutfit.map((item) => item.id).join(',')]);
 
@@ -386,7 +496,7 @@ export default function OutfitsScreen() {
     const openQuiz = () => setQuizVisible(true);
 
     const updateOverlayTransform = (key: OverlayKey, next: { x: number; y: number; scale: number }) => {
-        setOverlayState((prev) => ({ ...prev, [key]: next }));
+        setOverlayState((prev) => ({ ...prev, [key]: { ...prev[key], ...next } }));
     };
 
     const resizeSelectedOverlay = (delta: number) => {
@@ -398,6 +508,21 @@ export default function OutfitsScreen() {
                 [selectedOverlayKey]: {
                     ...current,
                     scale: Math.max(0.65, Math.min(1.7, Number((current.scale + delta).toFixed(2)))),
+                },
+            };
+        });
+    };
+
+    const rotateSelectedOverlay = (deltaDeg: number) => {
+        if (!selectedOverlayKey) return;
+        setOverlayState((prev) => {
+            const current = prev[selectedOverlayKey];
+            const nextRotate = clamp(Number((current.rotateDeg + deltaDeg).toFixed(1)), -45, 45);
+            return {
+                ...prev,
+                [selectedOverlayKey]: {
+                    ...current,
+                    rotateDeg: nextRotate,
                 },
             };
         });
@@ -858,7 +983,15 @@ export default function OutfitsScreen() {
                                     <>
                                         {bodyPhoto ? (
                                             <View style={styles.styledPreviewCard}>
-                                                <View style={styles.styledPreviewStage}>
+                                                <View
+                                                    style={styles.styledPreviewStage}
+                                                    onLayout={(e) =>
+                                                        setPreviewStageSize({
+                                                            width: e.nativeEvent.layout.width,
+                                                            height: e.nativeEvent.layout.height,
+                                                        })
+                                                    }
+                                                >
                                                     {tryOnPreview?.previewUrl ? (
                                                         <Image
                                                             source={{ uri: api.getImageUrl(tryOnPreview.previewUrl) }}
@@ -948,7 +1081,7 @@ export default function OutfitsScreen() {
                                                         <Text style={[styles.canvasHintText, { color: theme.textSecondary }]}>
                                                             {tryOnPreview?.previewUrl
                                                                 ? 'If the generated fit is not ideal yet, the app falls back to manual overlay while the backend preview improves.'
-                                                                : 'Drag a clothing layer to position it. Select a layer to resize it.'}
+                                                                : 'Drag a clothing layer to position it. Select a layer to resize or rotate it.'}
                                                         </Text>
                                                         {!tryOnPreview?.previewUrl && selectedOverlayKey ? (
                                                             <View style={styles.canvasControls}>
@@ -958,6 +1091,12 @@ export default function OutfitsScreen() {
                                                                 <TouchableOpacity style={styles.canvasControlBtn} onPress={() => resizeSelectedOverlay(0.08)}>
                                                                     <Ionicons name="add" size={16} color={Colors.goldDark} />
                                                                 </TouchableOpacity>
+                                                                <TouchableOpacity style={styles.canvasControlBtn} onPress={() => rotateSelectedOverlay(-4)}>
+                                                                    <Ionicons name="arrow-undo" size={16} color={Colors.goldDark} />
+                                                                </TouchableOpacity>
+                                                                <TouchableOpacity style={styles.canvasControlBtn} onPress={() => rotateSelectedOverlay(4)}>
+                                                                    <Ionicons name="arrow-redo" size={16} color={Colors.goldDark} />
+                                                                </TouchableOpacity>
                                                             </View>
                                                         ) : null}
                                                     </View>
@@ -965,7 +1104,15 @@ export default function OutfitsScreen() {
                                             </View>
                                         ) : (
                                             <View style={styles.styledPreviewCard}>
-                                                <View style={styles.styledPreviewStage}>
+                                                <View
+                                                    style={styles.styledPreviewStage}
+                                                    onLayout={(e) =>
+                                                        setPreviewStageSize({
+                                                            width: e.nativeEvent.layout.width,
+                                                            height: e.nativeEvent.layout.height,
+                                                        })
+                                                    }
+                                                >
                                                     <View style={styles.mannequinStage}>
                                                         <LinearGradient
                                                             colors={['#2B3541', '#1D252E']}
