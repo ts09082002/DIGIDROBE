@@ -8,6 +8,8 @@ export interface WardrobeItem {
   originalUrl: string;
   processedUrl: string;
   category: string;
+  /** Sub-category from ML Kit / Vision API (e.g. 'jeans', 't_shirt', 'sneakers') */
+  subCategory: string;
   name: string;
   brand: string;
   color: string;
@@ -21,8 +23,10 @@ export interface WardrobeItem {
   status: string;
   /** True when AI classification confidence was below 0.4 — prompts user to manually tag. */
   isLowConfidence?: boolean;
-  /** JSON string of top-3 color palette from AI: [{hex, name}, ...] */
+  /** JSON string of color palette from Palette API: [{hex, name}, ...] */
   colorPalette?: string;
+  /** Raw ML labels from Google Cloud Vision API — used by recommendation engine */
+  mlLabels?: string[];
 }
 
 @Injectable()
@@ -53,6 +57,7 @@ export class WardrobeService {
       originalUrl: data.originalUrl ?? '',
       processedUrl: data.processedUrl ?? '',
       category: data.category ?? 'tops',
+      subCategory: data.subCategory ?? '',
       name: data.name ?? data.originalFilename ?? 'Untitled',
       brand: data.brand ?? '',
       color: data.color ?? '',
@@ -66,6 +71,7 @@ export class WardrobeService {
       status: data.status ?? 'done',
       isLowConfidence: data.isLowConfidence ?? false,
       colorPalette: data.colorPalette ?? undefined,
+      mlLabels: data.mlLabels ?? [],
     };
   }
 
@@ -123,6 +129,7 @@ export class WardrobeService {
       originalUrl: data.originalUrl || '',
       processedUrl: data.processedUrl || '',
       category: data.category || 'tops',
+      subCategory: data.subCategory || '',
       name: data.name || data.originalFilename || 'Untitled',
       brand: data.brand || '',
       color: data.color || '',
@@ -136,6 +143,7 @@ export class WardrobeService {
       status: data.status || 'pending',
       isLowConfidence: data.isLowConfidence ?? false,
       colorPalette: data.colorPalette ?? undefined,
+      mlLabels: data.mlLabels ?? [],
     };
 
     await this.collection.doc(id).set(this.sanitizeForFirestore(item));

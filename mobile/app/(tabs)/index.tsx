@@ -7,7 +7,6 @@ import {
     TouchableOpacity,
     Image,
     Dimensions,
-    SafeAreaView,
     StatusBar,
     Platform,
     FlatList,
@@ -15,14 +14,18 @@ import {
     Alert,
     Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useRouter } from 'expo-router';
 import { api, WardrobeItem } from '../../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.38;
+const BODY_PHOTO_KEY = '@digidrobe_body_photo_url';
 
 const CATEGORIES = ['All Items', 'Tops', 'Bottoms', 'Footwear', 'Outerwear', 'Accessories'];
 
@@ -53,8 +56,21 @@ export default function HomeScreen() {
     const [items, setItems] = useState<WardrobeItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedItem, setSelectedItem] = useState<WardrobeItem | null>(null);
+    const [bodyPhotoUri, setBodyPhotoUri] = useState<string | null>(null);
+    const [bodyPhotoUploading, setBodyPhotoUploading] = useState(false);
+    const [showPhotoActionSheet, setShowPhotoActionSheet] = useState(false);
     const { isDarkMode, toggleTheme } = useTheme();
     const router = useRouter();
+
+    // Load saved body photo on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const saved = await AsyncStorage.getItem(BODY_PHOTO_KEY);
+                if (saved) setBodyPhotoUri(saved);
+            } catch { }
+        })();
+    }, []);
 
     const fetchItems = useCallback(async () => {
         try {
@@ -73,6 +89,45 @@ export default function HomeScreen() {
     useEffect(() => {
         fetchItems();
     }, [fetchItems]);
+
+    const pickBodyPhoto = async (source: 'camera' | 'gallery') => {
+        try {
+            const permission =
+                source === 'camera'
+                    ? await ImagePicker.requestCameraPermissionsAsync()
+                    : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+            if (!permission.granted) {
+                Alert.alert('Permission needed', `Please allow ${source} access to continue.`);
+                return;
+            }
+
+            const result =
+                source === 'camera'
+                    ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
+                    : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            setBodyPhotoUploading(true);
+
+            const uploaded = await api.uploadBodyPhoto(
+                asset.uri,
+                asset.fileName || `body-photo-${Date.now()}.jpg`,
+                asset.mimeType || 'image/jpeg',
+            );
+
+            const photoUrl = api.getImageUrl(uploaded.processedUrl || uploaded.originalUrl);
+            setBodyPhotoUri(photoUrl);
+            await AsyncStorage.setItem(BODY_PHOTO_KEY, photoUrl);
+            setShowPhotoActionSheet(false);
+        } catch (error: any) {
+            Alert.alert('Upload failed', error?.message || 'Could not upload photo');
+        } finally {
+            setBodyPhotoUploading(false);
+        }
+    };
 
     const handleTryOn = (item: WardrobeItem) => {
         setSelectedItem(item);
@@ -95,14 +150,14 @@ export default function HomeScreen() {
     };
 
     // Colors
-    const bg = '#1A1410';
-    const cardBg = '#2A2018';
-    const surfaceBg = '#332A1E';
+    const bg = isDarkMode ? '#1A1410' : '#F8F9FA';
+    const cardBg = isDarkMode ? '#2A2018' : '#FFFFFF';
+    const surfaceBg = isDarkMode ? '#332A1E' : '#F0F0F0';
     const gold = '#D4A843';
     const goldLight = '#F2D06B';
-    const textPrimary = '#FFFFFF';
-    const textSecondary = '#A09080';
-    const textMuted = '#6A5E52';
+    const textPrimary = isDarkMode ? '#FFFFFF' : '#1A1A1A';
+    const textSecondary = isDarkMode ? '#A09080' : '#666666';
+    const textMuted = isDarkMode ? '#6A5E52' : '#999999';
 
     const renderClothingCard = ({ item }: { item: WardrobeItem }) => {
         const imageUrl = item.processedUrl || item.originalUrl;
@@ -174,29 +229,66 @@ export default function HomeScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
-                {/* ─── Model Viewer ─── */}
+                {/* ─── Your Photo / Model Viewer ─── */}
                 <View style={[styles.modelContainer, { backgroundColor: cardBg }]}>
-                    <Image
-                        source={require('../../assets/model-placeholder.png')}
-                        style={styles.modelImage}
-                        resizeMode="contain"
-                    />
-                    <LinearGradient
-                        colors={['transparent', 'rgba(26,20,16,0.9)']}
-                        style={styles.modelGradient}
-                    />
-                    {/* Dots pagination indicator */}
-                    <View style={styles.dotsContainer}>
-                        {[0, 1, 2].map((i) => (
-                            <View
-                                key={i}
-                                style={[
-                                    styles.dot,
-                                    { backgroundColor: i === 0 ? gold : textMuted },
-                                ]}
+                    {bodyPhotoUploading ? (
+                        <View style={styles.uploadPlaceholder}>
+                            <ActivityIndicator size="large" color={gold} />
+                            <Text style={[styles.uploadingText, { color: textSecondary }]}>
+                                Uploading your photo...
+                            </Text>
+                        </View>
+                    ) : bodyPhotoUri ? (
+                        <>
+                            <Image
+                                source={{ uri: bodyPhotoUri }}
+                                style={styles.modelImage}
+                                resizeMode="contain"
                             />
-                        ))}
-                    </View>
+                            <LinearGradient
+                                colors={['transparent', 'rgba(26,20,16,0.85)']}
+                                style={styles.modelGradient}
+                            />
+                            <TouchableOpacity
+                                style={styles.changePhotoBtn}
+                                onPress={() => setShowPhotoActionSheet(true)}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="camera-outline" size={14} color="#FFF" />
+                                <Text style={styles.changePhotoText}>Change Photo</Text>
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <View style={styles.uploadPlaceholder}>
+                            <View style={styles.uploadIconCircle}>
+                                <Ionicons name="person-outline" size={40} color={gold} />
+                            </View>
+                            <Text style={[styles.uploadTitle, { color: textPrimary }]}>
+                                Upload Your Photo
+                            </Text>
+                            <Text style={[styles.uploadSubtitle, { color: textSecondary }]}>
+                                Add a full-body photo to see outfit suggestions on you
+                            </Text>
+                            <View style={styles.uploadBtnRow}>
+                                <TouchableOpacity
+                                    style={[styles.uploadBtn, { backgroundColor: gold }]}
+                                    onPress={() => pickBodyPhoto('camera')}
+                                    activeOpacity={0.8}
+                                >
+                                    <Ionicons name="camera-outline" size={16} color="#000" />
+                                    <Text style={styles.uploadBtnTextDark}>Camera</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.uploadBtn, { backgroundColor: surfaceBg, borderWidth: 1, borderColor: gold }]}
+                                    onPress={() => pickBodyPhoto('gallery')}
+                                    activeOpacity={0.8}
+                                >
+                                    <Ionicons name="images-outline" size={16} color={gold} />
+                                    <Text style={[styles.uploadBtnTextLight, { color: gold }]}>Gallery</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 {/* ─── Category Filter ─── */}
@@ -292,6 +384,55 @@ export default function HomeScreen() {
                 {/* Bottom spacer */}
                 <View style={{ height: 100 }} />
             </ScrollView>
+
+            {/* Custom Action Sheet for Photo Upload */}
+            {showPhotoActionSheet && (
+                <View style={styles.actionSheetOverlay}>
+                    <TouchableOpacity
+                        style={StyleSheet.absoluteFillObject}
+                        activeOpacity={1}
+                        onPress={() => setShowPhotoActionSheet(false)}
+                    />
+                    <View style={[styles.actionSheetContainer, { backgroundColor: cardBg }]}>
+                        <View style={styles.actionSheetHandle} />
+                        <Text style={[styles.actionSheetTitle, { color: textPrimary }]}>Update Photo</Text>
+                        <Text style={[styles.actionSheetSubtitle, { color: textSecondary }]}>
+                            Choose a clear, full-body photo for the best AI try-on experience.
+                        </Text>
+
+                        <View style={styles.actionSheetRow}>
+                            <TouchableOpacity
+                                style={[styles.actionSheetBtn, { backgroundColor: surfaceBg }]}
+                                onPress={() => pickBodyPhoto('camera')}
+                                activeOpacity={0.8}
+                            >
+                                <View style={[styles.actionSheetIconBox, { backgroundColor: 'rgba(212,168,67,0.15)' }]}>
+                                    <Ionicons name="camera" size={24} color={gold} />
+                                </View>
+                                <Text style={[styles.actionSheetBtnText, { color: textPrimary }]}>Camera</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.actionSheetBtn, { backgroundColor: surfaceBg }]}
+                                onPress={() => pickBodyPhoto('gallery')}
+                                activeOpacity={0.8}
+                            >
+                                <View style={[styles.actionSheetIconBox, { backgroundColor: 'rgba(212,168,67,0.15)' }]}>
+                                    <Ionicons name="images" size={24} color={gold} />
+                                </View>
+                                <Text style={[styles.actionSheetBtnText, { color: textPrimary }]}>Gallery</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.actionSheetCancel}
+                            onPress={() => setShowPhotoActionSheet(false)}
+                        >
+                            <Text style={[styles.actionSheetCancelText, { color: textMuted }]}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -359,7 +500,7 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
 
-    /* ── Model Viewer ── */
+    /* ── Model Viewer / Photo Upload ── */
     modelContainer: {
         marginHorizontal: 16,
         borderRadius: 20,
@@ -379,17 +520,76 @@ const styles = StyleSheet.create({
         right: 0,
         height: 80,
     },
-    dotsContainer: {
-        position: 'absolute',
-        bottom: 14,
-        alignSelf: 'center',
+
+    /* ── Upload Placeholder ── */
+    uploadPlaceholder: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 32,
+        gap: 12,
+    },
+    uploadIconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(212,168,67,0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    uploadTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    uploadSubtitle: {
+        fontSize: 13,
+        textAlign: 'center',
+        lineHeight: 18,
+    },
+    uploadingText: {
+        fontSize: 14,
+        marginTop: 8,
+    },
+    uploadBtnRow: {
         flexDirection: 'row',
+        gap: 12,
+        marginTop: 8,
+    },
+    uploadBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 14,
+        gap: 8,
+    },
+    uploadBtnTextDark: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#000',
+    },
+    uploadBtnTextLight: {
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    changePhotoBtn: {
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
         gap: 6,
     },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+    changePhotoText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: '600',
     },
 
     /* ── Category Filters ── */
@@ -487,6 +687,74 @@ const styles = StyleSheet.create({
         fontSize: 13,
         textAlign: 'center',
         paddingHorizontal: 40,
+    },
+
+    /* ── Action Sheet Modal ── */
+    actionSheetOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'flex-end',
+        zIndex: 999,
+    },
+    actionSheetContainer: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 20,
+        paddingBottom: 40,
+        paddingTop: 12,
+        alignItems: 'center',
+    },
+    actionSheetHandle: {
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#666',
+        marginBottom: 20,
+    },
+    actionSheetTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        marginBottom: 6,
+    },
+    actionSheetSubtitle: {
+        fontSize: 13,
+        textAlign: 'center',
+        marginBottom: 24,
+        paddingHorizontal: 20,
+    },
+    actionSheetRow: {
+        flexDirection: 'row',
+        gap: 16,
+        width: '100%',
+        marginBottom: 20,
+    },
+    actionSheetBtn: {
+        flex: 1,
+        borderRadius: 16,
+        paddingVertical: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+    },
+    actionSheetIconBox: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    actionSheetBtnText: {
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    actionSheetCancel: {
+        paddingVertical: 12,
+        width: '100%',
+        alignItems: 'center',
+    },
+    actionSheetCancelText: {
+        fontSize: 16,
+        fontWeight: '600',
     },
 
     /* ── Stats Row ── */

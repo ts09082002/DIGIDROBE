@@ -13,6 +13,7 @@ import {
     Alert,
     Animated,
     PanResponder,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -363,7 +364,7 @@ export default function OutfitsScreen() {
             setSuggestion(data);
             setBackendSuggestion(data);
         } catch (e) {
-            console.error('Stylist fetch error:', e);
+            console.warn('Stylist fetch error:', e);
             setSuggestion(null);
             setBackendSuggestion(null);
         } finally {
@@ -387,7 +388,7 @@ export default function OutfitsScreen() {
                 })),
             );
         } catch (e) {
-            console.error('Failed to load saved looks:', e);
+            console.warn('Failed to load saved looks:', e);
         } finally {
             setLooksLoading(false);
         }
@@ -407,7 +408,7 @@ export default function OutfitsScreen() {
             setSuggestion(data);
             setBackendSuggestion(data);
         } catch (e) {
-            console.error('Stylist personalization failed:', e);
+            console.warn('Stylist personalization failed:', e);
         } finally {
             setSuggestionLoading(false);
         }
@@ -1528,7 +1529,7 @@ export default function OutfitsScreen() {
                 presentationStyle="pageSheet"
                 onRequestClose={closeQuiz}
             >
-                <SafeAreaView style={styles.quizModalScreen}>
+                <View style={styles.quizModalScreen}>
                     <View style={styles.quizModalHeader}>
                         <TouchableOpacity style={styles.quizCloseBtn} onPress={closeQuiz}>
                             <Ionicons name="close" size={28} color={Colors.charcoal} />
@@ -1587,7 +1588,7 @@ export default function OutfitsScreen() {
                             )}
                         </View>
                     </ScrollView>
-                </SafeAreaView>
+                </View>
             </Modal>
         </SafeAreaView>
     );
@@ -1735,6 +1736,7 @@ const styles = StyleSheet.create({
     quizModalScreen: {
         flex: 1,
         backgroundColor: '#F7F5F2',
+        paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 40) : 40,
     },
     quizModalHeader: {
         flexDirection: 'row',

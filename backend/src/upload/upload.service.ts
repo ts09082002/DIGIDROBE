@@ -48,7 +48,7 @@ export class UploadService {
   constructor(
     private readonly bgRemovalService: BackgroundRemovalService,
     private readonly wardrobeService: WardrobeService,
-  ) {}
+  ) { }
 
   /**
    * Save original image, create wardrobe item immediately, then kick off
@@ -57,6 +57,8 @@ export class UploadService {
   async processClothingImage(
     file: any,
     preferredCategory?: string,
+    preferredSubCategory?: string,
+    preferredMlLabels?: string[],
   ): Promise<WardrobeItem> {
     const id = uuidv4();
     this.logger.log(
@@ -87,7 +89,8 @@ export class UploadService {
       : file.size;
     const createdAt = new Date().toISOString();
 
-    // Create wardrobe item immediately with original image and pending status
+    // Create wardrobe item immediately with original image and pending status.
+    // Include ML Kit labels/subCategory right away so they are stored even if bg processing fails.
     const wardrobeItem = await this.wardrobeService.create({
       id,
       originalFilename: file.originalname,
@@ -101,6 +104,8 @@ export class UploadService {
       size,
       createdAt,
       status: 'processing',
+      subCategory: preferredSubCategory,
+      mlLabels: preferredMlLabels,
     });
 
     // Kick off background removal asynchronously; do not block response
@@ -108,6 +113,7 @@ export class UploadService {
       file,
       wardrobeItem.id,
       preferredCategory,
+      preferredMlLabels,
     ).catch((err) => {
       this.logger.error(
         `Background processing failed for ${wardrobeItem.id}: ${err.message}`,
@@ -293,6 +299,10 @@ export class UploadService {
         'leggings',
         'chinos',
         'joggers',
+        'lower',
+        'lowers',
+        'sweatpants',
+        'trackpants',
       ],
       outerwear: [
         'jacket',
@@ -340,22 +350,38 @@ export class UploadService {
       }
     }
 
-    return 'tops'; // Default category
+    return 'unclassified'; // Default category
   }
 
   private normalizePreferredCategory(category?: string): string | undefined {
     if (!category) return undefined;
     const c = category.toLowerCase().trim();
+
+    // Mapping for common variations (singular/plural mismatch)
+    const MAPPING: Record<string, string> = {
+      shoes: 'footwear',
+      shoe: 'footwear',
+      top: 'tops',
+      bottom: 'bottoms',
+      bag: 'bags',
+      handbag: 'bags',
+      accessory: 'accessories',
+      dress: 'dresses',
+    };
+
+    const finalCategory = MAPPING[c] || c;
+
     const allowed = new Set([
       'tops',
       'bottoms',
       'outerwear',
-      'shoes',
+      'footwear',
+      'bags',
       'accessories',
       'dresses',
       'unclassified',
     ]);
-    return allowed.has(c) ? c : undefined;
+    return allowed.has(finalCategory) ? finalCategory : undefined;
   }
 
   private async storeMetadata(data: ProcessedImage): Promise<void> {
@@ -384,6 +410,7 @@ export class UploadService {
     file: any,
     wardrobeItemId: string,
     preferredCategory?: string,
+    mobileMlLabels?: string[],
   ): Promise<void> {
     try {
       const processedDir = join(__dirname, '..', '..', 'uploads', 'processed');
@@ -443,6 +470,20 @@ export class UploadService {
           updatePayload.category = categoryMap[aiCategory];
           updatePayload.name = this.buildDefaultName(updatePayload.category);
         }
+
+        // Store sub-category from Vision API (e.g. 'jeans', 't_shirt', 'sneakers')
+        if (aiResult.classification.sub_category) {
+          updatePayload.subCategory = aiResult.classification.sub_category;
+        }
+      }
+
+      // Store raw ML labels — prefer server-side AI, fall back to mobile ML Kit labels
+      const finalMlLabels =
+        aiResult.mlLabels && aiResult.mlLabels.length > 0
+          ? aiResult.mlLabels
+          : mobileMlLabels;
+      if (finalMlLabels && finalMlLabels.length > 0) {
+        updatePayload.mlLabels = finalMlLabels;
       }
 
       if (aiResult.palette && aiResult.palette.length > 0) {

@@ -6,4 +6,5 @@ Pillow
 onnxruntime
 numpy
 opencv-python-headless
-scikit-learn
+google-cloud-vision
+colorthief

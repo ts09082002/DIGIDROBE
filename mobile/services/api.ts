@@ -17,6 +17,8 @@ export interface WardrobeItem {
     originalUrl: string;
     processedUrl: string;
     category: string;
+    /** Sub-category from ML Kit / Vision API (e.g. 'jeans', 't_shirt') */
+    subCategory?: string;
     name: string;
     brand: string;
     color: string;
@@ -30,8 +32,10 @@ export interface WardrobeItem {
     status: string;
     /** True when AI classification confidence was below 0.4 */
     isLowConfidence?: boolean;
-    /** JSON string of [{hex, name}] palette entries from AI */
+    /** JSON string of [{hex, name}] palette entries from Palette API */
     colorPalette?: string;
+    /** Raw ML labels from Google Cloud Vision API */
+    mlLabels?: string[];
 }
 
 export interface WardrobeStats {
@@ -126,6 +130,12 @@ export interface TryOnPreviewResult {
 }
 
 class ApiService {
+    private async fetch(url: string, init?: RequestInit): Promise<Response> {
+        const headers = new Headers(init?.headers);
+        headers.set('Bypass-Tunnel-Reminder', 'true');
+        return fetch(url, { ...init, headers });
+    }
+
     private baseUrl: string;
 
     constructor() {
@@ -142,6 +152,8 @@ class ApiService {
         filename: string,
         mimeType?: string,
         category?: string,
+        mlLabels?: string[],
+        subCategory?: string,
     ): Promise<UploadResult> {
         const formData = new FormData();
         formData.append('image', {
@@ -152,8 +164,14 @@ class ApiService {
         if (category) {
             formData.append('category', category);
         }
+        if (subCategory) {
+            formData.append('subCategory', subCategory);
+        }
+        if (mlLabels && mlLabels.length > 0) {
+            formData.append('mlLabels', JSON.stringify(mlLabels));
+        }
         try {
-            const response = await fetch(this.getFullUrl('/api/upload/clothing'), {
+            const response = await this.fetch(this.getFullUrl('/api/upload/clothing'), {
                 method: 'POST',
                 body: formData,
                 // Let React Native set multipart boundary automatically.
@@ -184,7 +202,7 @@ class ApiService {
 
     // Create wardrobe item from upload result
     async createWardrobeItem(data: Partial<WardrobeItem>): Promise<WardrobeItem> {
-        const response = await fetch(this.getFullUrl('/api/wardrobe'), {
+        const response = await this.fetch(this.getFullUrl('/api/wardrobe'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -207,21 +225,21 @@ class ApiService {
 
         const query = searchParams.toString();
         const url = this.getFullUrl(`/api/wardrobe${query ? `?${query}` : ''}`);
-        const response = await fetch(url);
+        const response = await this.fetch(url);
         const result: ApiResponse<WardrobeItem[]> = await response.json();
         return result.data;
     }
 
     // Get single wardrobe item
     async getWardrobeItem(id: string): Promise<WardrobeItem> {
-        const response = await fetch(this.getFullUrl(`/api/wardrobe/${id}`));
+        const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`));
         const result: ApiResponse<WardrobeItem> = await response.json();
         return result.data;
     }
 
     // Toggle favorite
     async toggleFavorite(id: string): Promise<WardrobeItem> {
-        const response = await fetch(this.getFullUrl(`/api/wardrobe/${id}/favorite`), {
+        const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}/favorite`), {
             method: 'PATCH',
         });
         const result: ApiResponse<WardrobeItem> = await response.json();
@@ -230,7 +248,7 @@ class ApiService {
 
     // Update wardrobe item (e.g., rename)
     async updateWardrobeItem(id: string, data: Partial<WardrobeItem>): Promise<WardrobeItem> {
-        const response = await fetch(this.getFullUrl(`/api/wardrobe/${id}`), {
+        const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -241,12 +259,12 @@ class ApiService {
 
     // Delete item
     async deleteItem(id: string): Promise<void> {
-        await fetch(this.getFullUrl(`/api/wardrobe/${id}`), { method: 'DELETE' });
+        await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`), { method: 'DELETE' });
     }
 
     // Get stats
     async getStats(): Promise<WardrobeStats> {
-        const response = await fetch(this.getFullUrl('/api/wardrobe/stats'));
+        const response = await this.fetch(this.getFullUrl('/api/wardrobe/stats'));
         const result: ApiResponse<WardrobeStats> = await response.json();
         return result.data;
     }
@@ -261,7 +279,7 @@ class ApiService {
 
     async getOOTDByMonth(year: number, month: number): Promise<OOTD[]> {
         try {
-            const response = await fetch(`${this.baseUrl}/api/calendar?year=${year}&month=${month}`);
+            const response = await this.fetch(`${this.baseUrl}/api/calendar?year=${year}&month=${month}`);
             if (!response.ok) throw new Error('Failed to fetch OOTD');
             const result = await response.json();
             return result.data as OOTD[];
@@ -273,7 +291,7 @@ class ApiService {
 
     async getOOTDStats(days: number = 30): Promise<OOTDStats | null> {
         try {
-            const response = await fetch(`${this.baseUrl}/api/calendar/stats?days=${days}`);
+            const response = await this.fetch(`${this.baseUrl}/api/calendar/stats?days=${days}`);
             if (!response.ok) throw new Error('Failed to fetch OOTD stats');
             const result = await response.json();
             return result.data as OOTDStats;
@@ -285,7 +303,7 @@ class ApiService {
 
     async saveOOTD(date: string, itemIds: string[], notes: string = ''): Promise<OOTD> {
         try {
-            const response = await fetch(`${this.baseUrl}/api/calendar`, {
+            const response = await this.fetch(`${this.baseUrl}/api/calendar`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ date, itemIds, notes }),
@@ -303,7 +321,7 @@ class ApiService {
 
     async generatePackingList(destination: string, days: number): Promise<WardrobeItem[]> {
         try {
-            const response = await fetch(`${this.baseUrl}/api/packing/generate`, {
+            const response = await this.fetch(`${this.baseUrl}/api/packing/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ destination, days }),
@@ -321,12 +339,12 @@ class ApiService {
 
     async getStylistSuggestion(): Promise<StylistSuggestion> {
         try {
-            const response = await fetch(`${this.baseUrl}/api/packing/stylist`);
+            const response = await this.fetch(`${this.baseUrl}/api/packing/stylist`);
             if (!response.ok) throw new Error('Failed to fetch stylist suggestion');
             const result = await response.json();
             return result.data as StylistSuggestion;
         } catch (error) {
-            console.error('Error fetching stylist suggestion:', error);
+            console.warn('Error fetching stylist suggestion:', error);
             throw error;
         }
     }
@@ -343,7 +361,7 @@ class ApiService {
             name: filename || 'body-photo.jpg',
         } as any);
 
-        const response = await fetch(this.getFullUrl('/api/upload/body-photo'), {
+        const response = await this.fetch(this.getFullUrl('/api/upload/body-photo'), {
             method: 'POST',
             body: formData,
         });
@@ -365,7 +383,7 @@ class ApiService {
 
     async getPersonalizedStylistSuggestion(profile: StyleProfilePayload): Promise<StylistSuggestion> {
         try {
-            const response = await fetch(`${this.baseUrl}/api/packing/stylist`, {
+            const response = await this.fetch(`${this.baseUrl}/api/packing/stylist`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(profile),
@@ -374,7 +392,7 @@ class ApiService {
             const result = await response.json();
             return result.data as StylistSuggestion;
         } catch (error) {
-            console.error('Error fetching personalized stylist suggestion:', error);
+            console.warn('Error fetching personalized stylist suggestion:', error);
             throw error;
         }
     }
@@ -384,7 +402,7 @@ class ApiService {
         itemIds?: string[],
         profile?: StyleProfilePayload,
     ): Promise<TryOnPreviewResult> {
-        const response = await fetch(`${this.baseUrl}/api/packing/try-on/preview`, {
+        const response = await this.fetch(`${this.baseUrl}/api/packing/try-on/preview`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
