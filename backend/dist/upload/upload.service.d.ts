@@ -1,5 +1,6 @@
 import { BackgroundRemovalService } from './background-removal.service';
 import { WardrobeService, WardrobeItem } from '../wardrobe/wardrobe.service';
+import { type BodyPose } from '../utils/pose';
 export interface ProcessedImage {
     id: string;
     originalFilename: string;
@@ -27,6 +28,7 @@ export interface BodyPhotoResult {
         imageWidth: number;
         imageHeight: number;
     };
+    pose?: BodyPose;
 }
 export declare class UploadService {
     private readonly bgRemovalService;

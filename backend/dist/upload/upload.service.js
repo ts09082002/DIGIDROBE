@@ -54,6 +54,7 @@ const uuid_1 = require("uuid");
 const fs = __importStar(require("fs"));
 const sharp_1 = __importDefault(require("sharp"));
 const wardrobe_service_1 = require("../wardrobe/wardrobe.service");
+const pose_1 = require("../utils/pose");
 let UploadService = UploadService_1 = class UploadService {
     bgRemovalService;
     wardrobeService;
@@ -118,6 +119,13 @@ let UploadService = UploadService_1 = class UploadService {
         try {
             await this.bgRemovalService.removeBackground(originalPath, processedPath);
             const bodyBox = await this.extractBodyBox(processedPath);
+            let pose;
+            try {
+                pose = await (0, pose_1.inferBodyPoseFromAlphaPng)(fs.readFileSync(processedPath), bodyBox);
+            }
+            catch (e) {
+                this.logger.warn(`Pose inference failed: ${e?.message || e}`);
+            }
             return {
                 id,
                 originalFilename: file.originalname,
@@ -128,6 +136,7 @@ let UploadService = UploadService_1 = class UploadService {
                 createdAt,
                 status: 'done',
                 bodyBox,
+                pose,
             };
         }
         catch (error) {

@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import sharp from 'sharp';
 import { WardrobeService, WardrobeItem } from '../wardrobe/wardrobe.service';
+import { inferBodyPoseFromAlphaPng, type BodyPose } from '../utils/pose';
 
 export interface ProcessedImage {
   id: string;
@@ -37,6 +38,7 @@ export interface BodyPhotoResult {
     imageWidth: number;
     imageHeight: number;
   };
+  pose?: BodyPose;
 }
 
 @Injectable()
@@ -154,6 +156,16 @@ export class UploadService {
     try {
       await this.bgRemovalService.removeBackground(originalPath, processedPath);
       const bodyBox = await this.extractBodyBox(processedPath);
+      let pose: BodyPose | undefined;
+      try {
+        // Pose is inferred from the processed PNG alpha mask (post background-removal).
+        pose = await inferBodyPoseFromAlphaPng(
+          fs.readFileSync(processedPath),
+          bodyBox,
+        );
+      } catch (e: any) {
+        this.logger.warn(`Pose inference failed: ${e?.message || e}`);
+      }
       return {
         id,
         originalFilename: file.originalname,
@@ -164,6 +176,7 @@ export class UploadService {
         createdAt,
         status: 'done',
         bodyBox,
+        pose,
       };
     } catch (error: any) {
       this.logger.error(`Body photo processing failed: ${error.message}`);
