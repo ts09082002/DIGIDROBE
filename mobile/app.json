@@ -45,7 +45,8 @@
           "photosPermission": "Digidrobe needs access to your photos to upload clothing items.",
           "cameraPermission": "Digidrobe needs camera access to photograph clothing items."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},

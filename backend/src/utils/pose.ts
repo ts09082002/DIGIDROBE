@@ -30,7 +30,12 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
-function safeNormalizedPoint(xPx: number, yPx: number, w: number, h: number): NormalizedPoint {
+function safeNormalizedPoint(
+  xPx: number,
+  yPx: number,
+  w: number,
+  h: number,
+): NormalizedPoint {
   return { x: clamp(xPx / w, 0, 1), y: clamp(yPx / h, 0, 1) };
 }
 
@@ -122,7 +127,9 @@ export async function inferBodyPoseFromAlphaPng(
   const h = meta.height ?? 0;
   if (!w || !h) return undefined;
 
-  const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await image
+    .raw()
+    .toBuffer({ resolveWithObject: true });
   const channels = info.channels;
   if (channels < 4) return undefined;
 
@@ -144,7 +151,7 @@ export async function inferBodyPoseFromAlphaPng(
     channels,
     box,
     box.minY + boxH * 0.14,
-    box.minY + boxH * 0.30,
+    box.minY + boxH * 0.3,
   );
   const hipY = chooseRowByMaxWidth(
     data,
@@ -182,7 +189,11 @@ export async function inferBodyPoseFromAlphaPng(
   const dx = hipMidX - shoulderMidX;
   const dy = hipMidY - shoulderMidY;
   const angleRad = Math.atan2(dy, dx); // vs +x
-  const torsoAngleDeg = clamp(((angleRad - Math.PI / 2) * 180) / Math.PI, -28, 28);
+  const torsoAngleDeg = clamp(
+    ((angleRad - Math.PI / 2) * 180) / Math.PI,
+    -28,
+    28,
+  );
 
   return {
     leftShoulder: safeNormalizedPoint(s.minX, shoulderY, w, h),
@@ -194,4 +205,3 @@ export async function inferBodyPoseFromAlphaPng(
     torsoAngleDeg,
   };
 }
-

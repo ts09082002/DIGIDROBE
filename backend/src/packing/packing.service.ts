@@ -32,78 +32,57 @@ export interface StyleProfileRequest {
   stylePreference?: 'Casual' | 'Streetwear' | 'Formal' | 'Minimal';
 }
 
-/** Normalize AI category strings to canonical groups */
+/** Normalize AI category strings to canonical groups - Aligned with mobile app */
 export function categorize(category: string): string {
+  if (!category) return 'other';
   const c = category.toLowerCase().trim();
+
   if (
     [
-      'tops',
       'topwear',
+      'top',
+      'tops',
       'shirt',
       't-shirt',
       'blouse',
-      'top',
-      'knitwear',
       'polo',
+      'knitwear',
     ].some((k) => c.includes(k))
   )
-    return 'tops';
+    return 'topwear';
   if (
     [
-      'bottoms',
       'bottomwear',
+      'bottom',
+      'bottoms',
       'pants',
       'jeans',
       'trousers',
-      'skirt',
       'shorts',
-      'leggings',
     ].some((k) => c.includes(k))
   )
-    return 'bottoms';
+    return 'bottomwear';
   if (
-    ['dress', 'dresses', 'jumpsuit', 'romper', 'gown'].some((k) =>
+    ['outerwear', 'jacket', 'coat', 'blazer', 'hoodie', 'sweater'].some((k) =>
       c.includes(k),
     )
   )
-    return 'dresses';
-  if (
-    [
-      'outerwear',
-      'jacket',
-      'coat',
-      'blazer',
-      'hoodie',
-      'sweater',
-      'cardigan',
-    ].some((k) => c.includes(k))
-  )
     return 'outerwear';
   if (
-    [
-      'footwear',
-      'shoes',
-      'boots',
-      'sneakers',
-      'sandals',
-      'heels',
-      'loafers',
-    ].some((k) => c.includes(k))
+    ['footwear', 'shoes', 'boots', 'sneakers', 'sandals', 'shoe'].some((k) =>
+      c.includes(k),
+    )
   )
     return 'footwear';
   if (
-    [
-      'accessories',
-      'accessory',
-      'bag',
-      'belt',
-      'hat',
-      'scarf',
-      'watch',
-      'jewel',
-    ].some((k) => c.includes(k))
+    ['accessories', 'accessory', 'belt', 'hat', 'scarf'].some((k) =>
+      c.includes(k),
+    )
   )
     return 'accessories';
+  if (['bags', 'bag', 'handbag'].some((k) => c.includes(k))) return 'bags';
+  if (['dresses', 'dress', 'gown'].some((k) => c.includes(k))) return 'dresses';
+
   return 'other';
 }
 
@@ -161,11 +140,14 @@ export class PackingService {
   async generatePackingList(
     request: PackingListRequest,
   ): Promise<WardrobeItem[]> {
+    if (!request.userId) throw new Error('userId is required');
     this.logger.log(
       `Generating packing list for ${request.destination} (${request.days} days)`,
     );
 
-    const allItems = await this.wardrobeService.getAll({});
+    const allItems = await this.wardrobeService.getAll({
+      userId: request.userId,
+    });
     const ready = allItems.filter((i) => i.status === 'done' && i.processedUrl);
 
     // Group by canonical category
@@ -203,13 +185,14 @@ export class PackingService {
   }
 
   async getStylistSuggestion(
+    userId: string,
     profile?: StyleProfileRequest,
   ): Promise<StylistSuggestion> {
-    const allItems = await this.wardrobeService.getAll({});
+    const allItems = await this.wardrobeService.getAll({ userId });
     const ready = allItems.filter((i) => i.status === 'done' && i.processedUrl);
 
     const favorites = ready.filter((i) => i.isFavorite);
-    const stats = await this.wardrobeService.getStats();
+    const stats = await this.wardrobeService.getStats(userId);
 
     // Build a suggested outfit: 1 top + 1 bottom (or dress) + 1 outerwear + 1 shoe
     const grouped: Record<string, WardrobeItem[]> = {};

@@ -129,10 +129,18 @@ export interface TryOnPreviewResult {
     pose?: BodyPose;
 }
 
+import { auth } from '../config/firebase';
+
 class ApiService {
     private async fetch(url: string, init?: RequestInit): Promise<Response> {
         const headers = new Headers(init?.headers);
         headers.set('Bypass-Tunnel-Reminder', 'true');
+        
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            headers.set('x-user-id', currentUser.uid);
+        }
+        
         return fetch(url, { ...init, headers });
     }
 

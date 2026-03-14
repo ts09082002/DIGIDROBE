@@ -13,6 +13,7 @@ import {
     ActivityIndicator,
     Alert,
     Switch,
+    Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import { useRouter } from 'expo-router';
 import { api, WardrobeItem } from '../../services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import { auth } from '../../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
@@ -59,6 +61,7 @@ export default function HomeScreen() {
     const [bodyPhotoUri, setBodyPhotoUri] = useState<string | null>(null);
     const [bodyPhotoUploading, setBodyPhotoUploading] = useState(false);
     const [showPhotoActionSheet, setShowPhotoActionSheet] = useState(false);
+    const [showMenuDropdown, setShowMenuDropdown] = useState(false);
     const { isDarkMode, toggleTheme } = useTheme();
     const router = useRouter();
 
@@ -208,9 +211,59 @@ export default function HomeScreen() {
                     <Text style={[styles.logoText, { color: textPrimary }]}>Digidrobe</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <TouchableOpacity onPress={toggleTheme} style={styles.iconBtn}>
-                        <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={20} color={textSecondary} />
-                    </TouchableOpacity>
+                    <View style={styles.menuContainer}>
+                        <TouchableOpacity
+                            onPress={() => setShowMenuDropdown(true)}
+                            style={[styles.threeDotsBtn, { backgroundColor: surfaceBg }]}
+                        >
+                            <Ionicons name="ellipsis-horizontal" size={20} color={textSecondary} />
+                        </TouchableOpacity>
+                        <Modal
+                            visible={showMenuDropdown}
+                            transparent
+                            animationType="fade"
+                            onRequestClose={() => setShowMenuDropdown(false)}
+                        >
+                            <View style={styles.menuOverlay}>
+                                <TouchableOpacity
+                                    style={StyleSheet.absoluteFillObject}
+                                    activeOpacity={1}
+                                    onPress={() => setShowMenuDropdown(false)}
+                                />
+                                <View style={[styles.menuDropdown, { backgroundColor: cardBg, borderColor: surfaceBg }]}>
+                                    <TouchableOpacity
+                                        style={styles.menuItem}
+                                        onPress={() => {
+                                            setShowMenuDropdown(false);
+                                            router.push('/profile');
+                                        }}
+                                    >
+                                        <Ionicons name="person-circle-outline" size={20} color={textSecondary} />
+                                        <Text style={[styles.menuItemText, { color: textPrimary }]}>Profile</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.menuItem}
+                                        onPress={() => setShowMenuDropdown(false)}
+                                    >
+                                        <Ionicons name="notifications-outline" size={20} color={textSecondary} />
+                                        <Text style={[styles.menuItemText, { color: textPrimary }]}>Notifications</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.menuItem}
+                                        onPress={() => {
+                                            toggleTheme();
+                                            setShowMenuDropdown(false);
+                                        }}
+                                    >
+                                        <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={20} color={textSecondary} />
+                                        <Text style={[styles.menuItemText, { color: textPrimary }]}>
+                                            {isDarkMode ? 'Light mode' : 'Dark mode'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </Modal>
+                    </View>
                     <View style={styles.arToggle}>
                         <Text style={[styles.arLabel, { color: goldLight }]}>AR MODE</Text>
                         <Switch
@@ -473,6 +526,47 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+    },
+    menuContainer: {
+        position: 'relative',
+    },
+    threeDotsBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    menuOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        paddingTop: Platform.OS === 'android' ? 90 : 100,
+        paddingRight: 16,
+        alignItems: 'flex-end',
+        alignContent: 'flex-end',
+    },
+    menuDropdown: {
+        minWidth: 180,
+        borderRadius: 12,
+        borderWidth: 1,
+        paddingVertical: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+        zIndex: 100,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        gap: 12,
+    },
+    menuItemText: {
+        fontSize: 15,
+        fontWeight: '600',
     },
     iconBtn: {
         padding: 4,
@@ -778,5 +872,12 @@ const styles = StyleSheet.create({
     statLabel: {
         fontSize: 11,
         fontWeight: '500',
+    },
+    profileAvatar: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#EAE8E3',
     },
 });

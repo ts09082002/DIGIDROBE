@@ -5,6 +5,42 @@ import { ThemeProvider } from '../context/ThemeContext';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
 
+import { AuthProvider, useAuth } from '../context/AuthContext';
+import { useRouter, useSegments } from 'expo-router';
+
+function RootLayoutNav() {
+    const { user, isLoading } = useAuth();
+    const segments = useSegments();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (isLoading) return;
+
+        const inAuthGroup = segments[0] === 'login' || segments[0] === 'signup';
+
+        if (!user && !inAuthGroup) {
+            router.replace('/login');
+        } else if (user && inAuthGroup) {
+            router.replace('/(tabs)');
+        }
+    }, [user, isLoading, segments]);
+
+    return (
+        <Stack
+            screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: Colors.warmGray },
+                animation: 'slide_from_right',
+            }}
+        >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen name="signup" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+    );
+}
+
 export default function RootLayout() {
     const [showStartupSplash, setShowStartupSplash] = useState(true);
     const progress = useRef(new Animated.Value(0)).current;
@@ -41,29 +77,23 @@ export default function RootLayout() {
 
     return (
         <ThemeProvider>
-            <StatusBar style="auto" />
-            <View style={styles.root}>
-                <Stack
-                    screenOptions={{
-                        headerShown: false,
-                        contentStyle: { backgroundColor: Colors.warmGray },
-                        animation: 'slide_from_right',
-                    }}
-                >
-                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                </Stack>
+            <AuthProvider>
+                <StatusBar style="auto" />
+                <View style={styles.root}>
+                    <RootLayoutNav />
 
-                {showStartupSplash && (
-                    <Animated.View style={[styles.splashContainer, { opacity }]}>
-                        <Image source={require('../assets/splash.png')} style={styles.logo} resizeMode="contain" />
-                        <Text style={styles.appName}>Digidrobe</Text>
+                    {showStartupSplash && (
+                        <Animated.View style={[styles.splashContainer, { opacity }]}>
+                            <Image source={require('../assets/splash.png')} style={styles.logo} resizeMode="contain" />
+                            <Text style={styles.appName}>Digidrobe</Text>
 
-                        <View style={styles.progressTrack}>
-                            <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
-                        </View>
-                    </Animated.View>
-                )}
-            </View>
+                            <View style={styles.progressTrack}>
+                                <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+                            </View>
+                        </Animated.View>
+                    )}
+                </View>
+            </AuthProvider>
         </ThemeProvider>
     );
 }

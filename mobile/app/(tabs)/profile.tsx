@@ -1,38 +1,132 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    Switch,
+    Image,
+    Platform,
+    ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { auth, storage } from '../../config/firebase';
+import { signOut, updateProfile } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { api, WardrobeStats, OOTDStats } from '../../services/api';
+import { Alert, TextInput } from 'react-native';
 
-const MENU_ITEMS = [
-    { id: 'edit', icon: 'person-outline', label: 'Edit Profile', chevron: true },
-    { id: 'prefs', icon: 'options-outline', label: 'Style Preferences', chevron: true },
-    { id: 'notif', icon: 'notifications-outline', label: 'Notifications', toggle: true },
-    { id: 'privacy', icon: 'shield-outline', label: 'Privacy & Security', chevron: true },
-    { id: 'storage', icon: 'cloud-outline', label: 'Storage & Data', chevron: true },
-    { id: 'help', icon: 'help-circle-outline', label: 'Help & Support', chevron: true },
-    { id: 'about', icon: 'information-circle-outline', label: 'About Digidrobe', chevron: true },
+const STYLE_DNA = [
+    { label: 'Chic', active: false },
+    { label: 'Sustainable', active: true },
+    { label: 'Neutral Palette', active: false },
+    { label: 'Linen & Silk', active: false },
+    { label: 'Capsule Wardrobe', active: false },
+];
+
+const ESSENTIAL_LINKS = [
+    { id: 'edit', icon: 'person', label: 'Edit Profile' },
+    { id: 'measurements', icon: 'body', label: 'Avatar Measurements' },
+    { id: 'security', icon: 'lock-closed', label: 'Privacy & Security' },
+    { id: 'logout', icon: 'log-out', label: 'Logout', color: '#FF4B4B' },
 ];
 
 export default function ProfileScreen() {
     const { isDarkMode } = useTheme();
-    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const [stats, setStats] = useState<WardrobeStats | null>(null);
+    const [ootdStats, setOotdStats] = useState<OOTDStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [newName, setNewName] = useState(auth.currentUser?.displayName || '');
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    useEffect(() => {
+        const loadStats = async () => {
+            try {
+                const [wStats, oStats] = await Promise.all([
+                    api.getStats(),
+                    api.getOOTDStats(30)
+                ]);
+                setStats(wStats);
+                setOotdStats(oStats);
+            } catch (error) {
+                console.error('Error loading profile stats', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadStats();
+    }, []);
 
     const theme = {
-        background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
-        card: isDarkMode ? '#242424' : Colors.white,
-        text: isDarkMode ? '#FFFFFF' : Colors.charcoal,
-        textSecondary: isDarkMode ? '#A0A0A0' : Colors.darkGray,
-        iconBg: isDarkMode ? '#1A1A1A' : Colors.cream,
-        border: isDarkMode ? '#333333' : Colors.lightGray,
+        background: isDarkMode ? '#1A1410' : '#FEFCF9', // Creamy white
+        card: isDarkMode ? '#2A2018' : Colors.white,
+        textPrimary: isDarkMode ? '#FFFFFF' : '#1C2B39', // Navy-ish dark blue
+        textSecondary: isDarkMode ? '#A09080' : '#6B7A8B',
+        textGold: isDarkMode ? '#EAD699' : '#D4A843',
+        pillBg: isDarkMode ? '#332A1E' : '#FAF6ED',
+        divider: isDarkMode ? '#3A2E22' : '#EAE8E3',
+    };
+
+    const handleUpdateName = async () => {
+        if (!auth.currentUser || !newName.trim()) return;
+        setIsUpdating(true);
+        try {
+            await updateProfile(auth.currentUser, { displayName: newName });
+            setIsEditingName(false);
+            Alert.alert('Success', 'Profile name updated!');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to update name');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handlePickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+        });
+
+        if (!result.canceled && auth.currentUser) {
+            setIsUpdating(true);
+            try {
+                const manipulated = await ImageManipulator.manipulateAsync(
+                    result.assets[0].uri,
+                    [{ resize: { width: 300, height: 300 } }],
+                    { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+                );
+                
+                const response = await fetch(manipulated.uri);
+                const blob = await response.blob();
+                const storageRef = ref(storage, `profile_pictures/${auth.currentUser.uid}`);
+                await uploadBytes(storageRef, blob);
+                const photoURL = await getDownloadURL(storageRef);
+                
+                await updateProfile(auth.currentUser, { photoURL });
+                Alert.alert('Success', 'Profile picture updated!');
+            } catch (error: any) {
+                console.error('Update profile picture error:', error);
+                Alert.alert('Error', `Failed to update profile picture: ${error.message || 'Unknown error'}`);
+            } finally {
+                setIsUpdating(false);
+            }
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error('Logout error', error);
+        }
     };
 
     return (
@@ -40,81 +134,154 @@ export default function ProfileScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
-                    <TouchableOpacity style={[styles.settingsBtn, { backgroundColor: theme.card }]}>
-                        <Ionicons name="settings-outline" size={22} color={theme.text} />
+                    <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>WAUDEROBE</Text>
+                    <TouchableOpacity onPress={handleLogout}>
+                        <Ionicons name="settings-sharp" size={24} color={theme.textPrimary} />
                     </TouchableOpacity>
                 </View>
 
-                {/* Profile Card */}
-                <View style={[styles.profileCard, { backgroundColor: theme.card }]}>
-                    <View style={[styles.avatarLarge, { backgroundColor: theme.iconBg }]}>
-                        <Ionicons name="person" size={36} color={Colors.gold} />
-                    </View>
-                    <Text style={[styles.profileName, { color: theme.text }]}>Sarah Johnson</Text>
-                    <Text style={[styles.profileEmail, { color: theme.textSecondary }]}>sarah.j@example.com</Text>
-                    <View style={styles.profileBadge}>
-                        <Ionicons name="sparkles" size={14} color={Colors.gold} />
-                        <Text style={styles.badgeText}>Premium Member</Text>
-                    </View>
-                </View>
-
-                {/* Stats Row */}
-                <View style={[styles.statsRow, { backgroundColor: theme.card }]}>
-                    <View style={styles.statItem}>
-                        <Text style={[styles.statNumber, { color: theme.text }]}>124</Text>
-                        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Items</Text>
-                    </View>
-                    <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-                    <View style={styles.statItem}>
-                        <Text style={[styles.statNumber, { color: theme.text }]}>18</Text>
-                        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Outfits</Text>
-                    </View>
-                    <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-                    <View style={styles.statItem}>
-                        <Text style={[styles.statNumber, { color: theme.text }]}>42</Text>
-                        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>Favorites</Text>
-                    </View>
-                </View>
-
-                {/* Menu Items */}
-                <View style={[styles.menuCard, { backgroundColor: theme.card }]}>
-                    {MENU_ITEMS.map((item, index) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            style={[
-                                styles.menuItem,
-                                index < MENU_ITEMS.length - 1 && [styles.menuItemBorder, { borderBottomColor: theme.border }],
-                            ]}
-                        >
-                            <View style={styles.menuLeft}>
-                                <View style={[styles.menuIcon, { backgroundColor: theme.iconBg }]}>
-                                    <Ionicons name={item.icon as any} size={20} color={Colors.gold} />
-                                </View>
-                                <Text style={[styles.menuLabel, { color: theme.text }]}>{item.label}</Text>
+                {/* Profile Info */}
+                <View style={styles.profileSection}>
+                    <TouchableOpacity 
+                        style={styles.avatarContainer} 
+                        onPress={handlePickImage}
+                        disabled={isUpdating}
+                    >
+                        <View style={styles.avatarRing1}>
+                            <View style={styles.avatarRing2}>
+                                {auth.currentUser?.photoURL ? (
+                                    <Image source={{ uri: auth.currentUser.photoURL }} style={styles.avatarImage} />
+                                ) : (
+                                    <View style={[styles.avatarImage, { backgroundColor: '#F0D4A0', justifyContent: 'center', alignItems: 'center' }]}>
+                                        <Ionicons name="person" size={50} color="#D4A843" />
+                                    </View>
+                                )}
                             </View>
-                            {item.toggle ? (
-                                <Switch
-                                    value={notificationsEnabled}
-                                    onValueChange={setNotificationsEnabled}
-                                    trackColor={{ false: Colors.lightGray, true: Colors.goldLight }}
-                                    thumbColor={notificationsEnabled ? Colors.gold : Colors.mediumGray}
-                                />
-                            ) : (
-                                <Ionicons name="chevron-forward" size={18} color={Colors.mediumGray} />
-                            )}
+                        </View>
+                        <View style={styles.avatarEditBadge}>
+                            <Ionicons name="camera" size={14} color="#FFF" />
+                        </View>
+                        {isUpdating && (
+                            <View style={styles.avatarLoader}>
+                                <ActivityIndicator color="#D4A843" />
+                            </View>
+                        )}
+                    </TouchableOpacity>
+
+                    {isEditingName ? (
+                        <View style={styles.editNameRow}>
+                            <TextInput
+                                style={[styles.nameInput, { color: theme.textPrimary, borderBottomColor: theme.textGold }]}
+                                value={newName}
+                                onChangeText={setNewName}
+                                autoFocus
+                            />
+                            <TouchableOpacity onPress={handleUpdateName} style={styles.saveBtn}>
+                                <Ionicons name="checkmark-circle" size={24} color={theme.textGold} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setIsEditingName(false)}>
+                                <Ionicons name="close-circle" size={24} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity style={styles.nameContainer} onPress={() => setIsEditingName(true)}>
+                            <Text style={[styles.profileName, { color: theme.textPrimary }]}>
+                                {auth.currentUser?.displayName || 'Fashionista'}
+                            </Text>
+                            <Ionicons name="pencil" size={14} color={theme.textSecondary} style={{ marginLeft: 6 }} />
                         </TouchableOpacity>
-                    ))}
+                    )}
+
+                    <Text style={[styles.profileBio, { color: theme.textSecondary }]}>
+                        "Curating a timeless, sustainable wardrobe."
+                    </Text>
+                    <View style={styles.locationContainer}>
+                        <Ionicons name="location" size={12} color={theme.textGold} />
+                        <Text style={[styles.locationText, { color: theme.textGold }]}>PARIS, FRANCE</Text>
+                    </View>
                 </View>
 
-                {/* Logout Button */}
-                <TouchableOpacity style={[styles.logoutBtn, { backgroundColor: theme.card }]}>
-                    <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-                    <Text style={styles.logoutText}>Log Out</Text>
-                </TouchableOpacity>
+                {/* Stats */}
+                <View style={styles.statsRow}>
+                    <View style={[styles.statCard, { backgroundColor: theme.card }]}>
+                        <Text style={[styles.statNumber, { color: theme.textGold }]}>
+                            {stats?.totalItems || 0}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>ITEMS</Text>
+                    </View>
+                    <View style={[styles.statCard, { backgroundColor: theme.card }]}>
+                        <Text style={[styles.statNumber, { color: theme.textGold }]}>
+                            {/* Assuming outfits are derived from OOTD history for now */}
+                            {ootdStats?.mostWorn.length || 0}
+                        </Text>
+                        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>OUTFITS</Text>
+                    </View>
+                    <View style={[styles.statCard, { backgroundColor: theme.card }]}>
+                        {/* We use StylePreference or some calculation for Most Worn */}
+                        <Text style={[styles.statNumber, { color: theme.textGold, fontSize: 16 }]}>
+                            Minimal
+                        </Text>
+                        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>MOST WORN</Text>
+                    </View>
+                </View>
 
-                <Text style={[styles.version, { color: theme.textSecondary }]}>Digidrobe v1.0.0</Text>
-                <View style={{ height: 40 }} />
+                {/* Style DNA */}
+                <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>STYLE DNA</Text>
+                        <View style={[styles.sectionLine, { backgroundColor: theme.divider }]} />
+                    </View>
+                    <View style={styles.dnaPills}>
+                        {STYLE_DNA.map((pill, index) => (
+                            <View 
+                                key={index} 
+                                style={[
+                                    styles.dnaPill, 
+                                    { 
+                                        backgroundColor: pill.active ? theme.textGold : theme.pillBg,
+                                        borderColor: theme.textGold,
+                                        borderWidth: pill.active ? 0 : 1
+                                    }
+                                ]}
+                            >
+                                <Text style={[
+                                    styles.dnaPillText, 
+                                    { color: pill.active ? '#FFF' : theme.textGold }
+                                ]}>
+                                    {pill.label}
+                                </Text>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Essential Links */}
+                <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>ESSENTIAL LINKS</Text>
+                        <View style={[styles.sectionLine, { backgroundColor: theme.divider }]} />
+                    </View>
+                    <View style={styles.linksContainer}>
+                        {ESSENTIAL_LINKS.map((link) => (
+                            <TouchableOpacity 
+                                key={link.id} 
+                                style={[styles.linkCard, { backgroundColor: theme.card }]}
+                                onPress={() => {
+                                    if (link.id === 'logout') handleLogout();
+                                    if (link.id === 'edit') setIsEditingName(true);
+                                }}
+                            >
+                                <View style={styles.linkLeft}>
+                                    <Ionicons name={link.icon as any} size={20} color={link.color || theme.textGold} />
+                                    <Text style={[styles.linkLabel, { color: link.color || theme.textPrimary }]}>{link.label}</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+
+                <View style={{ height: 100 }} />
             </ScrollView>
         </SafeAreaView>
     );
@@ -123,154 +290,191 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.warmGray,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.md,
-        paddingBottom: Spacing.lg,
+        paddingHorizontal: 24,
+        paddingTop: Platform.OS === 'android' ? 20 : 10,
+        paddingBottom: 20,
     },
-    title: {
-        ...Typography.heading1,
+    headerTitle: {
+        fontSize: 16,
+        fontWeight: '800',
+        letterSpacing: 2,
     },
-    settingsBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: Colors.white,
+    profileSection: {
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        marginBottom: 30,
+    },
+    avatarContainer: {
+        marginBottom: 16,
+    },
+    avatarRing1: {
+        width: 130,
+        height: 130,
+        borderRadius: 65,
+        backgroundColor: 'rgba(212, 168, 67, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarRing2: {
+        width: 114,
+        height: 114,
+        borderRadius: 57,
+        backgroundColor: '#FFF',
         justifyContent: 'center',
         alignItems: 'center',
         ...Shadows.sm,
     },
-    profileCard: {
-        alignItems: 'center',
-        paddingVertical: Spacing.xl,
-        marginHorizontal: Spacing.xl,
-        backgroundColor: Colors.white,
-        borderRadius: BorderRadius.xl,
-        marginBottom: Spacing.lg,
-        ...Shadows.sm,
+    avatarImage: {
+        width: 104,
+        height: 104,
+        borderRadius: 52,
     },
-    avatarLarge: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: Colors.cream,
+    avatarEditBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        backgroundColor: '#D4A843',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 3,
-        borderColor: Colors.goldLight,
-        marginBottom: Spacing.md,
+        borderColor: '#FEFCF9',
     },
-    profileName: {
-        ...Typography.heading2,
-        fontSize: 20,
-        marginBottom: 4,
+    avatarLoader: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.7)',
+        borderRadius: 65,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    profileEmail: {
-        ...Typography.bodySmall,
-        marginBottom: Spacing.md,
-    },
-    profileBadge: {
+    editNameRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.xs,
-        backgroundColor: Colors.categoryActive,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: 6,
-        borderRadius: BorderRadius.round,
+        gap: 12,
+        marginBottom: 8,
     },
-    badgeText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: Colors.goldDark,
+    nameInput: {
+        fontSize: 22,
+        fontWeight: '800',
+        borderBottomWidth: 1,
+        paddingVertical: 4,
+        minWidth: 150,
+        textAlign: 'center',
+    },
+    saveBtn: {
+        padding: 4,
+    },
+    nameContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    profileName: {
+        fontSize: 26,
+        fontWeight: '800',
+        marginBottom: 8,
+    },
+    profileBio: {
+        fontSize: 13,
+        fontStyle: 'italic',
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    locationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    locationText: {
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 1,
     },
     statsRow: {
         flexDirection: 'row',
-        backgroundColor: Colors.white,
-        borderRadius: BorderRadius.xl,
-        marginHorizontal: Spacing.xl,
-        paddingVertical: Spacing.lg,
-        marginBottom: Spacing.lg,
-        ...Shadows.sm,
+        justifyContent: 'center',
+        gap: 8, // Reduced from 12
+        paddingHorizontal: 30, // Increased to push cards in tighter
+        marginBottom: 36,
     },
-    statItem: {
+    statCard: {
         flex: 1,
+        borderRadius: 16,
+        paddingVertical: 14, // Reduced from 18
         alignItems: 'center',
+        maxWidth: 100, // Constrain width
+        ...Shadows.sm,
     },
     statNumber: {
         fontSize: 22,
-        fontWeight: '700',
-        color: Colors.charcoal,
+        fontWeight: '800',
+        marginBottom: 4,
     },
     statLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
+    sectionContainer: {
+        paddingHorizontal: 24,
+        marginBottom: 36,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+        gap: 16,
+    },
+    sectionTitle: {
         fontSize: 12,
-        color: Colors.darkGray,
-        marginTop: 2,
+        fontWeight: '800',
+        letterSpacing: 1.5,
     },
-    statDivider: {
-        width: 1,
-        backgroundColor: Colors.lightGray,
+    sectionLine: {
+        flex: 1,
+        height: 1,
     },
-    menuCard: {
-        backgroundColor: Colors.white,
-        borderRadius: BorderRadius.xl,
-        marginHorizontal: Spacing.xl,
-        marginBottom: Spacing.xl,
-        ...Shadows.sm,
-    },
-    menuItem: {
+    dnaPills: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.lg,
+        flexWrap: 'wrap',
+        gap: 10,
     },
-    menuItemBorder: {
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.lightGray,
+    dnaPill: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
     },
-    menuLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.md,
-    },
-    menuIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: Colors.cream,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    menuLabel: {
-        fontSize: 15,
-        fontWeight: '500',
-        color: Colors.charcoal,
-    },
-    logoutBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: Spacing.sm,
-        paddingVertical: Spacing.lg,
-        marginHorizontal: Spacing.xl,
-        backgroundColor: Colors.white,
-        borderRadius: BorderRadius.xl,
-        ...Shadows.sm,
-    },
-    logoutText: {
-        fontSize: 15,
+    dnaPillText: {
+        fontSize: 13,
         fontWeight: '600',
-        color: Colors.error,
     },
-    version: {
-        textAlign: 'center',
-        fontSize: 12,
-        color: Colors.mediumGray,
-        marginTop: Spacing.lg,
+    linksContainer: {
+        gap: 12,
+    },
+    linkCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 18,
+        borderRadius: 16,
+        ...Shadows.sm,
+    },
+    linkLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    linkLabel: {
+        fontSize: 14,
+        fontWeight: '700',
     },
 });

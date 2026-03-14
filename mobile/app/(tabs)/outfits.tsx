@@ -1378,11 +1378,9 @@ export default function OutfitsScreen() {
 
                                         const topItems = byCategory['topwear'] || [];
                                         const bottomItems = byCategory['bottomwear'] || [];
+                                        const outerwearItems = byCategory['outerwear'] || [];
                                         const footwearItems = byCategory['footwear'] || [];
                                         const accessoryItems = byCategory['accessories'] || [];
-
-                                        const primaryThumb =
-                                            topItems[0] || bottomItems[0] || footwearItems[0] || items[0];
 
                                         const expanded = expandedLookId === look.id;
 
@@ -1411,39 +1409,65 @@ export default function OutfitsScreen() {
                                                     />
                                                 </View>
 
-                                                {primaryThumb && (
+                                                {items.length > 0 && (
                                                     <View style={styles.lookThumbRow}>
-                                                        <Image
-                                                            source={{ uri: api.getImageUrl(primaryThumb.processedUrl) }}
-                                                            style={styles.lookThumb}
-                                                            resizeMode="contain"
-                                                        />
-                                                        <View style={styles.lookCategoryChips}>
-                                                            {topItems.length > 0 && (
-                                                                <View style={styles.lookChip}>
-                                                                    <Text style={styles.lookChipLabel}>Topwear</Text>
-                                                                    <Text style={styles.lookChipCount}>{topItems.length}</Text>
+                                                        <ScrollView
+                                                            horizontal
+                                                            showsHorizontalScrollIndicator={false}
+                                                            style={styles.lookThumbsStrip}
+                                                            contentContainerStyle={styles.lookThumbsStripContent}
+                                                        >
+                                                            {topItems.map((wItem) => (
+                                                                <View key={wItem.id} style={styles.lookThumbItem}>
+                                                                    <Image
+                                                                        source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                        style={styles.lookThumbSmall}
+                                                                        resizeMode="contain"
+                                                                    />
+                                                                    <Text style={[styles.lookThumbLabel, { color: theme.textSecondary }]}>Top</Text>
                                                                 </View>
-                                                            )}
-                                                            {bottomItems.length > 0 && (
-                                                                <View style={styles.lookChip}>
-                                                                    <Text style={styles.lookChipLabel}>Bottomwear</Text>
-                                                                    <Text style={styles.lookChipCount}>{bottomItems.length}</Text>
+                                                            ))}
+                                                            {bottomItems.map((wItem) => (
+                                                                <View key={wItem.id} style={styles.lookThumbItem}>
+                                                                    <Image
+                                                                        source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                        style={styles.lookThumbSmall}
+                                                                        resizeMode="contain"
+                                                                    />
+                                                                    <Text style={[styles.lookThumbLabel, { color: theme.textSecondary }]}>Bottom</Text>
                                                                 </View>
-                                                            )}
-                                                            {footwearItems.length > 0 && (
-                                                                <View style={styles.lookChip}>
-                                                                    <Text style={styles.lookChipLabel}>Footwear</Text>
-                                                                    <Text style={styles.lookChipCount}>{footwearItems.length}</Text>
+                                                            ))}
+                                                            {outerwearItems.map((wItem) => (
+                                                                <View key={wItem.id} style={styles.lookThumbItem}>
+                                                                    <Image
+                                                                        source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                        style={styles.lookThumbSmall}
+                                                                        resizeMode="contain"
+                                                                    />
+                                                                    <Text style={[styles.lookThumbLabel, { color: theme.textSecondary }]}>Outer</Text>
                                                                 </View>
-                                                            )}
-                                                            {accessoryItems.length > 0 && (
-                                                                <View style={styles.lookChip}>
-                                                                    <Text style={styles.lookChipLabel}>Accessories</Text>
-                                                                    <Text style={styles.lookChipCount}>{accessoryItems.length}</Text>
+                                                            ))}
+                                                            {footwearItems.map((wItem) => (
+                                                                <View key={wItem.id} style={styles.lookThumbItem}>
+                                                                    <Image
+                                                                        source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                        style={styles.lookThumbSmall}
+                                                                        resizeMode="contain"
+                                                                    />
+                                                                    <Text style={[styles.lookThumbLabel, { color: theme.textSecondary }]}>Footwear</Text>
                                                                 </View>
-                                                            )}
-                                                        </View>
+                                                            ))}
+                                                            {accessoryItems.slice(0, 2).map((wItem) => (
+                                                                <View key={wItem.id} style={styles.lookThumbItem}>
+                                                                    <Image
+                                                                        source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                        style={styles.lookThumbSmall}
+                                                                        resizeMode="contain"
+                                                                    />
+                                                                    <Text style={[styles.lookThumbLabel, { color: theme.textSecondary }]}>Accessory</Text>
+                                                                </View>
+                                                            ))}
+                                                        </ScrollView>
                                                     </View>
                                                 )}
 
@@ -1469,6 +1493,21 @@ export default function OutfitsScreen() {
                                                                 <Text style={[styles.lookCategoryTitle, { color: theme.text }]}>Bottomwear</Text>
                                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                                     {bottomItems.map((wItem) => (
+                                                                        <Image
+                                                                            key={wItem.id}
+                                                                            source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                            style={styles.lookPieceImg}
+                                                                            resizeMode="contain"
+                                                                        />
+                                                                    ))}
+                                                                </ScrollView>
+                                                            </View>
+                                                        )}
+                                                        {outerwearItems.length > 0 && (
+                                                            <View style={styles.lookCategorySection}>
+                                                                <Text style={[styles.lookCategoryTitle, { color: theme.text }]}>Outerwear</Text>
+                                                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                                                    {outerwearItems.map((wItem) => (
                                                                         <Image
                                                                             key={wItem.id}
                                                                             source={{ uri: api.getImageUrl(wItem.processedUrl) }}
@@ -2353,6 +2392,30 @@ const styles = StyleSheet.create({
         height: 112,
         borderRadius: BorderRadius.md,
         backgroundColor: '#F5F5F5',
+    },
+    lookThumbsStrip: {
+        flex: 1,
+    },
+    lookThumbsStripContent: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+        paddingVertical: 4,
+    },
+    lookThumbItem: {
+        alignItems: 'center',
+        minWidth: 72,
+    },
+    lookThumbSmall: {
+        width: 64,
+        height: 76,
+        borderRadius: BorderRadius.md,
+        backgroundColor: '#F5F5F5',
+    },
+    lookThumbLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+        marginTop: 4,
+        textTransform: 'capitalize',
     },
     lookCategoryChips: {
         flex: 1,

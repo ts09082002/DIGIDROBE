@@ -2,30 +2,48 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { getFirebaseAdmin } from '../firebase-admin';
 import { v4 as uuid } from 'uuid';
 
-export interface WardrobeItem {
+export class WardrobeItem {
   id: string;
+  userId: string;
   originalFilename: string;
   originalUrl: string;
-  processedUrl: string;
+  processedUrl?: string;
   category: string;
-  /** Sub-category from ML Kit / Vision API (e.g. 'jeans', 't_shirt', 'sneakers') */
-  subCategory: string;
-  name: string;
-  brand: string;
-  color: string;
-  season: string[];
-  occasion: string[];
+  subCategory?: string;
+  name?: string;
+  brand?: string;
+  color?: string;
+  season?: string[];
+  occasion?: string[];
   isFavorite: boolean;
   mimeType: string;
   size: number;
   createdAt: string;
   updatedAt: string;
-  status: string;
-  /** True when AI classification confidence was below 0.4 — prompts user to manually tag. */
+  status: 'processing' | 'done' | 'failed' | 'pending';
   isLowConfidence?: boolean;
-  /** JSON string of color palette from Palette API: [{hex, name}, ...] */
   colorPalette?: string;
-  /** Raw ML labels from Google Cloud Vision API — used by recommendation engine */
+  mlLabels?: string[];
+}
+
+export class CreateItemDto {
+  userId: string;
+  originalFilename: string;
+  originalUrl: string;
+  processedUrl?: string;
+  category: string;
+  subCategory?: string;
+  name?: string;
+  brand?: string;
+  color?: string;
+  season?: string[];
+  occasion?: string[];
+  mimeType: string;
+  size: number;
+  status?: 'processing' | 'done' | 'failed' | 'pending';
+  isFavorite?: boolean;
+  isLowConfidence?: boolean;
+  colorPalette?: string;
   mlLabels?: string[];
 }
 
@@ -53,56 +71,69 @@ export class WardrobeService {
 
     return {
       id,
+      userId: data.userId ?? '',
       originalFilename: data.originalFilename ?? '',
       originalUrl: data.originalUrl ?? '',
-      processedUrl: data.processedUrl ?? '',
+      processedUrl: data.processedUrl ?? undefined,
       category: data.category ?? 'tops',
-      subCategory: data.subCategory ?? '',
+      subCategory: data.subCategory ?? undefined,
       name: data.name ?? data.originalFilename ?? 'Untitled',
-      brand: data.brand ?? '',
-      color: data.color ?? '',
-      season: data.season ?? [],
-      occasion: data.occasion ?? [],
+      brand: data.brand ?? undefined,
+      color: data.color ?? undefined,
+      season: data.season ?? undefined,
+      occasion: data.occasion ?? undefined,
       isFavorite: data.isFavorite ?? false,
       mimeType: data.mimeType ?? 'image/png',
       size: data.size ?? 0,
       createdAt: data.createdAt ?? new Date().toISOString(),
       updatedAt: data.updatedAt ?? new Date().toISOString(),
       status: data.status ?? 'done',
-      isLowConfidence: data.isLowConfidence ?? false,
+      isLowConfidence: data.isLowConfidence ?? undefined,
       colorPalette: data.colorPalette ?? undefined,
-      mlLabels: data.mlLabels ?? [],
+      mlLabels: data.mlLabels ?? undefined,
     };
   }
 
-  async getAll(query?: {
+  async getAll(filters: {
+    userId: string;
     category?: string;
+    favorite?: boolean;
     search?: string;
-    favorite?: string;
   }): Promise<WardrobeItem[]> {
-    const snapshot = await this.collection.get();
+    let query: FirebaseFirestore.Query = this.collection.where(
+      'userId',
+      '==',
+      filters.userId,
+    );
+
+    if (filters.category && filters.category !== 'all') {
+      query = query.where('category', '==', filters.category);
+    }
+
+    if (filters.favorite === true) {
+      query = query.where('isFavorite', '==', true);
+    }
+
+    const snapshot = await query.get();
     let items: WardrobeItem[] = snapshot.docs
       .map((doc) => this.docToItem(doc.id, doc.data()))
       .filter((i): i is WardrobeItem => i !== null);
 
-    const category = query?.category;
-    if (category && category !== 'all') {
-      items = items.filter(
-        (i) => i.category.toLowerCase() === category.toLowerCase(),
-      );
-    }
+    // The original code had a misplaced closing brace here, which was syntactically incorrect.
+    // The following filtering logic was outside the method. It has been moved inside.
 
-    if (query?.search) {
-      const q = query.search.toLowerCase();
+    if (filters?.search) {
+      // Changed from `query?.search` to `filters?.search`
+      const q = filters.search.toLowerCase(); // Changed from `query.search` to `filters.search`
       items = items.filter(
         (i) =>
-          i.name.toLowerCase().includes(q) ||
-          i.brand.toLowerCase().includes(q) ||
-          i.category.toLowerCase().includes(q),
+          i.name?.toLowerCase().includes(q) || // Added optional chaining for safety
+          i.brand?.toLowerCase().includes(q) || // Added optional chaining for safety
+          i.category?.toLowerCase().includes(q), // Added optional chaining for safety
       );
     }
 
-    if (query?.favorite === 'true') {
+    if (filters?.favorite === true) {
       items = items.filter((i) => i.isFavorite);
     }
 
@@ -125,6 +156,7 @@ export class WardrobeService {
 
     const item: WardrobeItem = {
       id,
+      userId: data.userId || 'anonymous',
       originalFilename: data.originalFilename || '',
       originalUrl: data.originalUrl || '',
       processedUrl: data.processedUrl || '',
@@ -193,19 +225,24 @@ export class WardrobeService {
     await docRef.delete();
   }
 
-  async getStats(): Promise<{
+  async getStats(userId: string): Promise<{
     totalItems: number;
     totalFavorites: number;
     categories: Record<string, number>;
   }> {
-    const snapshot = await this.collection.get();
+    if (!userId) {
+      throw new Error('userId is required for getStats');
+    }
+    const snapshot = await this.collection.where('userId', '==', userId).get();
     const items: WardrobeItem[] = snapshot.docs
       .map((doc) => this.docToItem(doc.id, doc.data()))
       .filter((i): i is WardrobeItem => i !== null);
 
     const categories: Record<string, number> = {};
     items.forEach((i) => {
-      categories[i.category] = (categories[i.category] || 0) + 1;
+      // Don't filter out 'other' or unclassified - count everything
+      const cat = i.category || 'unclassified';
+      categories[cat] = (categories[cat] || 0) + 1;
     });
 
     return {

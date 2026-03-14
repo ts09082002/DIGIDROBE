@@ -1,4 +1,11 @@
-import { Controller, Post, Get, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Headers as NestHeaders,
+} from '@nestjs/common';
 import { PackingService } from './packing.service';
 import { TryOnService } from './try-on.service';
 import type {
@@ -15,23 +22,32 @@ export class PackingController {
   ) {}
 
   @Post('generate')
-  async generate(@Body() body: PackingListRequest) {
+  async generate(
+    @NestHeaders('x-user-id') userId: string,
+    @Body() body: PackingListRequest,
+  ) {
     if (!body.destination || !body.days) {
       return { success: false, message: 'Missing destination or days' };
     }
-    const data = await this.packingService.generatePackingList(body);
+    const data = await this.packingService.generatePackingList({
+      ...body,
+      userId,
+    });
     return { success: true, data };
   }
 
   @Get('stylist')
-  async getStylistSuggestion() {
-    const data = await this.packingService.getStylistSuggestion();
+  async getStylistSuggestion(@NestHeaders('x-user-id') userId: string) {
+    const data = await this.packingService.getStylistSuggestion(userId);
     return { success: true, data };
   }
 
   @Post('stylist')
-  async getPersonalizedStylistSuggestion(@Body() body: StyleProfileRequest) {
-    const data = await this.packingService.getStylistSuggestion(body);
+  async getPersonalizedStylistSuggestion(
+    @NestHeaders('x-user-id') userId: string,
+    @Body() body: StyleProfileRequest,
+  ) {
+    const data = await this.packingService.getStylistSuggestion(userId, body);
     return { success: true, data };
   }
 

@@ -2,18 +2,15 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { getFirebaseAdmin } from '../firebase-admin';
 import { v4 as uuid } from 'uuid';
 
-export interface OOTD {
+export class OOTD {
   id: string;
-  date: string; // YYYY-MM-DD
-  itemIds: string[];
-  notes: string;
+  userId: string;
+  date: string; // ISO YYYY-MM-DD
+  outfitItems: string[]; // array of wardrobeItem IDs
+  aiStyled?: boolean;
+  notes?: string;
+  rating?: number;
   createdAt: string;
-  updatedAt: string;
-}
-
-export interface WardrobeStats {
-  mostWorn: { itemId: string; count: number }[];
-  leastWorn: { itemId: string; count: number }[];
 }
 
 @Injectable()
@@ -30,21 +27,24 @@ export class CalendarService {
     if (!data) return null;
     return {
       id,
-      date: data.date ?? new Date().toISOString().split('T')[0],
-      itemIds: data.itemIds ?? [],
+      userId: data.userId ?? '',
+      date: data.date ?? '',
+      outfitItems: data.outfitItems ?? [],
+      aiStyled: data.aiStyled ?? false,
       notes: data.notes ?? '',
+      rating: data.rating ?? undefined,
       createdAt: data.createdAt ?? new Date().toISOString(),
-      updatedAt: data.updatedAt ?? new Date().toISOString(),
     };
   }
 
-  async getOOTDByMonth(year: number, month: number): Promise<OOTD[]> {
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-    const endDate = `${year}-${String(month).padStart(2, '0')}-31`;
+  async getByMonth(month: string, userId: string): Promise<OOTD[]> {
+    const start = `${month}-01`;
+    const end = `${month}-31`;
 
     const snapshot = await this.collection
-      .where('date', '>=', startDate)
-      .where('date', '<=', endDate)
+      .where('userId', '==', userId)
+      .where('date', '>=', start)
+      .where('date', '<=', end)
       .get();
 
     return snapshot.docs
@@ -56,64 +56,77 @@ export class CalendarService {
   async saveOOTD(
     date: string,
     itemIds: string[],
-    notes: string = '',
+    userId: string,
+    aiStyled?: boolean,
   ): Promise<OOTD> {
-    // Find existing OOTD for this date, or create new
-    const snapshot = await this.collection
+    const existing = await this.collection
+      .where('userId', '==', userId)
       .where('date', '==', date)
-      .limit(1)
       .get();
 
-    let id = uuid();
-    let createdAt = new Date().toISOString();
-
-    if (!snapshot.empty) {
-      id = snapshot.docs[0].id;
-      createdAt = snapshot.docs[0].data().createdAt || createdAt;
+    if (!existing.empty) {
+      const docId = existing.docs[0].id;
+      await existing.docs[0].ref.update({
+        outfitItems: itemIds,
+        aiStyled: !!aiStyled,
+      });
+      const updatedSnapshot = await this.collection.doc(docId).get();
+      return this.docToOOTD(docId, updatedSnapshot.data())!;
     }
 
-    const updatedAt = new Date().toISOString();
-    const item: OOTD = {
-      id,
+    const doc = await this.collection.add({
+      userId,
       date,
-      itemIds,
-      notes,
-      createdAt,
-      updatedAt,
-    };
-
-    await this.collection.doc(id).set(item);
-    return item;
+      outfitItems: itemIds,
+      aiStyled: !!aiStyled,
+      createdAt: new Date().toISOString(),
+    });
+    const newSnapshot = await doc.get();
+    return this.docToOOTD(doc.id, newSnapshot.data())!;
   }
 
-  async getStats(days: number = 30): Promise<WardrobeStats> {
-    // Calculate the date X days ago
-    const dateLimit = new Date();
-    dateLimit.setDate(dateLimit.getDate() - days);
-    const dateString = dateLimit.toISOString().split('T')[0];
+  async getStats(
+    days: number,
+    userId: string,
+  ): Promise<{
+    totalOutfits: number;
+    mostWorn: any[];
+    leastWorn: any[];
+    aiStyledCount: number;
+  }> {
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - days);
+    const isoThreshold = thresholdDate.toISOString().split('T')[0];
 
     const snapshot = await this.collection
-      .where('date', '>=', dateString)
+      .where('userId', '==', userId)
+      .where('date', '>=', isoThreshold)
       .get();
+    const outfits = snapshot.docs.map(
+      (doc) => this.docToOOTD(doc.id, doc.data())!,
+    );
 
-    const itemCounts: Record<string, number> = {};
-
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      const items = data.itemIds || [];
-      items.forEach((itemId: string) => {
-        itemCounts[itemId] = (itemCounts[itemId] || 0) + 1;
+    const counts: Record<string, number> = {};
+    let aiStyledCount = 0;
+    outfits.forEach((o) => {
+      if (o.aiStyled) aiStyledCount++;
+      (o.outfitItems || []).forEach((id) => {
+        counts[id] = (counts[id] || 0) + 1;
       });
     });
 
-    // Convert to array and sort
-    const sortedItems = Object.entries(itemCounts)
-      .map(([itemId, count]) => ({ itemId, count }))
-      .sort((a, b) => b.count - a.count);
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const mostWorn = sorted.slice(0, 20).map(([id, count]) => ({ id, count }));
+    const leastWorn = [...sorted]
+      .reverse()
+      .slice(0, 20)
+      .map(([id, count]) => ({ id, count }));
 
     return {
-      mostWorn: sortedItems.slice(0, 5),
-      leastWorn: sortedItems.slice().reverse().slice(0, 5), // Note: this only shows items worn AT LEAST once. Items worn 0 times wouldn't appear here (need full wardrobe list to compare). We will just return the bottom 5 of worn items for now.
+      totalOutfits: outfits.length,
+      mostWorn,
+      leastWorn,
+      aiStyledCount,
     };
   }
 }

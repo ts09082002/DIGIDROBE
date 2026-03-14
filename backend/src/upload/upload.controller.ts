@@ -8,6 +8,7 @@ import {
   Param,
   Res,
   Body,
+  Headers as NestHeaders,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -27,7 +28,7 @@ const MAX_SIZE = 20 * 1024 * 1024; // 20MB
 
 @Controller('api/upload')
 export class UploadController {
-  constructor(private readonly uploadService: UploadService) { }
+  constructor(private readonly uploadService: UploadService) {}
 
   @Post('clothing')
   @UseInterceptors(
@@ -35,8 +36,9 @@ export class UploadController {
       storage: diskStorage({
         destination: join(__dirname, '..', '..', 'uploads', 'originals'),
         filename: (_req, file, cb) => {
-          const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
-          cb(null, uniqueName);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, uniqueSuffix + extname(file.originalname));
         },
       }),
       limits: { fileSize: MAX_SIZE },
@@ -55,6 +57,7 @@ export class UploadController {
     }),
   )
   async uploadClothing(
+    @NestHeaders('x-user-id') userId: string,
     @UploadedFile() file: any,
     @Body('category') category?: string,
     @Body('subCategory') subCategory?: string,
@@ -78,6 +81,7 @@ export class UploadController {
       category,
       subCategory,
       mlLabels,
+      userId,
     );
     return {
       success: true,
@@ -117,12 +121,15 @@ export class UploadController {
       },
     }),
   )
-  async uploadBodyPhoto(@UploadedFile() file: any) {
+  async uploadBodyPhoto(
+    @NestHeaders('x-user-id') userId: string,
+    @UploadedFile() file: any,
+  ) {
     if (!file) {
       throw new BadRequestException('No image file provided');
     }
 
-    const result = await this.uploadService.processBodyPhoto(file);
+    const result = await this.uploadService.processBodyPhoto(file, userId);
     return {
       success: true,
       data: result,

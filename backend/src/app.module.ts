@@ -5,6 +5,10 @@ import { UploadModule } from './upload/upload.module';
 import { WardrobeModule } from './wardrobe/wardrobe.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { PackingModule } from './packing/packing.module';
+export * from './wardrobe/wardrobe.service';
+export * from './calendar/calendar.service';
+export * from './packing/packing.service';
+export * from './upload/upload.service';
 
 @Module({
   imports: [

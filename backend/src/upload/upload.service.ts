@@ -48,7 +48,7 @@ export class UploadService {
   constructor(
     private readonly bgRemovalService: BackgroundRemovalService,
     private readonly wardrobeService: WardrobeService,
-  ) { }
+  ) {}
 
   /**
    * Save original image, create wardrobe item immediately, then kick off
@@ -59,6 +59,7 @@ export class UploadService {
     preferredCategory?: string,
     preferredSubCategory?: string,
     preferredMlLabels?: string[],
+    userId?: string,
   ): Promise<WardrobeItem> {
     const id = uuidv4();
     this.logger.log(
@@ -93,6 +94,7 @@ export class UploadService {
     // Include ML Kit labels/subCategory right away so they are stored even if bg processing fails.
     const wardrobeItem = await this.wardrobeService.create({
       id,
+      userId: userId || 'anonymous',
       originalFilename: file.originalname,
       originalUrl: `/uploads/originals/${originalFilenameOnDisk}`,
       processedUrl: '',
@@ -123,7 +125,7 @@ export class UploadService {
     return wardrobeItem;
   }
 
-  async processBodyPhoto(file: any): Promise<BodyPhotoResult> {
+  async processBodyPhoto(file: any, userId?: string): Promise<BodyPhotoResult> {
     const id = uuidv4();
     this.logger.log(
       `Received body photo: ${file.originalname} (${file.size} bytes)`,

@@ -2,13 +2,18 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
-  Delete,
   Body,
   Param,
+  Patch,
+  Delete,
   Query,
+  Headers as NestHeaders,
 } from '@nestjs/common';
-import { WardrobeService, WardrobeItem } from './wardrobe.service';
+import {
+  WardrobeService,
+  WardrobeItem,
+  CreateItemDto,
+} from './wardrobe.service';
 
 @Controller('api/wardrobe')
 export class WardrobeController {
@@ -16,28 +21,22 @@ export class WardrobeController {
 
   @Get()
   async getAll(
+    @NestHeaders('x-user-id') userId: string,
     @Query('category') category?: string,
-    @Query('search') search?: string,
     @Query('favorite') favorite?: string,
+    @Query('search') search?: string,
   ) {
-    const data = await this.wardrobeService.getAll({
+    return this.wardrobeService.getAll({
+      userId,
       category,
+      favorite: favorite === 'true',
       search,
-      favorite,
     });
-    return {
-      success: true,
-      data,
-    };
   }
 
   @Get('stats')
-  async getStats() {
-    const data = await this.wardrobeService.getStats();
-    return {
-      success: true,
-      data,
-    };
+  async getStats(@NestHeaders('x-user-id') userId: string) {
+    return this.wardrobeService.getStats(userId);
   }
 
   @Get(':id')
@@ -50,12 +49,11 @@ export class WardrobeController {
   }
 
   @Post()
-  async create(@Body() body: Partial<WardrobeItem>) {
-    const data = await this.wardrobeService.create(body);
-    return {
-      success: true,
-      data,
-    };
+  async create(
+    @NestHeaders('x-user-id') userId: string,
+    @Body() createItemDto: CreateItemDto,
+  ) {
+    return this.wardrobeService.create({ ...createItemDto, userId });
   }
 
   @Patch(':id')

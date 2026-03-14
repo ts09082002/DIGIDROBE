@@ -114,7 +114,12 @@ export class TryOnService {
     } catch (e: any) {
       this.logger.warn(`Pose inference failed: ${e?.message || e}`);
     }
-    const previewBuffer = await this.composePreview(bodyBuffer, bodyBox, pose, outfitItems);
+    const previewBuffer = await this.composePreview(
+      bodyBuffer,
+      bodyBox,
+      pose,
+      outfitItems,
+    );
 
     const filename = `${uuid()}_preview.png`;
     const outputPath = join(this.generatedDir, filename);
@@ -159,7 +164,9 @@ export class TryOnService {
     return resolved;
   }
 
-  private async extractBodyBox(imageBuffer: Buffer): Promise<NormalizedBox | undefined> {
+  private async extractBodyBox(
+    imageBuffer: Buffer,
+  ): Promise<NormalizedBox | undefined> {
     const image = sharp(imageBuffer).ensureAlpha();
     const metadata = await image.metadata();
     const width = metadata.width ?? 0;
@@ -238,7 +245,11 @@ export class TryOnService {
     };
 
     let working = await sharp(bodyBuffer).ensureAlpha().png().toBuffer();
-    for (const region of this.getSuppressionRegions(normalizedBox, width, height)) {
+    for (const region of this.getSuppressionRegions(
+      normalizedBox,
+      width,
+      height,
+    )) {
       working = await this.eraseAndNeutralizeRegion(working, region);
     }
 
@@ -250,10 +261,7 @@ export class TryOnService {
       outfitItems,
     );
 
-    return sharp(working)
-      .composite(placements)
-      .png()
-      .toBuffer();
+    return sharp(working).composite(placements).png().toBuffer();
   }
 
   private getSuppressionRegions(
@@ -264,9 +272,9 @@ export class TryOnService {
     const box = this.toPixels(bodyBox, imageWidth, imageHeight);
     return [
       {
-        left: Math.round(box.left + box.width * 0.10),
+        left: Math.round(box.left + box.width * 0.1),
         top: Math.round(box.top + box.height * 0.09),
-        width: Math.round(box.width * 0.80),
+        width: Math.round(box.width * 0.8),
         height: Math.round(box.height * 0.34),
       },
       {
@@ -340,7 +348,13 @@ export class TryOnService {
   ): Promise<Array<{ input: Buffer; left: number; top: number }>> {
     const grouped = this.groupOutfitItems(outfitItems);
     const box = this.toPixels(bodyBox, imageWidth, imageHeight);
-    const layout = this.buildPoseAwareLayout(box, pose, imageWidth, imageHeight, grouped);
+    const layout = this.buildPoseAwareLayout(
+      box,
+      pose,
+      imageWidth,
+      imageHeight,
+      grouped,
+    );
 
     const overlays: Array<{ input: Buffer; left: number; top: number }> = [];
     for (const entry of layout) {
@@ -348,7 +362,10 @@ export class TryOnService {
         continue;
       }
 
-      let garmentBuffer = await this.prepareGarmentOverlay(entry.item, entry.region);
+      let garmentBuffer = await this.prepareGarmentOverlay(
+        entry.item,
+        entry.region,
+      );
       const rotateDeg = entry.rotateDeg ?? 0;
       if (Math.abs(rotateDeg) > 0.2) {
         garmentBuffer = await sharp(garmentBuffer)
@@ -362,7 +379,11 @@ export class TryOnService {
       const gh = meta.height ?? entry.region.height;
       let left = Math.round(entry.centerX - gw / 2);
       let top = Math.round(entry.centerY - gh / 2);
-      ({ buffer: garmentBuffer, left, top } = await this.cropOverlayToBounds(
+      ({
+        buffer: garmentBuffer,
+        left,
+        top,
+      } = await this.cropOverlayToBounds(
         garmentBuffer,
         left,
         top,
@@ -405,16 +426,37 @@ export class TryOnService {
       y: Math.round(p.y * imageHeight),
     });
 
-    const leftShoulder = pose ? px(pose.leftShoulder) : { x: box.left + box.width * 0.28, y: box.top + box.height * 0.20 };
-    const rightShoulder = pose ? px(pose.rightShoulder) : { x: box.left + box.width * 0.72, y: box.top + box.height * 0.20 };
-    const leftHip = pose ? px(pose.leftHip) : { x: box.left + box.width * 0.34, y: box.top + box.height * 0.54 };
-    const rightHip = pose ? px(pose.rightHip) : { x: box.left + box.width * 0.66, y: box.top + box.height * 0.54 };
-    const leftAnkle = pose ? px(pose.leftAnkle) : { x: box.left + box.width * 0.38, y: box.top + box.height * 0.93 };
-    const rightAnkle = pose ? px(pose.rightAnkle) : { x: box.left + box.width * 0.62, y: box.top + box.height * 0.93 };
+    const leftShoulder = pose
+      ? px(pose.leftShoulder)
+      : { x: box.left + box.width * 0.28, y: box.top + box.height * 0.2 };
+    const rightShoulder = pose
+      ? px(pose.rightShoulder)
+      : { x: box.left + box.width * 0.72, y: box.top + box.height * 0.2 };
+    const leftHip = pose
+      ? px(pose.leftHip)
+      : { x: box.left + box.width * 0.34, y: box.top + box.height * 0.54 };
+    const rightHip = pose
+      ? px(pose.rightHip)
+      : { x: box.left + box.width * 0.66, y: box.top + box.height * 0.54 };
+    const leftAnkle = pose
+      ? px(pose.leftAnkle)
+      : { x: box.left + box.width * 0.38, y: box.top + box.height * 0.93 };
+    const rightAnkle = pose
+      ? px(pose.rightAnkle)
+      : { x: box.left + box.width * 0.62, y: box.top + box.height * 0.93 };
 
-    const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-    const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-    const ankleMid = { x: (leftAnkle.x + rightAnkle.x) / 2, y: (leftAnkle.y + rightAnkle.y) / 2 };
+    const shoulderMid = {
+      x: (leftShoulder.x + rightShoulder.x) / 2,
+      y: (leftShoulder.y + rightShoulder.y) / 2,
+    };
+    const hipMid = {
+      x: (leftHip.x + rightHip.x) / 2,
+      y: (leftHip.y + rightHip.y) / 2,
+    };
+    const ankleMid = {
+      x: (leftAnkle.x + rightAnkle.x) / 2,
+      y: (leftAnkle.y + rightAnkle.y) / 2,
+    };
 
     const shoulderW = Math.max(1, Math.abs(rightShoulder.x - leftShoulder.x));
     const hipW = Math.max(1, Math.abs(rightHip.x - leftHip.x));
@@ -423,7 +465,12 @@ export class TryOnService {
 
     const rotateDeg = pose?.torsoAngleDeg ?? 0;
 
-    const makeRegionFromCenter = (cx: number, cy: number, w: number, h: number) => {
+    const makeRegionFromCenter = (
+      cx: number,
+      cy: number,
+      w: number,
+      h: number,
+    ) => {
       const width = Math.max(1, Math.round(w));
       const height = Math.max(1, Math.round(h));
       return {
@@ -440,23 +487,89 @@ export class TryOnService {
     const outerCenter = { x: shoulderMid.x, y: shoulderMid.y + torsoH * 0.58 };
     const shoeCenter = { x: ankleMid.x, y: ankleMid.y + legH * 0.03 };
 
-    const topRegion = makeRegionFromCenter(topCenter.x, topCenter.y, shoulderW * 1.55, torsoH * 1.45);
-    const outerRegion = makeRegionFromCenter(outerCenter.x, outerCenter.y, shoulderW * 1.75, torsoH * 1.65);
-    const bottomRegion = makeRegionFromCenter(bottomCenter.x, bottomCenter.y, hipW * 1.35, legH * 1.12);
-    const footwearRegion = makeRegionFromCenter(shoeCenter.x, shoeCenter.y, Math.max(shoulderW * 0.70, hipW * 0.70), Math.max(legH * 0.20, 44));
+    const topRegion = makeRegionFromCenter(
+      topCenter.x,
+      topCenter.y,
+      shoulderW * 1.55,
+      torsoH * 1.45,
+    );
+    const outerRegion = makeRegionFromCenter(
+      outerCenter.x,
+      outerCenter.y,
+      shoulderW * 1.75,
+      torsoH * 1.65,
+    );
+    const bottomRegion = makeRegionFromCenter(
+      bottomCenter.x,
+      bottomCenter.y,
+      hipW * 1.35,
+      legH * 1.12,
+    );
+    const footwearRegion = makeRegionFromCenter(
+      shoeCenter.x,
+      shoeCenter.y,
+      Math.max(shoulderW * 0.7, hipW * 0.7),
+      Math.max(legH * 0.2, 44),
+    );
 
     const accSize = Math.max(28, Math.round(shoulderW * 0.35));
     const accY = shoulderMid.y + torsoH * 0.12;
-    const leftAccRegion = makeRegionFromCenter(leftShoulder.x - shoulderW * 0.25, accY, accSize, accSize);
-    const rightAccRegion = makeRegionFromCenter(rightShoulder.x + shoulderW * 0.25, accY, accSize, accSize);
+    const leftAccRegion = makeRegionFromCenter(
+      leftShoulder.x - shoulderW * 0.25,
+      accY,
+      accSize,
+      accSize,
+    );
+    const rightAccRegion = makeRegionFromCenter(
+      rightShoulder.x + shoulderW * 0.25,
+      accY,
+      accSize,
+      accSize,
+    );
 
     return [
-      { item: grouped.bottom, region: bottomRegion, centerX: bottomCenter.x, centerY: bottomCenter.y, rotateDeg },
-      { item: grouped.top, region: topRegion, centerX: topCenter.x, centerY: topCenter.y, rotateDeg },
-      { item: grouped.outerwear, region: outerRegion, centerX: outerCenter.x, centerY: outerCenter.y, rotateDeg },
-      { item: grouped.footwear, region: footwearRegion, centerX: shoeCenter.x, centerY: shoeCenter.y, rotateDeg: rotateDeg * 0.6 },
-      { item: grouped.accessories[0], region: leftAccRegion, centerX: leftAccRegion.left + leftAccRegion.width / 2, centerY: leftAccRegion.top + leftAccRegion.height / 2, rotateDeg },
-      { item: grouped.accessories[1], region: rightAccRegion, centerX: rightAccRegion.left + rightAccRegion.width / 2, centerY: rightAccRegion.top + rightAccRegion.height / 2, rotateDeg },
+      {
+        item: grouped.bottom,
+        region: bottomRegion,
+        centerX: bottomCenter.x,
+        centerY: bottomCenter.y,
+        rotateDeg,
+      },
+      {
+        item: grouped.top,
+        region: topRegion,
+        centerX: topCenter.x,
+        centerY: topCenter.y,
+        rotateDeg,
+      },
+      {
+        item: grouped.outerwear,
+        region: outerRegion,
+        centerX: outerCenter.x,
+        centerY: outerCenter.y,
+        rotateDeg,
+      },
+      {
+        item: grouped.footwear,
+        region: footwearRegion,
+        centerX: shoeCenter.x,
+        centerY: shoeCenter.y,
+        rotateDeg: rotateDeg * 0.6,
+      },
+      {
+        item: grouped.accessories[0],
+        region: leftAccRegion,
+        centerX: leftAccRegion.left + leftAccRegion.width / 2,
+        centerY: leftAccRegion.top + leftAccRegion.height / 2,
+        rotateDeg,
+      },
+      {
+        item: grouped.accessories[1],
+        region: rightAccRegion,
+        centerX: rightAccRegion.left + rightAccRegion.width / 2,
+        centerY: rightAccRegion.top + rightAccRegion.height / 2,
+        rotateDeg,
+      },
     ];
   }
 
@@ -477,18 +590,30 @@ export class TryOnService {
     const right = left + w;
     const bottom = top + h;
 
-    const needCrop = left < 0 || top < 0 || right > imageWidth || bottom > imageHeight;
+    const needCrop =
+      left < 0 || top < 0 || right > imageWidth || bottom > imageHeight;
     if (!needCrop) {
       return { buffer, left, top };
     }
 
     const cropLeft = Math.max(0, -left);
     const cropTop = Math.max(0, -top);
-    const cropWidth = Math.max(1, Math.min(w - cropLeft, imageWidth - Math.max(0, left)));
-    const cropHeight = Math.max(1, Math.min(h - cropTop, imageHeight - Math.max(0, top)));
+    const cropWidth = Math.max(
+      1,
+      Math.min(w - cropLeft, imageWidth - Math.max(0, left)),
+    );
+    const cropHeight = Math.max(
+      1,
+      Math.min(h - cropTop, imageHeight - Math.max(0, top)),
+    );
 
     const cropped = await sharp(buffer)
-      .extract({ left: cropLeft, top: cropTop, width: cropWidth, height: cropHeight })
+      .extract({
+        left: cropLeft,
+        top: cropTop,
+        width: cropWidth,
+        height: cropHeight,
+      })
       .png()
       .toBuffer();
 
@@ -618,5 +743,4 @@ export class TryOnService {
       height: Math.max(1, Math.round(bodyBox.height * imageHeight)),
     };
   }
-
 }
