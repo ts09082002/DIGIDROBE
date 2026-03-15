@@ -1,0 +1,30 @@
+const admin = require('firebase-admin');
+
+const projectId = "digidrobe-backend";
+const clientEmail = "firebase-adminsdk-fbsvc@digidrobe-backend.iam.gserviceaccount.com";
+const privateKey = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDMu7Dkk3aJrzBo\nRG9NXI+2jA7HQ7pk3cRUmjZl+w+ENNhEVQfZ/Jfd2Wh64Gm9G3QiL7Hbva+2u7EF\nWBr7SRWJUbj135oCow7EJMgtQSAWlSLK0u8OPwuCXBO6lH+lfSEGqpKFN0et8iFb\nby+ia4pgozG5kRVfdmXxgwxHMM+JBQBsei7bYbEgoqVsJ0X0Qiqkkpk+ilmn31lM\nQAQDBmlqUz4rg4LchCcTr5GGtgZoGPzDio2y4kDM3+w59o/R1f6gv3XIRGuWVan5\n4trsZ+h5hvM0UuKHo+MkS9Ps6tgIJ2sJVmpwseWqH0IN5cV9NpaLy6Suuu7muWHQ\nMBf1Awn3AgMBAAECggEAC/YnVqN6+H5g0Ka27gkraFn0fxXo7P27+8lqxjiN5oaD\n4DIrnEPSx6ZtIUi9RMw208x/krwZaQ68P/iu0uGpPXWl3c+rmt3V/gW8IFC+xDMA\nbmM2jlmGnZ4tlOgaMRwHcvFCUEAzkukjo8jyOoYX9p9yR0o/um0bdanXbM1gQrwK\nUoiIgFbTHmkHvKn0V9vom0IQGYvAZmaYGt/89Agiw08LYOtlBIP63qjzv5bJJdrO\ngf2ALiL32PMeq+tMPQ7yx9mbdDj4pmZPPgj9DKLZGlYogrIgaADc+14yQncx0yYq\liHtN1lVMAMY/eBAwOqdDhKcRsGXXDK7yVAsEh35AQKBgQDnSlw5NcUA6XTa4Rtk\ncyxWJYz7O8Q0FxLjXf78nol4aDyzrnNbU+IPtN8jOmNs+DPUuYyLx+RXNj3n7IeT\nomuLmq631mjXHfAsqnyxXT9LKO6ygqL0abm0lG+hT4t0axvz5d3y06gv0WB4u/I/\n2MksP+59iDI4k4oyrPcu3aDNdwKBgQDimwGb/6XzdYwvYsBlwx/T4iC82849fZxb\nFtSpyixkG7UmRUBuJFiWoCWDlvewmBR3v2C+4igZ3ZJUmLfIeuLfJZi2ER5yWQrr\nq4OkIqeYfRrWQ/9Is3VhsWk5/eKt3rM68jqIgpedSWHacAVl35KF/yIPdU1EesIS\lgVFM9zHgQKBgQDG72WNa5sr4qE41h/KcWm0Gw481TY4G5SKbcGxJOdW4kk7vxPH\nfMnW+ppmYYU9J+rk0Ed7vw2+mY/7mK0wJaZc6EnZI5j/VefLc0RXBb439lgAwG5K\nzVkGYhn15EYtdycOzCrv/m8N2gghMH73vY2i+sY1wNx5XyWh2rWs4MG7lwKBgQCH\nIRonlZ63fMxY4ZGL3XzYVEtjc8wb3RDlPMsaaQZpuCAhL0DJrYDqaZuVSexwcXAb\nLJOboK97JScCrYNC2Qz7NqdHQxQd6j1Z5hB9S3EXvNrJFQlhqCqCVFJEk8KeHmRQ\n7Wu8Rev1jnH82bpOUrFEmK0N/MxT3sRmYvHHn7KzgQKBgDPCasKhg+CIdWsRNxuu\nHFT0DfQFaYTbiak9MrSXKtzahj6jOA+SqgyBVmTWY+TnYc1CnxwXL0dgnPcGTwDF\nTd0ayx4Y2kuWaH2WVclsJ4Yd1JzU1P1WSVfDXi7CvWrUrVg//KM632GfZ/zigG11\nrHr0eGcesC9+UoGOlR2c1R49\n-----END PRIVATE KEY-----\n".replace(/\\n/g, '\n');
+
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId,
+    clientEmail,
+    privateKey,
+  }),
+});
+
+const db = admin.firestore();
+
+async function checkData() {
+  console.log('--- Checking Wardrobe Items ---');
+  const snapshot = await db.collection('wardrobeItems').limit(20).get();
+  if (snapshot.empty) {
+    console.log('No items found.');
+  } else {
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      console.log(`[${doc.id}] Name: ${data.name}, User: ${data.userId}, Cat: ${data.category}, Status: ${data.status}`);
+    });
+  }
+}
+
+checkData().catch(console.error);

@@ -8,16 +8,23 @@ import {
   Delete,
   Query,
   Headers as NestHeaders,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   WardrobeService,
   WardrobeItem,
   CreateItemDto,
 } from './wardrobe.service';
+import { CalendarService } from '../calendar/calendar.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Controller('api/wardrobe')
 export class WardrobeController {
-  constructor(private readonly wardrobeService: WardrobeService) {}
+  constructor(
+    private readonly wardrobeService: WardrobeService,
+    private readonly calendarService: CalendarService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   @Get()
   async getAll(
@@ -26,17 +33,39 @@ export class WardrobeController {
     @Query('favorite') favorite?: string,
     @Query('search') search?: string,
   ) {
-    return this.wardrobeService.getAll({
+    const data = await this.wardrobeService.getAll({
       userId,
       category,
       favorite: favorite === 'true',
       search,
     });
+    return { success: true, data };
   }
 
   @Get('stats')
   async getStats(@NestHeaders('x-user-id') userId: string) {
-    return this.wardrobeService.getStats(userId);
+    const data = await this.wardrobeService.getStats(userId);
+    return { success: true, data };
+  }
+
+  @Post('claim')
+  async claim(@NestHeaders('x-user-id') userId: string) {
+    const wardrobeCount = await this.wardrobeService.claimGuestItems(userId);
+    const calendarCount = await this.calendarService.claimGuestItems(userId);
+    const notificationsCount =
+      await this.notificationsService.claimGuestItems(userId);
+
+    return {
+      success: true,
+      data: {
+        count: wardrobeCount + calendarCount + notificationsCount,
+        details: {
+          wardrobe: wardrobeCount,
+          calendar: calendarCount,
+          notifications: notificationsCount,
+        },
+      },
+    };
   }
 
   @Get(':id')
@@ -53,7 +82,11 @@ export class WardrobeController {
     @NestHeaders('x-user-id') userId: string,
     @Body() createItemDto: CreateItemDto,
   ) {
-    return this.wardrobeService.create({ ...createItemDto, userId });
+    if (!userId || userId === 'undefined' || userId === 'anonymous') {
+      throw new BadRequestException('Valid User ID required');
+    }
+    const data = await this.wardrobeService.create({ ...createItemDto, userId });
+    return { success: true, data };
   }
 
   @Patch(':id')

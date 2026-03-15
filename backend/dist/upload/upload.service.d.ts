@@ -35,8 +35,8 @@ export declare class UploadService {
     private readonly wardrobeService;
     private readonly logger;
     constructor(bgRemovalService: BackgroundRemovalService, wardrobeService: WardrobeService);
-    processClothingImage(file: any, preferredCategory?: string, preferredSubCategory?: string, preferredMlLabels?: string[]): Promise<WardrobeItem>;
-    processBodyPhoto(file: any): Promise<BodyPhotoResult>;
+    processClothingImage(file: any, preferredCategory?: string, preferredSubCategory?: string, preferredMlLabels?: string[], userId?: string): Promise<WardrobeItem>;
+    processBodyPhoto(file: any, userId?: string): Promise<BodyPhotoResult>;
     private extractBodyBox;
     private buildDefaultName;
     private classifyClothing;

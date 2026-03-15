@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var PackingService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PackingService = void 0;
@@ -16,62 +19,40 @@ exports.buildLookNote = buildLookNote;
 const common_1 = require("@nestjs/common");
 const wardrobe_service_1 = require("../wardrobe/wardrobe.service");
 function categorize(category) {
+    if (!category)
+        return 'other';
     const c = category.toLowerCase().trim();
     if ([
-        'tops',
         'topwear',
+        'top',
+        'tops',
         'shirt',
         't-shirt',
         'blouse',
-        'top',
-        'knitwear',
         'polo',
+        'knitwear',
     ].some((k) => c.includes(k)))
-        return 'tops';
+        return 'topwear';
     if ([
-        'bottoms',
         'bottomwear',
+        'bottom',
+        'bottoms',
         'pants',
         'jeans',
         'trousers',
-        'skirt',
         'shorts',
-        'leggings',
     ].some((k) => c.includes(k)))
-        return 'bottoms';
-    if (['dress', 'dresses', 'jumpsuit', 'romper', 'gown'].some((k) => c.includes(k)))
-        return 'dresses';
-    if ([
-        'outerwear',
-        'jacket',
-        'coat',
-        'blazer',
-        'hoodie',
-        'sweater',
-        'cardigan',
-    ].some((k) => c.includes(k)))
+        return 'bottomwear';
+    if (['outerwear', 'jacket', 'coat', 'blazer', 'hoodie', 'sweater'].some((k) => c.includes(k)))
         return 'outerwear';
-    if ([
-        'footwear',
-        'shoes',
-        'boots',
-        'sneakers',
-        'sandals',
-        'heels',
-        'loafers',
-    ].some((k) => c.includes(k)))
+    if (['footwear', 'shoes', 'boots', 'sneakers', 'sandals', 'shoe'].some((k) => c.includes(k)))
         return 'footwear';
-    if ([
-        'accessories',
-        'accessory',
-        'bag',
-        'belt',
-        'hat',
-        'scarf',
-        'watch',
-        'jewel',
-    ].some((k) => c.includes(k)))
+    if (['accessories', 'accessory', 'belt', 'hat', 'scarf'].some((k) => c.includes(k)))
         return 'accessories';
+    if (['bags', 'bag', 'handbag'].some((k) => c.includes(k)))
+        return 'bags';
+    if (['dresses', 'dress', 'gown'].some((k) => c.includes(k)))
+        return 'dresses';
     return 'other';
 }
 function selectItems(arr, n) {
@@ -122,8 +103,12 @@ let PackingService = PackingService_1 = class PackingService {
         this.wardrobeService = wardrobeService;
     }
     async generatePackingList(request) {
+        if (!request.userId)
+            throw new Error('userId is required');
         this.logger.log(`Generating packing list for ${request.destination} (${request.days} days)`);
-        const allItems = await this.wardrobeService.getAll({});
+        const allItems = await this.wardrobeService.getAll({
+            userId: request.userId,
+        });
         const ready = allItems.filter((i) => i.status === 'done' && i.processedUrl);
         const grouped = {};
         for (const item of ready) {
@@ -155,11 +140,30 @@ let PackingService = PackingService_1 = class PackingService {
             return true;
         });
     }
-    async getStylistSuggestion(profile) {
-        const allItems = await this.wardrobeService.getAll({});
-        const ready = allItems.filter((i) => i.status === 'done' && i.processedUrl);
+    async getStylistSuggestion(userId, profile, temp) {
+        const allItems = await this.wardrobeService.getAll({ userId });
+        let ready = allItems.filter((i) => i.status === 'done' && i.processedUrl);
+        if (typeof temp === 'number') {
+            let filtered = ready;
+            if (temp < 18) {
+                this.logger.debug(`Cool weather (${temp}°C): Prioritizing outerwear`);
+            }
+            else if (temp > 28) {
+                this.logger.debug(`Hot weather (${temp}°C): Filtering out heavy outerwear`);
+                filtered = ready.filter(i => {
+                    const cat = categorize(i.category);
+                    return cat !== 'outerwear' || (i.name || '').toLowerCase().includes('light');
+                });
+            }
+            if (filtered.length >= 2) {
+                ready = filtered;
+            }
+            else {
+                this.logger.warn(`Weather filtering too strict (${filtered.length} items), falling back to all items`);
+            }
+        }
         const favorites = ready.filter((i) => i.isFavorite);
-        const stats = await this.wardrobeService.getStats();
+        const stats = await this.wardrobeService.getStats(userId);
         const grouped = {};
         for (const item of ready) {
             const cat = categorize(item.category);
@@ -213,6 +217,7 @@ let PackingService = PackingService_1 = class PackingService {
 exports.PackingService = PackingService;
 exports.PackingService = PackingService = PackingService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(0, (0, common_1.Inject)((0, common_1.forwardRef)(() => wardrobe_service_1.WardrobeService))),
     __metadata("design:paramtypes", [wardrobe_service_1.WardrobeService])
 ], PackingService);
 //# sourceMappingURL=packing.service.js.map

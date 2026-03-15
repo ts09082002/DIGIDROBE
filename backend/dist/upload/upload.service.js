@@ -63,7 +63,7 @@ let UploadService = UploadService_1 = class UploadService {
         this.bgRemovalService = bgRemovalService;
         this.wardrobeService = wardrobeService;
     }
-    async processClothingImage(file, preferredCategory, preferredSubCategory, preferredMlLabels) {
+    async processClothingImage(file, preferredCategory, preferredSubCategory, preferredMlLabels, userId) {
         const id = (0, uuid_1.v4)();
         this.logger.log(`Received clothing image: ${file.originalname} (${file.size} bytes)`);
         const originalsDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'originals');
@@ -82,8 +82,12 @@ let UploadService = UploadService_1 = class UploadService {
             ? fs.statSync(originalPath).size
             : file.size;
         const createdAt = new Date().toISOString();
+        if (!userId || userId === 'anonymous') {
+            throw new Error('Valid userId is required for clothing processing');
+        }
         const wardrobeItem = await this.wardrobeService.create({
             id,
+            userId,
             originalFilename: file.originalname,
             originalUrl: `/uploads/originals/${originalFilenameOnDisk}`,
             processedUrl: '',
@@ -103,7 +107,7 @@ let UploadService = UploadService_1 = class UploadService {
         });
         return wardrobeItem;
     }
-    async processBodyPhoto(file) {
+    async processBodyPhoto(file, userId) {
         const id = (0, uuid_1.v4)();
         this.logger.log(`Received body photo: ${file.originalname} (${file.size} bytes)`);
         const originalsDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'body', 'originals');

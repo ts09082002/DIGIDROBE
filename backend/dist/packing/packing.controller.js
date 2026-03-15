@@ -23,52 +23,59 @@ let PackingController = class PackingController {
         this.packingService = packingService;
         this.tryOnService = tryOnService;
     }
-    async generate(body) {
+    async generate(userId, body) {
         if (!body.destination || !body.days) {
             return { success: false, message: 'Missing destination or days' };
         }
-        const data = await this.packingService.generatePackingList(body);
+        const data = await this.packingService.generatePackingList({
+            ...body,
+            userId,
+        });
         return { success: true, data };
     }
-    async getStylistSuggestion() {
-        const data = await this.packingService.getStylistSuggestion();
+    async getStylistSuggestion(userId) {
+        const data = await this.packingService.getStylistSuggestion(userId);
         return { success: true, data };
     }
-    async getPersonalizedStylistSuggestion(body) {
-        const data = await this.packingService.getStylistSuggestion(body);
+    async getPersonalizedStylistSuggestion(userId, body) {
+        const data = await this.packingService.getStylistSuggestion(userId, body);
         return { success: true, data };
     }
-    async generateTryOnPreview(body) {
-        const data = await this.tryOnService.generatePreview(body);
+    async generateTryOnPreview(userId, body) {
+        const data = await this.tryOnService.generatePreview(userId, body);
         return { success: true, data };
     }
 };
 exports.PackingController = PackingController;
 __decorate([
     (0, common_1.Post)('generate'),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PackingController.prototype, "generate", null);
 __decorate([
     (0, common_1.Get)('stylist'),
+    __param(0, (0, common_1.Headers)('x-user-id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], PackingController.prototype, "getStylistSuggestion", null);
 __decorate([
     (0, common_1.Post)('stylist'),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PackingController.prototype, "getPersonalizedStylistSuggestion", null);
 __decorate([
     (0, common_1.Post)('try-on/preview'),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PackingController.prototype, "generateTryOnPreview", null);
 exports.PackingController = PackingController = __decorate([

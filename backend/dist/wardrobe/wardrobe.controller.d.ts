@@ -1,12 +1,16 @@
-import { WardrobeService, WardrobeItem } from './wardrobe.service';
+import { WardrobeService, WardrobeItem, CreateItemDto } from './wardrobe.service';
+import { CalendarService } from '../calendar/calendar.service';
+import { NotificationsService } from '../notifications/notifications.service';
 export declare class WardrobeController {
     private readonly wardrobeService;
-    constructor(wardrobeService: WardrobeService);
-    getAll(category?: string, search?: string, favorite?: string): Promise<{
+    private readonly calendarService;
+    private readonly notificationsService;
+    constructor(wardrobeService: WardrobeService, calendarService: CalendarService, notificationsService: NotificationsService);
+    getAll(userId: string, category?: string, favorite?: string, search?: string): Promise<{
         success: boolean;
         data: WardrobeItem[];
     }>;
-    getStats(): Promise<{
+    getStats(userId: string): Promise<{
         success: boolean;
         data: {
             totalItems: number;
@@ -14,11 +18,22 @@ export declare class WardrobeController {
             categories: Record<string, number>;
         };
     }>;
+    claim(userId: string): Promise<{
+        success: boolean;
+        data: {
+            count: number;
+            details: {
+                wardrobe: number;
+                calendar: number;
+                notifications: number;
+            };
+        };
+    }>;
     getById(id: string): Promise<{
         success: boolean;
         data: WardrobeItem;
     }>;
-    create(body: Partial<WardrobeItem>): Promise<{
+    create(userId: string, createItemDto: CreateItemDto): Promise<{
         success: boolean;
         data: WardrobeItem;
     }>;

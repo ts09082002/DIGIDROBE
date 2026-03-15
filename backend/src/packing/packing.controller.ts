@@ -52,8 +52,11 @@ export class PackingController {
   }
 
   @Post('try-on/preview')
-  async generateTryOnPreview(@Body() body: TryOnPreviewRequest) {
-    const data = await this.tryOnService.generatePreview(body);
+  async generateTryOnPreview(
+    @NestHeaders('x-user-id') userId: string,
+    @Body() body: TryOnPreviewRequest,
+  ) {
+    const data = await this.tryOnService.generatePreview(userId, body);
     return { success: true, data };
   }
 }

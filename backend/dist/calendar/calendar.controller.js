@@ -20,28 +20,16 @@ let CalendarController = class CalendarController {
     constructor(calendarService) {
         this.calendarService = calendarService;
     }
-    async getByMonth(year, month) {
-        const y = parseInt(year) || new Date().getFullYear();
-        const m = parseInt(month) || new Date().getMonth() + 1;
-        const data = await this.calendarService.getOOTDByMonth(y, m);
-        return {
-            success: true,
-            data,
-        };
+    async getByMonth(userId, month) {
+        const data = await this.calendarService.getByMonth(month, userId);
+        return { success: true, data };
     }
-    async getStats(days) {
-        const d = parseInt(days || '30', 10);
-        const data = await this.calendarService.getStats(d);
-        return {
-            success: true,
-            data,
-        };
+    async getStats(userId, days) {
+        const data = await this.calendarService.getStats(parseInt(days || '30'), userId);
+        return { success: true, data };
     }
-    async saveOOTD(body) {
-        if (!body.date || !body.itemIds) {
-            return { success: false, message: 'Missing date or itemIds' };
-        }
-        const data = await this.calendarService.saveOOTD(body.date, body.itemIds, body.notes);
+    async saveOOTD(userId, body) {
+        const data = await this.calendarService.saveOOTD(body.date, body.items, userId, body.aiStyled, body.notes);
         return {
             success: true,
             data,
@@ -51,7 +39,7 @@ let CalendarController = class CalendarController {
 exports.CalendarController = CalendarController;
 __decorate([
     (0, common_1.Get)(),
-    __param(0, (0, common_1.Query)('year')),
+    __param(0, (0, common_1.Headers)('x-user-id')),
     __param(1, (0, common_1.Query)('month')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
@@ -59,16 +47,18 @@ __decorate([
 ], CalendarController.prototype, "getByMonth", null);
 __decorate([
     (0, common_1.Get)('stats'),
-    __param(0, (0, common_1.Query)('days')),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __param(1, (0, common_1.Query)('days')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
 ], CalendarController.prototype, "getStats", null);
 __decorate([
     (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], CalendarController.prototype, "saveOOTD", null);
 exports.CalendarController = CalendarController = __decorate([

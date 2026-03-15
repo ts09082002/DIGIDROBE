@@ -2,11 +2,11 @@ import { UploadService } from './upload.service';
 export declare class UploadController {
     private readonly uploadService;
     constructor(uploadService: UploadService);
-    uploadClothing(file: any, category?: string, subCategory?: string, mlLabelsJson?: string): Promise<{
+    uploadClothing(userId: string, file: any, category?: string, subCategory?: string, mlLabelsJson?: string): Promise<{
         success: boolean;
-        data: import("../wardrobe/wardrobe.service").WardrobeItem;
+        data: import("../app.module").WardrobeItem;
     }>;
-    uploadBodyPhoto(file: any): Promise<{
+    uploadBodyPhoto(userId: string, file: any): Promise<{
         success: boolean;
         data: import("./upload.service").BodyPhotoResult;
     }>;

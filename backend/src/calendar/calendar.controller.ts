@@ -17,7 +17,8 @@ export class CalendarController {
     @NestHeaders('x-user-id') userId: string,
     @Query('month') month: string,
   ) {
-    return this.calendarService.getByMonth(month, userId);
+    const data = await this.calendarService.getByMonth(month, userId);
+    return { success: true, data };
   }
 
   @Get('stats')
@@ -25,15 +26,31 @@ export class CalendarController {
     @NestHeaders('x-user-id') userId: string,
     @Query('days') days?: string,
   ) {
-    return this.calendarService.getStats(parseInt(days || '30'), userId);
+    const data = await this.calendarService.getStats(
+      parseInt(days || '30'),
+      userId,
+    );
+    return { success: true, data };
   }
 
   @Post()
   async saveOOTD(
     @NestHeaders('x-user-id') userId: string,
-    @Body() body: { date: string; items: string[]; aiStyled?: boolean },
+    @Body()
+    body: {
+      date: string;
+      items: string[];
+      aiStyled?: boolean;
+      notes?: string;
+    },
   ) {
-    return this.calendarService.saveOOTD(body.date, body.notes);
+    const data = await this.calendarService.saveOOTD(
+      body.date,
+      body.items,
+      userId,
+      body.aiStyled,
+      body.notes,
+    );
     return {
       success: true,
       data,

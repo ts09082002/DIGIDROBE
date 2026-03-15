@@ -2,25 +2,26 @@ import { CalendarService, OOTD } from './calendar.service';
 export declare class CalendarController {
     private readonly calendarService;
     constructor(calendarService: CalendarService);
-    getByMonth(year: string, month: string): Promise<{
+    getByMonth(userId: string, month: string): Promise<{
         success: boolean;
         data: OOTD[];
     }>;
-    getStats(days?: string): Promise<{
+    getStats(userId: string, days?: string): Promise<{
         success: boolean;
-        data: import("./calendar.service").WardrobeStats;
+        data: {
+            totalOutfits: number;
+            mostWorn: any[];
+            leastWorn: any[];
+            aiStyledCount: number;
+        };
     }>;
-    saveOOTD(body: {
+    saveOOTD(userId: string, body: {
         date: string;
-        itemIds: string[];
+        items: string[];
+        aiStyled?: boolean;
         notes?: string;
     }): Promise<{
         success: boolean;
-        message: string;
-        data?: undefined;
-    } | {
-        success: boolean;
         data: OOTD;
-        message?: undefined;
     }>;
 }

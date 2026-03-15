@@ -62,7 +62,9 @@ async function inferBodyPoseFromAlphaPng(imageBuffer, bodyBox) {
     const h = meta.height ?? 0;
     if (!w || !h)
         return undefined;
-    const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
+    const { data, info } = await image
+        .raw()
+        .toBuffer({ resolveWithObject: true });
     const channels = info.channels;
     if (channels < 4)
         return undefined;
@@ -76,7 +78,7 @@ async function inferBodyPoseFromAlphaPng(imageBuffer, bodyBox) {
     };
     const box = toPixelBox(fallbackBox, w, h);
     const boxH = Math.max(1, box.maxY - box.minY);
-    const shoulderY = chooseRowByMaxWidth(data, w, channels, box, box.minY + boxH * 0.14, box.minY + boxH * 0.30);
+    const shoulderY = chooseRowByMaxWidth(data, w, channels, box, box.minY + boxH * 0.14, box.minY + boxH * 0.3);
     const hipY = chooseRowByMaxWidth(data, w, channels, box, box.minY + boxH * 0.44, box.minY + boxH * 0.64);
     const ankleY = chooseRowByMaxWidth(data, w, channels, box, box.minY + boxH * 0.86, box.minY + boxH * 0.98);
     if (shoulderY == null || hipY == null || ankleY == null) {

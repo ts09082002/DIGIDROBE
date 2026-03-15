@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { WardrobeService, WardrobeItem } from '../wardrobe/wardrobe.service';
 
 export interface PackingListRequest {
@@ -135,7 +135,10 @@ export function buildLookNote(profile?: StyleProfileRequest): string {
 export class PackingService {
   private readonly logger = new Logger(PackingService.name);
 
-  constructor(private readonly wardrobeService: WardrobeService) {}
+  constructor(
+    @Inject(forwardRef(() => WardrobeService))
+    private readonly wardrobeService: WardrobeService,
+  ) {}
 
   async generatePackingList(
     request: PackingListRequest,
@@ -187,9 +190,32 @@ export class PackingService {
   async getStylistSuggestion(
     userId: string,
     profile?: StyleProfileRequest,
+    temp?: number,
   ): Promise<StylistSuggestion> {
     const allItems = await this.wardrobeService.getAll({ userId });
-    const ready = allItems.filter((i) => i.status === 'done' && i.processedUrl);
+    let ready = allItems.filter((i) => i.status === 'done' && i.processedUrl);
+
+    // Weather-based filtering
+    if (typeof temp === 'number') {
+      let filtered = ready;
+      if (temp < 18) {
+        this.logger.debug(`Cool weather (${temp}°C): Prioritizing outerwear`);
+        // In cold weather, ensure we definitely pick outerwear if available
+      } else if (temp > 28) {
+        this.logger.debug(`Hot weather (${temp}°C): Filtering out heavy outerwear`);
+        filtered = ready.filter(i => {
+          const cat = categorize(i.category);
+          return cat !== 'outerwear' || (i.name || '').toLowerCase().includes('light');
+        });
+      }
+      
+      // Fallback: if filtering left us with too few items, revert to ready
+      if (filtered.length >= 2) {
+        ready = filtered;
+      } else {
+        this.logger.warn(`Weather filtering too strict (${filtered.length} items), falling back to all items`);
+      }
+    }
 
     const favorites = ready.filter((i) => i.isFavorite);
     const stats = await this.wardrobeService.getStats(userId);

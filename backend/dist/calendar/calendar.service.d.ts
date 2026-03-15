@@ -1,26 +1,24 @@
-export interface OOTD {
+export declare class OOTD {
     id: string;
+    userId: string;
     date: string;
-    itemIds: string[];
-    notes: string;
+    outfitItems: string[];
+    aiStyled?: boolean;
+    notes?: string;
+    rating?: number;
     createdAt: string;
-    updatedAt: string;
-}
-export interface WardrobeStats {
-    mostWorn: {
-        itemId: string;
-        count: number;
-    }[];
-    leastWorn: {
-        itemId: string;
-        count: number;
-    }[];
 }
 export declare class CalendarService {
     private readonly logger;
     private readonly collection;
     private docToOOTD;
-    getOOTDByMonth(year: number, month: number): Promise<OOTD[]>;
-    saveOOTD(date: string, itemIds: string[], notes?: string): Promise<OOTD>;
-    getStats(days?: number): Promise<WardrobeStats>;
+    getByMonth(month: string, userId: string): Promise<OOTD[]>;
+    saveOOTD(date: string, itemIds: string[], userId: string, aiStyled?: boolean, notes?: string): Promise<OOTD>;
+    getStats(days: number, userId: string): Promise<{
+        totalOutfits: number;
+        mostWorn: any[];
+        leastWorn: any[];
+        aiStyledCount: number;
+    }>;
+    claimGuestItems(userId: string): Promise<number>;
 }

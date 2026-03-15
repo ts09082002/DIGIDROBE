@@ -31,7 +31,7 @@ export declare class TryOnService {
     private readonly uploadsRoot;
     private readonly generatedDir;
     constructor(wardrobeService: WardrobeService, packingService: PackingService);
-    generatePreview(request: TryOnPreviewRequest): Promise<TryOnPreviewResult>;
+    generatePreview(userId: string, request: TryOnPreviewRequest): Promise<TryOnPreviewResult>;
     private resolveUploadPath;
     private extractBodyBox;
     private composePreview;

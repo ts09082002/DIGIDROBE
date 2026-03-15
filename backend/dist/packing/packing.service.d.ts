@@ -34,5 +34,5 @@ export declare class PackingService {
     private readonly logger;
     constructor(wardrobeService: WardrobeService);
     generatePackingList(request: PackingListRequest): Promise<WardrobeItem[]>;
-    getStylistSuggestion(profile?: StyleProfileRequest): Promise<StylistSuggestion>;
+    getStylistSuggestion(userId: string, profile?: StyleProfileRequest, temp?: number): Promise<StylistSuggestion>;
 }

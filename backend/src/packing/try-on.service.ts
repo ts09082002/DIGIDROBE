@@ -69,6 +69,7 @@ export class TryOnService {
   ) {}
 
   async generatePreview(
+    userId: string,
     request: TryOnPreviewRequest,
   ): Promise<TryOnPreviewResult> {
     if (!request.bodyPhotoUrl) {
@@ -76,6 +77,7 @@ export class TryOnService {
     }
 
     const suggested = await this.packingService.getStylistSuggestion(
+      userId,
       request.profile,
     );
     const suggestedOutfit = suggested.suggestedOutfit.filter(

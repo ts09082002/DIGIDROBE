@@ -10,11 +10,14 @@ exports.WardrobeModule = void 0;
 const common_1 = require("@nestjs/common");
 const wardrobe_controller_1 = require("./wardrobe.controller");
 const wardrobe_service_1 = require("./wardrobe.service");
+const calendar_module_1 = require("../calendar/calendar.module");
+const notifications_module_1 = require("../notifications/notifications.module");
 let WardrobeModule = class WardrobeModule {
 };
 exports.WardrobeModule = WardrobeModule;
 exports.WardrobeModule = WardrobeModule = __decorate([
     (0, common_1.Module)({
+        imports: [(0, common_1.forwardRef)(() => notifications_module_1.NotificationsModule), calendar_module_1.CalendarModule],
         controllers: [wardrobe_controller_1.WardrobeController],
         providers: [wardrobe_service_1.WardrobeService],
         exports: [wardrobe_service_1.WardrobeService],

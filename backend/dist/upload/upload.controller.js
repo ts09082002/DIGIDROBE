@@ -32,7 +32,10 @@ let UploadController = class UploadController {
     constructor(uploadService) {
         this.uploadService = uploadService;
     }
-    async uploadClothing(file, category, subCategory, mlLabelsJson) {
+    async uploadClothing(userId, file, category, subCategory, mlLabelsJson) {
+        if (!userId || userId === 'undefined' || userId === 'anonymous') {
+            throw new common_1.BadRequestException('Valid User ID required for uploads');
+        }
         if (!file) {
             throw new common_1.BadRequestException('No image file provided');
         }
@@ -45,17 +48,20 @@ let UploadController = class UploadController {
                 mlLabels = undefined;
             }
         }
-        const result = await this.uploadService.processClothingImage(file, category, subCategory, mlLabels);
+        const result = await this.uploadService.processClothingImage(file, category, subCategory, mlLabels, userId);
         return {
             success: true,
             data: result,
         };
     }
-    async uploadBodyPhoto(file) {
+    async uploadBodyPhoto(userId, file) {
+        if (!userId || userId === 'undefined' || userId === 'anonymous') {
+            throw new common_1.BadRequestException('Valid User ID required for uploads');
+        }
         if (!file) {
             throw new common_1.BadRequestException('No image file provided');
         }
-        const result = await this.uploadService.processBodyPhoto(file);
+        const result = await this.uploadService.processBodyPhoto(file, userId);
         return {
             success: true,
             data: result,
@@ -73,8 +79,8 @@ __decorate([
         storage: (0, multer_1.diskStorage)({
             destination: (0, path_1.join)(__dirname, '..', '..', 'uploads', 'originals'),
             filename: (_req, file, cb) => {
-                const uniqueName = `${(0, uuid_1.v4)()}${(0, path_1.extname)(file.originalname)}`;
-                cb(null, uniqueName);
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+                cb(null, uniqueSuffix + (0, path_1.extname)(file.originalname));
             },
         }),
         limits: { fileSize: MAX_SIZE },
@@ -86,12 +92,13 @@ __decorate([
             cb(null, true);
         },
     })),
-    __param(0, (0, common_1.UploadedFile)()),
-    __param(1, (0, common_1.Body)('category')),
-    __param(2, (0, common_1.Body)('subCategory')),
-    __param(3, (0, common_1.Body)('mlLabels')),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __param(1, (0, common_1.UploadedFile)()),
+    __param(2, (0, common_1.Body)('category')),
+    __param(3, (0, common_1.Body)('subCategory')),
+    __param(4, (0, common_1.Body)('mlLabels')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String]),
+    __metadata("design:paramtypes", [String, Object, String, String, String]),
     __metadata("design:returntype", Promise)
 ], UploadController.prototype, "uploadClothing", null);
 __decorate([
@@ -113,9 +120,10 @@ __decorate([
             cb(null, true);
         },
     })),
-    __param(0, (0, common_1.UploadedFile)()),
+    __param(0, (0, common_1.Headers)('x-user-id')),
+    __param(1, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], UploadController.prototype, "uploadBodyPhoto", null);
 __decorate([

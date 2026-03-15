@@ -63,6 +63,9 @@ export class UploadController {
     @Body('subCategory') subCategory?: string,
     @Body('mlLabels') mlLabelsJson?: string,
   ) {
+    if (!userId || userId === 'undefined' || userId === 'anonymous') {
+      throw new BadRequestException('Valid User ID required for uploads');
+    }
     if (!file) {
       throw new BadRequestException('No image file provided');
     }
@@ -125,6 +128,9 @@ export class UploadController {
     @NestHeaders('x-user-id') userId: string,
     @UploadedFile() file: any,
   ) {
+    if (!userId || userId === 'undefined' || userId === 'anonymous') {
+      throw new BadRequestException('Valid User ID required for uploads');
+    }
     if (!file) {
       throw new BadRequestException('No image file provided');
     }

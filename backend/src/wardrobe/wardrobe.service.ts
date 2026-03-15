@@ -1,6 +1,16 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  forwardRef,
+} from '@nestjs/common';
 import { getFirebaseAdmin } from '../firebase-admin';
 import { v4 as uuid } from 'uuid';
+import {
+  NotificationsService,
+  NotificationType,
+} from '../notifications/notifications.service';
 
 export class WardrobeItem {
   id: string;
@@ -53,6 +63,11 @@ export class WardrobeService {
   private readonly collection = getFirebaseAdmin()
     .firestore()
     .collection('wardrobeItems');
+  constructor(
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notifications: NotificationsService,
+  ) {}
+
   private sanitizeForFirestore<T extends Record<string, any>>(
     data: T,
   ): Partial<T> {
@@ -100,6 +115,10 @@ export class WardrobeService {
     favorite?: boolean;
     search?: string;
   }): Promise<WardrobeItem[]> {
+    if (!filters.userId) {
+      this.logger.warn('getAll: userId is missing');
+      return [];
+    }
     let query: FirebaseFirestore.Query = this.collection.where(
       'userId',
       '==',
@@ -179,6 +198,24 @@ export class WardrobeService {
     };
 
     await this.collection.doc(id).set(this.sanitizeForFirestore(item));
+
+    // fire-and-forget notification for upload
+    if (item.userId && item.userId !== 'anonymous') {
+      try {
+        await this.notifications.create({
+          userId: item.userId,
+          type: 'upload' as NotificationType,
+          title: 'New item added',
+          message: `We’ve added “${item.name || item.category}” to your wardrobe.`,
+          metadata: { outfitItemIds: [item.id] },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Failed to create upload notification for user ${item.userId}: ${err}`,
+        );
+      }
+    }
+
     return item;
   }
 
@@ -250,5 +287,35 @@ export class WardrobeService {
       totalFavorites: items.filter((i) => i.isFavorite).length,
       categories,
     };
+  }
+
+  async claimGuestItems(userId: string): Promise<number> {
+    if (!userId || userId === 'anonymous' || userId === 'undefined') return 0;
+
+    // Get items explicitly marked as anonymous
+    const anonSnapshot = await this.collection
+      .where('userId', '==', 'anonymous')
+      .get();
+
+    // Also get items where userId might be missing entirely or 'undefined' string
+    const allSnapshot = await this.collection.get();
+    const orphanedDocs = allSnapshot.docs.filter(doc => {
+      const d = doc.data();
+      return !d.userId || d.userId === 'anonymous' || d.userId === 'undefined';
+    });
+
+    if (orphanedDocs.length === 0) return 0;
+
+    const batch = getFirebaseAdmin().firestore().batch();
+    orphanedDocs.forEach((doc) => {
+      batch.update(doc.ref, {
+        userId,
+        updatedAt: new Date().toISOString(),
+      });
+    });
+
+    await batch.commit();
+    this.logger.log(`Claimed ${orphanedDocs.length} orphaned/anonymous items for user ${userId}`);
+    return orphanedDocs.length;
   }
 }

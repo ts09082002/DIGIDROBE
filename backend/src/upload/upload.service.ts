@@ -90,11 +90,14 @@ export class UploadService {
       : file.size;
     const createdAt = new Date().toISOString();
 
+    if (!userId || userId === 'anonymous') {
+      throw new Error('Valid userId is required for clothing processing');
+    }
     // Create wardrobe item immediately with original image and pending status.
     // Include ML Kit labels/subCategory right away so they are stored even if bg processing fails.
     const wardrobeItem = await this.wardrobeService.create({
       id,
-      userId: userId || 'anonymous',
+      userId,
       originalFilename: file.originalname,
       originalUrl: `/uploads/originals/${originalFilenameOnDisk}`,
       processedUrl: '',

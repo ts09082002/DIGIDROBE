@@ -6,24 +6,24 @@ export declare class PackingController {
     private readonly packingService;
     private readonly tryOnService;
     constructor(packingService: PackingService, tryOnService: TryOnService);
-    generate(body: PackingListRequest): Promise<{
+    generate(userId: string, body: PackingListRequest): Promise<{
         success: boolean;
         message: string;
         data?: undefined;
     } | {
         success: boolean;
-        data: import("../wardrobe/wardrobe.service").WardrobeItem[];
+        data: import("../app.module").WardrobeItem[];
         message?: undefined;
     }>;
-    getStylistSuggestion(): Promise<{
+    getStylistSuggestion(userId: string): Promise<{
         success: boolean;
         data: import("./packing.service").StylistSuggestion;
     }>;
-    getPersonalizedStylistSuggestion(body: StyleProfileRequest): Promise<{
+    getPersonalizedStylistSuggestion(userId: string, body: StyleProfileRequest): Promise<{
         success: boolean;
         data: import("./packing.service").StylistSuggestion;
     }>;
-    generateTryOnPreview(body: TryOnPreviewRequest): Promise<{
+    generateTryOnPreview(userId: string, body: TryOnPreviewRequest): Promise<{
         success: boolean;
         data: import("./try-on.service").TryOnPreviewResult;
     }>;

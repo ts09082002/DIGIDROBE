@@ -17,9 +17,10 @@ let PackingModule = class PackingModule {
 exports.PackingModule = PackingModule;
 exports.PackingModule = PackingModule = __decorate([
     (0, common_1.Module)({
-        imports: [wardrobe_module_1.WardrobeModule],
+        imports: [(0, common_1.forwardRef)(() => wardrobe_module_1.WardrobeModule)],
         controllers: [packing_controller_1.PackingController],
         providers: [packing_service_1.PackingService, try_on_service_1.TryOnService],
+        exports: [packing_service_1.PackingService, try_on_service_1.TryOnService],
     })
 ], PackingModule);
 //# sourceMappingURL=packing.module.js.map
