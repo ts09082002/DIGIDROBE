@@ -24,8 +24,12 @@ import { api, BodyPhotoUploadResult, StyleProfilePayload, StylistSuggestion, Try
 import { SavedLook, getSavedLooks, saveLook } from '../../storage/savedLooks';
 import { normalizeCategory } from '../../constants/categories';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { generateStyleOfDayForWardrobe } from '../../engine';
+import { RecommendationContext, StyleOfTheDayResult } from '../../engine/types';
 
 const TABS = ['My Looks', 'AI Stylist'];
+
+type Occasion = 'casual' | 'work' | 'date' | 'party';
 
 type StylePreference = 'Casual' | 'Streetwear' | 'Formal' | 'Minimal';
 type BodyType = 'Slim' | 'Athletic' | 'Average' | 'Heavy';
@@ -74,27 +78,16 @@ type OverlayKey =
     | 'accessoryLeft'
     | 'accessoryRight';
 
-type OverlayState = Record<OverlayKey, { x: number; y: number; scale: number; rotateDeg: number }>;
-type OverlayFrame = {
-    left: number | `${number}%`;
-    top: number | `${number}%`;
-    width: number | `${number}%`;
-    height: number | `${number}%`;
-};
+type OverlayState = Record<OverlayKey, { x: number; y: number; scale: number }>;
+type OverlayFrame = { left: `${number}%`; top: `${number}%`; width: `${number}%`; height: `${number}%` };
 
-type StageSize = { width: number; height: number };
-
-function clamp(value: number, min: number, max: number) {
-    return Math.max(min, Math.min(max, value));
-}
-
-const getDefaultOverlayState = (rotateDeg = 0): OverlayState => ({
-    top: { x: 0, y: 10, scale: 1.06, rotateDeg },
-    bottom: { x: 0, y: 8, scale: 1.04, rotateDeg },
-    outerwear: { x: 0, y: 8, scale: 1.08, rotateDeg },
-    footwear: { x: 0, y: 6, scale: 1.06, rotateDeg: rotateDeg * 0.6 },
-    accessoryLeft: { x: 0, y: 0, scale: 1, rotateDeg },
-    accessoryRight: { x: 0, y: 0, scale: 1, rotateDeg },
+const getDefaultOverlayState = (): OverlayState => ({
+    top: { x: 0, y: 12, scale: 1.22 },
+    bottom: { x: 0, y: 8, scale: 1.14 },
+    outerwear: { x: 0, y: 8, scale: 1.18 },
+    footwear: { x: 0, y: 10, scale: 1.26 },
+    accessoryLeft: { x: 0, y: 0, scale: 1 },
+    accessoryRight: { x: 0, y: 0, scale: 1 },
 });
 
 const MANNEQUIN_OVERLAY_FRAMES: Record<OverlayKey, OverlayFrame> = {
@@ -158,93 +151,6 @@ function getOverlayFrames(bodyBox?: BodyPhotoUploadResult['bodyBox']): Record<Ov
     };
 }
 
-function getOverlayFramesInStage({
-    bodyBox,
-    pose,
-    stage,
-}: {
-    bodyBox: NonNullable<BodyPhotoUploadResult['bodyBox']>;
-    pose?: BodyPhotoUploadResult['pose'];
-    stage: StageSize;
-}): Record<OverlayKey, OverlayFrame> {
-    const imgW = Math.max(1, bodyBox.imageWidth || 1);
-    const imgH = Math.max(1, bodyBox.imageHeight || 1);
-    const stageW = Math.max(1, stage.width);
-    const stageH = Math.max(1, stage.height);
-
-    // `resizeMode="contain"` mapping for coordinates measured in the source image.
-    const scale = Math.min(stageW / imgW, stageH / imgH);
-    const drawnW = imgW * scale;
-    const drawnH = imgH * scale;
-    const offsetX = (stageW - drawnW) / 2;
-    const offsetY = (stageH - drawnH) / 2;
-
-    const toStage = (p: { x: number; y: number }) => ({
-        x: offsetX + p.x * imgW * scale,
-        y: offsetY + p.y * imgH * scale,
-    });
-
-    const fallbackPose = {
-        leftShoulder: { x: bodyBox.left + bodyBox.width * 0.28, y: bodyBox.top + bodyBox.height * 0.20 },
-        rightShoulder: { x: bodyBox.left + bodyBox.width * 0.72, y: bodyBox.top + bodyBox.height * 0.20 },
-        leftHip: { x: bodyBox.left + bodyBox.width * 0.34, y: bodyBox.top + bodyBox.height * 0.54 },
-        rightHip: { x: bodyBox.left + bodyBox.width * 0.66, y: bodyBox.top + bodyBox.height * 0.54 },
-        leftAnkle: { x: bodyBox.left + bodyBox.width * 0.38, y: bodyBox.top + bodyBox.height * 0.93 },
-        rightAnkle: { x: bodyBox.left + bodyBox.width * 0.62, y: bodyBox.top + bodyBox.height * 0.93 },
-    };
-
-    const p = {
-        leftShoulder: pose?.leftShoulder ?? fallbackPose.leftShoulder,
-        rightShoulder: pose?.rightShoulder ?? fallbackPose.rightShoulder,
-        leftHip: pose?.leftHip ?? fallbackPose.leftHip,
-        rightHip: pose?.rightHip ?? fallbackPose.rightHip,
-        leftAnkle: pose?.leftAnkle ?? fallbackPose.leftAnkle,
-        rightAnkle: pose?.rightAnkle ?? fallbackPose.rightAnkle,
-    };
-    const leftShoulder = toStage(p.leftShoulder);
-    const rightShoulder = toStage(p.rightShoulder);
-    const leftHip = toStage(p.leftHip);
-    const rightHip = toStage(p.rightHip);
-    const leftAnkle = toStage(p.leftAnkle);
-    const rightAnkle = toStage(p.rightAnkle);
-
-    const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-    const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-    const ankleMid = { x: (leftAnkle.x + rightAnkle.x) / 2, y: (leftAnkle.y + rightAnkle.y) / 2 };
-
-    const shoulderW = Math.max(1, Math.abs(rightShoulder.x - leftShoulder.x));
-    const hipW = Math.max(1, Math.abs(rightHip.x - leftHip.x));
-    const torsoH = Math.max(1, Math.abs(hipMid.y - shoulderMid.y));
-    const legH = Math.max(1, Math.abs(ankleMid.y - hipMid.y));
-
-    const makeRect = (cx: number, cy: number, w: number, h: number) => {
-        const width = Math.max(1, w);
-        const height = Math.max(1, h);
-        const left = clamp(cx - width / 2, 0, stageW - width);
-        const top = clamp(cy - height / 2, 0, stageH - height);
-        return { left, top, width, height } as const;
-    };
-
-    const top = makeRect(shoulderMid.x, shoulderMid.y + torsoH * 0.56, shoulderW * 1.55, torsoH * 1.45);
-    const outerwear = makeRect(shoulderMid.x, shoulderMid.y + torsoH * 0.58, shoulderW * 1.75, torsoH * 1.65);
-    const bottom = makeRect(hipMid.x, hipMid.y + legH * 0.54, hipW * 1.35, legH * 1.12);
-    const footwear = makeRect(ankleMid.x, ankleMid.y + legH * 0.03, Math.max(shoulderW * 0.70, hipW * 0.70), Math.max(legH * 0.20, 44));
-
-    const accSize = Math.max(26, shoulderW * 0.35);
-    const accY = shoulderMid.y + torsoH * 0.12;
-    const accessoryLeft = makeRect(leftShoulder.x - shoulderW * 0.25, accY, accSize, accSize);
-    const accessoryRight = makeRect(rightShoulder.x + shoulderW * 0.25, accY, accSize, accSize);
-
-    return {
-        top,
-        bottom,
-        outerwear,
-        footwear,
-        accessoryLeft,
-        accessoryRight,
-    };
-}
-
 function DraggableCanvasItem({
     uri,
     baseStyle,
@@ -255,7 +161,7 @@ function DraggableCanvasItem({
 }: {
     uri: string;
     baseStyle: any;
-    state: { x: number; y: number; scale: number; rotateDeg: number };
+    state: { x: number; y: number; scale: number };
     selected: boolean;
     onSelect: () => void;
     onChange: (next: { x: number; y: number; scale: number }) => void;
@@ -303,7 +209,6 @@ function DraggableCanvasItem({
                         { translateX: pan.x },
                         { translateY: pan.y },
                         { scale: state.scale },
-                        { rotate: `${state.rotateDeg}deg` },
                     ],
                 },
             ]}
@@ -338,12 +243,19 @@ export default function OutfitsScreen() {
     });
     const [backendSuggestion, setBackendSuggestion] = useState<StylistSuggestion | null>(null);
     const [quizVisible, setQuizVisible] = useState(true);
-    const [bodyPhoto, setBodyPhoto] = useState<BodyPhotoUploadResult | null>(null);
-    const [bodyPhotoUploading, setBodyPhotoUploading] = useState(false);
-    const [tryOnPreview, setTryOnPreview] = useState<TryOnPreviewResult | null>(null);
-    const [tryOnLoading, setTryOnLoading] = useState(false);
-    const [overlayState, setOverlayState] = useState<OverlayState>(getDefaultOverlayState());
-    const [selectedOverlayKey, setSelectedOverlayKey] = useState<OverlayKey | null>(null);
+    const [styleOfDay, setStyleOfDay] = useState<StyleOfTheDayResult | null>(null);
+    const [styleOfDayLoading, setStyleOfDayLoading] = useState(false);
+    const [manuallySwappedItems, setManuallySwappedItems] = useState<Record<string, WardrobeItem>>({});
+    const [selectorModalVisible, setSelectorModalVisible] = useState(false);
+    const [swappingCategory, setSwappingCategory] = useState<string | null>(null);
+
+    const [styleContext, setStyleContext] = useState<RecommendationContext>({
+        temperatureC: 24,
+        weather: 'sunny',
+        occasion: 'casual',
+        dayOfWeek: new Date().getDay(),
+        timeOfDay: 'morning',
+    });
     const insets = useSafeAreaInsets();
 
     const theme = {
@@ -360,13 +272,6 @@ export default function OutfitsScreen() {
     const loadData = async (silent = false) => {
         try {
             if (!silent) setLoading(true);
-            const data = await api.getStylistSuggestion();
-            setSuggestion(data);
-            setBackendSuggestion(data);
-        } catch (e) {
-            console.warn('Stylist fetch error:', e);
-            setSuggestion(null);
-            setBackendSuggestion(null);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -387,6 +292,7 @@ export default function OutfitsScreen() {
                     category: normalizeCategory(item.category),
                 })),
             );
+            await generateOfflineStyleOfDay(allItems);
         } catch (e) {
             console.warn('Failed to load saved looks:', e);
         } finally {
@@ -395,22 +301,28 @@ export default function OutfitsScreen() {
     };
 
     const regenerateSuggestion = async () => {
+        setManuallySwappedItems({});
+        const topId = styleOfDayItems.find(it => normalizeCategory(it.category) === 'topwear')?.id;
+        await generateOfflineStyleOfDay(wardrobeItems, undefined, topId ? [topId] : []);
+    };
+
+    const generateOfflineStyleOfDay = async (items: WardrobeItem[], overrideContext?: RecommendationContext, lockedIds?: string[]) => {
+        if (!items.length) {
+            setStyleOfDay(null);
+            return;
+        }
         try {
-            setSuggestionLoading(true);
-            const payload: StyleProfilePayload = {
-                bodyType: styleProfile.bodyType,
-                skinTone: styleProfile.skinTone,
-                height: styleProfile.height,
-                waistSize: styleProfile.waistSize,
-                stylePreference: styleProfile.stylePreference,
-            };
-            const data = await api.getPersonalizedStylistSuggestion(payload);
-            setSuggestion(data);
-            setBackendSuggestion(data);
+            setStyleOfDayLoading(true);
+            const todayIso = new Date().toISOString().slice(0, 10);
+            const result = await generateStyleOfDayForWardrobe(items, overrideContext ?? styleContext, todayIso, {
+                lockedItemIds: lockedIds
+            });
+            setStyleOfDay(result);
         } catch (e) {
-            console.warn('Stylist personalization failed:', e);
+            console.warn('Offline stylist failed:', e);
+            setStyleOfDay(null);
         } finally {
-            setSuggestionLoading(false);
+            setStyleOfDayLoading(false);
         }
     };
 
@@ -419,10 +331,12 @@ export default function OutfitsScreen() {
         loadLooks();
     }, []);
 
-    const onRefresh = () => {
+    const onRefresh = async () => {
         setRefreshing(true);
-        loadData(true);
-        loadLooks();
+        await loadData(true);
+        await loadLooks();
+        // generateOfflineStyleOfDay is called inside loadLooks with loaded items
+        setRefreshing(false);
     };
 
     const stats = suggestion?.stats ?? {
@@ -434,7 +348,7 @@ export default function OutfitsScreen() {
             return acc;
         }, {}),
     };
-    const suggestedOutfit = backendSuggestion?.suggestedOutfit ?? suggestion?.suggestedOutfit ?? [];
+    const suggestedOutfitFromBackend = backendSuggestion?.suggestedOutfit ?? suggestion?.suggestedOutfit ?? [];
     const alternativeLooks = backendSuggestion?.alternativeOutfits ?? suggestion?.alternativeOutfits ?? [];
     const bestLook = alternativeLooks[0] ?? null;
     const isProfileComplete = Boolean(
@@ -459,6 +373,30 @@ export default function OutfitsScreen() {
         return map;
     }, [wardrobeItems]);
 
+    const styleOfDayItems = useMemo(() => {
+        if (!styleOfDay) return [];
+        return styleOfDay.scores.itemIds
+            .map((id) => wardrobeById[id])
+            .filter((it): it is WardrobeItem => Boolean(it));
+    }, [styleOfDay, wardrobeById]);
+
+    const suggestedOutfit = useMemo(() => {
+        const base = styleOfDayItems.length ? styleOfDayItems : suggestedOutfitFromBackend;
+
+        // Merge manual swaps
+        const merged = [...base];
+        Object.keys(manuallySwappedItems).forEach(cat => {
+            const index = merged.findIndex(it => normalizeCategory(it.category) === cat);
+            if (index !== -1) {
+                merged[index] = manuallySwappedItems[cat];
+            } else {
+                merged.push(manuallySwappedItems[cat]);
+            }
+        });
+
+        return merged;
+    }, [styleOfDayItems, suggestedOutfitFromBackend, manuallySwappedItems]);
+
     const layeredOutfitItems = useMemo(() => {
         const top = suggestedOutfit.find((item) => normalizeCategory(item.category) === 'topwear');
         const bottom = suggestedOutfit.find((item) => normalizeCategory(item.category) === 'bottomwear');
@@ -469,23 +407,8 @@ export default function OutfitsScreen() {
         return { top, bottom, outerwear, footwear, accessories };
     }, [suggestedOutfit]);
 
-    const [previewStageSize, setPreviewStageSize] = useState<StageSize | null>(null);
-
-    const overlayFrames = useMemo(() => {
-        if (bodyPhoto?.bodyBox && previewStageSize) {
-            return getOverlayFramesInStage({
-                bodyBox: bodyPhoto.bodyBox,
-                pose: bodyPhoto.pose,
-                stage: previewStageSize,
-            });
-        }
-        return getOverlayFrames(bodyPhoto?.bodyBox);
-    }, [bodyPhoto?.bodyBox, bodyPhoto?.pose, previewStageSize]);
-
-    useEffect(() => {
-        setOverlayState(getDefaultOverlayState(bodyPhoto?.pose?.torsoAngleDeg ?? 0));
-        setSelectedOverlayKey(null);
-    }, [bodyPhoto?.id, suggestedOutfit.map((item) => item.id).join(',')]);
+    const openQuiz = () => setQuizVisible(true);
+    const closeQuiz = () => setQuizVisible(false);
 
     const updateStyleProfile = <K extends keyof StyleProfile>(key: K, value: StyleProfile[K]) => {
         setStyleProfile((prev) => ({ ...prev, [key]: value }));
@@ -493,124 +416,22 @@ export default function OutfitsScreen() {
 
     const nextProfileStep = () => setProfileStep((prev) => Math.min(prev + 1, 5));
     const previousProfileStep = () => setProfileStep((prev) => Math.max(prev - 1, 1));
-    const closeQuiz = () => setQuizVisible(false);
-    const openQuiz = () => setQuizVisible(true);
 
-    const updateOverlayTransform = (key: OverlayKey, next: { x: number; y: number; scale: number }) => {
-        setOverlayState((prev) => ({ ...prev, [key]: { ...prev[key], ...next } }));
+    const openSelector = (category: string) => {
+        setSwappingCategory(category);
+        setSelectorModalVisible(true);
     };
 
-    const resizeSelectedOverlay = (delta: number) => {
-        if (!selectedOverlayKey) return;
-        setOverlayState((prev) => {
-            const current = prev[selectedOverlayKey];
-            return {
-                ...prev,
-                [selectedOverlayKey]: {
-                    ...current,
-                    scale: Math.max(0.65, Math.min(1.7, Number((current.scale + delta).toFixed(2)))),
-                },
-            };
-        });
+    const handleSelectManualItem = (item: WardrobeItem) => {
+        if (!swappingCategory) return;
+        setManuallySwappedItems(prev => ({
+            ...prev,
+            [swappingCategory]: item
+        }));
+        setSelectorModalVisible(false);
+        setSwappingCategory(null);
     };
 
-    const rotateSelectedOverlay = (deltaDeg: number) => {
-        if (!selectedOverlayKey) return;
-        setOverlayState((prev) => {
-            const current = prev[selectedOverlayKey];
-            const nextRotate = clamp(Number((current.rotateDeg + deltaDeg).toFixed(1)), -45, 45);
-            return {
-                ...prev,
-                [selectedOverlayKey]: {
-                    ...current,
-                    rotateDeg: nextRotate,
-                },
-            };
-        });
-    };
-
-    const refreshTryOnPreview = async (
-        nextBodyPhoto: BodyPhotoUploadResult,
-        nextSuggestedOutfit: WardrobeItem[],
-        nextProfile: StyleProfilePayload,
-    ) => {
-        if (!nextBodyPhoto.processedUrl && !nextBodyPhoto.originalUrl) {
-            setTryOnPreview(null);
-            return;
-        }
-        if (!nextSuggestedOutfit.length) {
-            setTryOnPreview(null);
-            return;
-        }
-
-        try {
-            setTryOnLoading(true);
-            const preview = await api.generateTryOnPreview(
-                nextBodyPhoto.processedUrl || nextBodyPhoto.originalUrl,
-                nextSuggestedOutfit.map((item) => item.id),
-                nextProfile,
-            );
-            setTryOnPreview(preview);
-        } catch (error) {
-            console.error('Try-on preview failed:', error);
-            setTryOnPreview(null);
-        } finally {
-            setTryOnLoading(false);
-        }
-    };
-
-    const uploadBodyPhotoAsset = async (asset: ImagePicker.ImagePickerAsset) => {
-        try {
-            setBodyPhotoUploading(true);
-            const result = await api.uploadBodyPhoto(
-                asset.uri,
-                asset.fileName || `body-photo-${Date.now()}.jpg`,
-                asset.mimeType || 'image/jpeg',
-            );
-            setBodyPhoto(result);
-            await refreshTryOnPreview(result, suggestedOutfit, {
-                bodyType: styleProfile.bodyType,
-                skinTone: styleProfile.skinTone,
-                height: styleProfile.height,
-                waistSize: styleProfile.waistSize,
-                stylePreference: styleProfile.stylePreference,
-            });
-        } catch (error: any) {
-            Alert.alert('Upload failed', error?.message || 'Could not upload body photo');
-        } finally {
-            setBodyPhotoUploading(false);
-        }
-    };
-
-    const pickBodyPhoto = async (source: 'camera' | 'gallery') => {
-        try {
-            const permission =
-                source === 'camera'
-                    ? await ImagePicker.requestCameraPermissionsAsync()
-                    : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-            if (!permission.granted) {
-                Alert.alert('Permission needed', `Please allow ${source} access to continue.`);
-                return;
-            }
-
-            const result =
-                source === 'camera'
-                    ? await ImagePicker.launchCameraAsync({
-                        mediaTypes: ['images'],
-                        quality: 1,
-                    })
-                    : await ImagePicker.launchImageLibraryAsync({
-                        mediaTypes: ['images'],
-                        quality: 1,
-                    });
-
-            if (result.canceled || !result.assets?.length) return;
-            await uploadBodyPhotoAsset(result.assets[0]);
-        } catch (error: any) {
-            Alert.alert('Upload failed', error?.message || 'Could not select body photo');
-        }
-    };
 
     const handleSaveCurrentLook = async () => {
         if (!suggestedOutfit.length || savingLook) return;
@@ -619,7 +440,7 @@ export default function OutfitsScreen() {
             const now = new Date();
             const look: SavedLook = {
                 id: `${now.getTime()}`,
-                name: 'AI Look',
+                name: styleOfDay ? 'Style of the Day' : 'AI Look',
                 itemIds: suggestedOutfit.map((item) => item.id),
                 createdAt: now.toISOString(),
                 source: 'ai',
@@ -633,26 +454,7 @@ export default function OutfitsScreen() {
         }
     };
 
-    useEffect(() => {
-        if (!bodyPhoto || !suggestedOutfit.length) {
-            if (!bodyPhoto) {
-                setTryOnPreview(null);
-            }
-            return;
-        }
 
-        void refreshTryOnPreview(bodyPhoto, suggestedOutfit, {
-            bodyType: styleProfile.bodyType,
-            skinTone: styleProfile.skinTone,
-            height: styleProfile.height,
-            waistSize: styleProfile.waistSize,
-            stylePreference: styleProfile.stylePreference,
-        });
-    }, [
-        bodyPhoto?.processedUrl,
-        bodyPhoto?.originalUrl,
-        suggestedOutfit.map((item) => item.id).join(','),
-    ]);
 
     const renderQuizChoiceCard = (
         label: string,
@@ -887,85 +689,24 @@ export default function OutfitsScreen() {
                 >
                     {activeTab === 'AI Stylist' ? (
                         <>
-                            <View style={[styles.bodyUploadCard, { backgroundColor: theme.card }]}>
-                                <View style={styles.bodyUploadHeader}>
-                                    <View style={styles.bodyUploadIcon}>
-                                        <Ionicons name="person-outline" size={22} color={Colors.goldDark} />
-                                    </View>
-                                    <View style={styles.bodyUploadTextWrap}>
-                                        <Text style={[styles.bodyUploadTitle, { color: theme.text }]}>Upload Your Full-Body Photo</Text>
-                                        <Text style={[styles.bodyUploadSubtitle, { color: theme.textSecondary }]}>
-                                            Use a front-facing full-body image for the best outfit preview
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {bodyPhoto ? (
-                                    <View style={styles.bodyPhotoPreviewWrap}>
-                                        <Image
-                                            source={{ uri: api.getImageUrl(bodyPhoto.processedUrl || bodyPhoto.originalUrl) }}
-                                            style={styles.bodyPhotoPreview}
-                                            resizeMode="contain"
-                                        />
-                                        <Text style={[styles.bodyPhotoStatus, { color: theme.textSecondary }]}>
-                                            {bodyPhoto.status === 'done' ? 'Body photo ready' : 'Body photo uploaded'}
-                                        </Text>
-                                    </View>
-                                ) : null}
-
-                                <View style={styles.bodyUploadActions}>
-                                    <TouchableOpacity style={styles.bodyUploadBtn} onPress={() => pickBodyPhoto('camera')} disabled={bodyPhotoUploading}>
-                                        <Ionicons name="camera-outline" size={16} color={Colors.white} />
-                                        <Text style={styles.bodyUploadBtnText}>Take Photo</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.bodyUploadBtn, styles.bodyUploadBtnSecondary]}
-                                        onPress={() => pickBodyPhoto('gallery')}
-                                        disabled={bodyPhotoUploading}
-                                    >
-                                        <Ionicons name="images-outline" size={16} color={Colors.goldDark} />
-                                        <Text style={styles.bodyUploadBtnSecondaryText}>Choose Photo</Text>
-                                    </TouchableOpacity>
-                                </View>
-
-                                {bodyPhotoUploading ? (
-                                    <View style={styles.bodyUploadLoading}>
-                                        <ActivityIndicator size="small" color={Colors.gold} />
-                                        <Text style={[styles.bodyUploadLoadingText, { color: theme.textSecondary }]}>
-                                            Uploading your body photo...
-                                        </Text>
-                                    </View>
-                                ) : null}
-                            </View>
-
-                            <TouchableOpacity style={[styles.quizLauncher, { backgroundColor: theme.card }]} onPress={openQuiz}>
-                                <View>
-                                    <Text style={[styles.quizLauncherTitle, { color: theme.text }]}>Style Quiz</Text>
-                                    <Text style={[styles.quizLauncherSubtitle, { color: theme.textSecondary }]}>
-                                        {isProfileComplete ? 'Edit your answers and refresh recommendations' : 'Answer 5 quick questions for better outfits'}
-                                    </Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
-                            </TouchableOpacity>
-
-                            {/* AI Stylist Card */}
+                            {/* Style of the Day (offline) */}
                             <View style={[styles.stylistBanner, { backgroundColor: theme.card, borderColor: theme.gold }]}>
                                 <View style={styles.bannerRow}>
                                     <View style={styles.bannerIcon}>
                                         <Ionicons name="sparkles" size={22} color={Colors.gold} />
                                     </View>
                                     <View style={styles.bannerText}>
-                                        <Text style={[styles.bannerTitle, { color: theme.text }]}>Best For You</Text>
+                                        <Text style={[styles.bannerTitle, { color: theme.text }]}>Style of the Day</Text>
                                         <Text style={[styles.bannerSub, { color: theme.textSecondary }]}>
-                                            Based on your body type, skin tone, height, waist, and style preference
+                                            Shuffle to lock topwear and browse alternatives
                                         </Text>
                                     </View>
                                     <TouchableOpacity
                                         style={[styles.regenBtn, { backgroundColor: Colors.gold }]}
                                         onPress={regenerateSuggestion}
-                                        disabled={suggestionLoading}
+                                        disabled={styleOfDayLoading}
                                     >
-                                        {suggestionLoading ? (
+                                        {styleOfDayLoading ? (
                                             <ActivityIndicator size="small" color={Colors.white} />
                                         ) : (
                                             <Ionicons name="shuffle" size={16} color={Colors.white} />
@@ -973,291 +714,86 @@ export default function OutfitsScreen() {
                                     </TouchableOpacity>
                                 </View>
 
+                                {/* Occasion Context Chips */}
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.occasionChipsStrip}>
+                                    {(['casual', 'work', 'date', 'party'] as Occasion[]).map((occ) => {
+                                        const isActive = styleContext.occasion === occ;
+                                        return (
+                                            <TouchableOpacity
+                                                key={occ}
+                                                style={[
+                                                    styles.occasionChip,
+                                                    isActive ? styles.occasionChipActive : { backgroundColor: theme.card, borderColor: theme.border },
+                                                ]}
+                                                onPress={() => {
+                                                    const nextContext = { ...styleContext, occasion: occ };
+                                                    setStyleContext(nextContext);
+                                                    generateOfflineStyleOfDay(wardrobeItems, nextContext);
+                                                }}
+                                            >
+                                                <Text style={[styles.occasionChipText, isActive ? styles.occasionChipTextActive : { color: theme.textSecondary }]}>
+                                                    {occ.charAt(0).toUpperCase() + occ.slice(1)}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+
                                 {suggestedOutfit.length === 0 ? (
                                     <View style={styles.emptySuggestion}>
                                         <Ionicons name="shirt-outline" size={36} color={theme.border} />
                                         <Text style={[styles.emptySuggestionText, { color: theme.textSecondary }]}>
-                                            Complete the profile and add both topwear and bottomwear to see personalized outfits
+                                            Add at least a top and bottom to generate an outfit
                                         </Text>
                                     </View>
                                 ) : (
-                                    <>
-                                        {bodyPhoto ? (
-                                            <View style={styles.styledPreviewCard}>
-                                                <View
-                                                    style={styles.styledPreviewStage}
-                                                    onLayout={(e) =>
-                                                        setPreviewStageSize({
-                                                            width: e.nativeEvent.layout.width,
-                                                            height: e.nativeEvent.layout.height,
-                                                        })
-                                                    }
-                                                >
-                                                    {tryOnPreview?.previewUrl ? (
-                                                        <Image
-                                                            source={{ uri: api.getImageUrl(tryOnPreview.previewUrl) }}
-                                                            style={styles.styledPreviewImage}
-                                                            resizeMode="contain"
-                                                        />
-                                                    ) : (
-                                                        <>
-                                                            <Image
-                                                                source={{ uri: api.getImageUrl(bodyPhoto.processedUrl || bodyPhoto.originalUrl) }}
-                                                                style={styles.styledPreviewImage}
-                                                                resizeMode="contain"
-                                                            />
-                                                            {layeredOutfitItems.bottom ? (
-                                                                <DraggableCanvasItem
-                                                                    uri={api.getImageUrl(layeredOutfitItems.bottom.processedUrl)}
-                                                                    baseStyle={[styles.overlayLayer, overlayFrames.bottom]}
-                                                                    state={overlayState.bottom}
-                                                                    selected={selectedOverlayKey === 'bottom'}
-                                                                    onSelect={() => setSelectedOverlayKey('bottom')}
-                                                                    onChange={(next) => updateOverlayTransform('bottom', next)}
-                                                                />
-                                                            ) : null}
-                                                            {layeredOutfitItems.top ? (
-                                                                <DraggableCanvasItem
-                                                                    uri={api.getImageUrl(layeredOutfitItems.top.processedUrl)}
-                                                                    baseStyle={[styles.overlayLayer, overlayFrames.top]}
-                                                                    state={overlayState.top}
-                                                                    selected={selectedOverlayKey === 'top'}
-                                                                    onSelect={() => setSelectedOverlayKey('top')}
-                                                                    onChange={(next) => updateOverlayTransform('top', next)}
-                                                                />
-                                                            ) : null}
-                                                            {layeredOutfitItems.outerwear ? (
-                                                                <DraggableCanvasItem
-                                                                    uri={api.getImageUrl(layeredOutfitItems.outerwear.processedUrl)}
-                                                                    baseStyle={[styles.overlayLayer, overlayFrames.outerwear]}
-                                                                    state={overlayState.outerwear}
-                                                                    selected={selectedOverlayKey === 'outerwear'}
-                                                                    onSelect={() => setSelectedOverlayKey('outerwear')}
-                                                                    onChange={(next) => updateOverlayTransform('outerwear', next)}
-                                                                />
-                                                            ) : null}
-                                                            {layeredOutfitItems.footwear ? (
-                                                                <DraggableCanvasItem
-                                                                    uri={api.getImageUrl(layeredOutfitItems.footwear.processedUrl)}
-                                                                    baseStyle={[styles.overlayLayer, overlayFrames.footwear]}
-                                                                    state={overlayState.footwear}
-                                                                    selected={selectedOverlayKey === 'footwear'}
-                                                                    onSelect={() => setSelectedOverlayKey('footwear')}
-                                                                    onChange={(next) => updateOverlayTransform('footwear', next)}
-                                                                />
-                                                            ) : null}
-                                                            {layeredOutfitItems.accessories.slice(0, 2).map((item, index) => (
-                                                                <DraggableCanvasItem
-                                                                    key={item.id}
-                                                                    uri={api.getImageUrl(item.processedUrl)}
-                                                                    baseStyle={[
-                                                                        styles.overlayLayer,
-                                                                        index === 0 ? overlayFrames.accessoryLeft : overlayFrames.accessoryRight,
-                                                                    ]}
-                                                                    state={index === 0 ? overlayState.accessoryLeft : overlayState.accessoryRight}
-                                                                    selected={selectedOverlayKey === (index === 0 ? 'accessoryLeft' : 'accessoryRight')}
-                                                                    onSelect={() => setSelectedOverlayKey(index === 0 ? 'accessoryLeft' : 'accessoryRight')}
-                                                                    onChange={(next) =>
-                                                                        updateOverlayTransform(index === 0 ? 'accessoryLeft' : 'accessoryRight', next)
-                                                                    }
-                                                                />
-                                                            ))}
-                                                        </>
-                                                    )}
-                                                    {tryOnLoading ? (
-                                                        <View style={styles.tryOnLoadingBadge}>
-                                                            <ActivityIndicator size="small" color={Colors.white} />
-                                                            <Text style={styles.tryOnLoadingText}>Generating try-on</Text>
-                                                        </View>
-                                                    ) : null}
+                                    <View style={styles.suggestedOutfitContainer}>
+                                        {/* Optional Score Breakdown */}
+                                        {styleOfDay?.scores ? (
+                                            <View style={styles.scoreBreakdownRow}>
+                                                <View style={styles.scorePill}>
+                                                    <View style={[styles.scoreDot, { backgroundColor: '#FF6B6B' }]} />
+                                                    <Text style={styles.scoreText}>Color {Math.round(styleOfDay.scores.colorScore)}</Text>
                                                 </View>
-                                                <View style={styles.styledPreviewMeta}>
-                                                    <Text style={[styles.styledPreviewTitle, { color: theme.text }]}>Styled On You</Text>
-                                                    <Text style={[styles.styledPreviewSubtitle, { color: theme.textSecondary }]}>
-                                                        {tryOnPreview?.previewUrl
-                                                            ? 'Server-generated preview with softened original clothing and composed outfit fit'
-                                                            : 'Your uploaded body photo with the selected outfit layered onto the body preview'}
-                                                    </Text>
-                                                    <View style={styles.canvasHintRow}>
-                                                        <Text style={[styles.canvasHintText, { color: theme.textSecondary }]}>
-                                                            {tryOnPreview?.previewUrl
-                                                                ? 'If the generated fit is not ideal yet, the app falls back to manual overlay while the backend preview improves.'
-                                                                : 'Drag a clothing layer to position it. Select a layer to resize or rotate it.'}
-                                                        </Text>
-                                                        {!tryOnPreview?.previewUrl && selectedOverlayKey ? (
-                                                            <View style={styles.canvasControls}>
-                                                                <TouchableOpacity style={styles.canvasControlBtn} onPress={() => resizeSelectedOverlay(-0.08)}>
-                                                                    <Ionicons name="remove" size={16} color={Colors.goldDark} />
-                                                                </TouchableOpacity>
-                                                                <TouchableOpacity style={styles.canvasControlBtn} onPress={() => resizeSelectedOverlay(0.08)}>
-                                                                    <Ionicons name="add" size={16} color={Colors.goldDark} />
-                                                                </TouchableOpacity>
-                                                                <TouchableOpacity style={styles.canvasControlBtn} onPress={() => rotateSelectedOverlay(-4)}>
-                                                                    <Ionicons name="arrow-undo" size={16} color={Colors.goldDark} />
-                                                                </TouchableOpacity>
-                                                                <TouchableOpacity style={styles.canvasControlBtn} onPress={() => rotateSelectedOverlay(4)}>
-                                                                    <Ionicons name="arrow-redo" size={16} color={Colors.goldDark} />
-                                                                </TouchableOpacity>
-                                                            </View>
-                                                        ) : null}
-                                                    </View>
+                                                <View style={styles.scorePill}>
+                                                    <View style={[styles.scoreDot, { backgroundColor: '#4ECDC4' }]} />
+                                                    <Text style={styles.scoreText}>Weather {Math.round(styleOfDay.scores.weatherScore)}</Text>
+                                                </View>
+                                                <View style={styles.scorePill}>
+                                                    <View style={[styles.scoreDot, { backgroundColor: '#FFE66D' }]} />
+                                                    <Text style={styles.scoreText}>Occasion {Math.round(styleOfDay.scores.occasionScore)}</Text>
+                                                </View>
+                                                <View style={styles.scorePill}>
+                                                    <View style={[styles.scoreDot, { backgroundColor: '#A29BFE' }]} />
+                                                    <Text style={styles.scoreText}>You {Math.round(styleOfDay.scores.userPreferenceScore)}</Text>
                                                 </View>
                                             </View>
-                                        ) : (
-                                            <View style={styles.styledPreviewCard}>
-                                                <View
-                                                    style={styles.styledPreviewStage}
-                                                    onLayout={(e) =>
-                                                        setPreviewStageSize({
-                                                            width: e.nativeEvent.layout.width,
-                                                            height: e.nativeEvent.layout.height,
-                                                        })
-                                                    }
-                                                >
-                                                    <View style={styles.mannequinStage}>
-                                                        <LinearGradient
-                                                            colors={['#2B3541', '#1D252E']}
-                                                            start={{ x: 0, y: 0 }}
-                                                            end={{ x: 1, y: 1 }}
-                                                            style={styles.mannequinBackdrop}
-                                                        />
-                                                        <View style={styles.mannequinFloorShadow} />
-                                                        <LinearGradient
-                                                            colors={['#F2E8DA', '#D8C7B2']}
-                                                            style={styles.mannequinHead}
-                                                            start={{ x: 0.2, y: 0 }}
-                                                            end={{ x: 0.8, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#EAD9C4', '#D8C4AA']}
-                                                            style={styles.mannequinNeck}
-                                                            start={{ x: 0.3, y: 0 }}
-                                                            end={{ x: 0.8, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#EFE3D2', '#D9C9B4']}
-                                                            style={styles.mannequinShoulderFrame}
-                                                            start={{ x: 0.1, y: 0 }}
-                                                            end={{ x: 0.9, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#EEDFCB', '#D3BEA2']}
-                                                            style={styles.mannequinTorso}
-                                                            start={{ x: 0.15, y: 0 }}
-                                                            end={{ x: 0.9, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#E9D8C2', '#CEB597']}
-                                                            style={[styles.mannequinArm, styles.mannequinArmLeft]}
-                                                            start={{ x: 0.2, y: 0 }}
-                                                            end={{ x: 0.9, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#E9D8C2', '#CEB597']}
-                                                            style={[styles.mannequinArm, styles.mannequinArmRight]}
-                                                            start={{ x: 0.2, y: 0 }}
-                                                            end={{ x: 0.9, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#EADAC7', '#CBB293']}
-                                                            style={styles.mannequinHip}
-                                                            start={{ x: 0.2, y: 0 }}
-                                                            end={{ x: 0.8, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#E5D2BA', '#C4A989']}
-                                                            style={[styles.mannequinLeg, styles.mannequinLegLeft]}
-                                                            start={{ x: 0.25, y: 0 }}
-                                                            end={{ x: 0.9, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#E5D2BA', '#C4A989']}
-                                                            style={[styles.mannequinLeg, styles.mannequinLegRight]}
-                                                            start={{ x: 0.25, y: 0 }}
-                                                            end={{ x: 0.9, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#D4B593', '#B8946E']}
-                                                            style={[styles.mannequinFoot, styles.mannequinFootLeft]}
-                                                            start={{ x: 0.2, y: 0 }}
-                                                            end={{ x: 0.9, y: 1 }}
-                                                        />
-                                                        <LinearGradient
-                                                            colors={['#D4B593', '#B8946E']}
-                                                            style={[styles.mannequinFoot, styles.mannequinFootRight]}
-                                                            start={{ x: 0.2, y: 0 }}
-                                                            end={{ x: 0.9, y: 1 }}
-                                                        />
+                                        ) : null}
 
-                                                        {layeredOutfitItems.bottom ? (
-                                                            <Image
-                                                                source={{ uri: api.getImageUrl(layeredOutfitItems.bottom.processedUrl) }}
-                                                                style={[styles.mannequinOverlay, MANNEQUIN_OVERLAY_FRAMES.bottom]}
-                                                                resizeMode="contain"
-                                                            />
-                                                        ) : null}
-                                                        {layeredOutfitItems.top ? (
-                                                            <Image
-                                                                source={{ uri: api.getImageUrl(layeredOutfitItems.top.processedUrl) }}
-                                                                style={[styles.mannequinOverlay, MANNEQUIN_OVERLAY_FRAMES.top]}
-                                                                resizeMode="contain"
-                                                            />
-                                                        ) : null}
-                                                        {layeredOutfitItems.outerwear ? (
-                                                            <Image
-                                                                source={{ uri: api.getImageUrl(layeredOutfitItems.outerwear.processedUrl) }}
-                                                                style={[styles.mannequinOverlay, MANNEQUIN_OVERLAY_FRAMES.outerwear]}
-                                                                resizeMode="contain"
-                                                            />
-                                                        ) : null}
-                                                        {layeredOutfitItems.footwear ? (
-                                                            <Image
-                                                                source={{ uri: api.getImageUrl(layeredOutfitItems.footwear.processedUrl) }}
-                                                                style={[styles.mannequinOverlay, MANNEQUIN_OVERLAY_FRAMES.footwear]}
-                                                                resizeMode="contain"
-                                                            />
-                                                        ) : null}
-                                                        {layeredOutfitItems.accessories.slice(0, 2).map((item, index) => (
-                                                            <Image
-                                                                key={item.id}
-                                                                source={{ uri: api.getImageUrl(item.processedUrl) }}
-                                                                style={[
-                                                                    styles.mannequinOverlay,
-                                                                    index === 0
-                                                                        ? MANNEQUIN_OVERLAY_FRAMES.accessoryLeft
-                                                                        : MANNEQUIN_OVERLAY_FRAMES.accessoryRight,
-                                                                ]}
-                                                                resizeMode="contain"
-                                                            />
-                                                        ))}
-                                                    </View>
-                                                </View>
-                                                <View style={styles.styledPreviewMeta}>
-                                                    <Text style={[styles.styledPreviewTitle, { color: theme.text }]}>Styled On Avatar</Text>
-                                                    <Text style={[styles.styledPreviewSubtitle, { color: theme.textSecondary }]}>
-                                                        Suggested outfit on a simple mannequin preview before you upload your body photo
-                                                    </Text>
-                                                    <Text style={[styles.mannequinHintText, { color: theme.textSecondary }]}>
-                                                        Upload your photo to replace the mannequin with a personal preview.
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                        )}
-                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.outfitStrip}>
+                                        <View style={styles.manualSwapGrid}>
                                             {suggestedOutfit.map((item, i) => (
-                                                <View key={i} style={styles.outfitItem}>
+                                                <View key={item.id} style={styles.swapItemCard}>
                                                     <Image
                                                         source={{ uri: api.getImageUrl(item.processedUrl) }}
-                                                        style={styles.outfitItemImg}
+                                                        style={styles.swapItemImg}
                                                         resizeMode="contain"
                                                     />
-                                                    <Text style={[styles.outfitItemCat, { color: theme.textSecondary }]} numberOfLines={1}>
-                                                        {item.category}
-                                                    </Text>
+                                                    <View style={styles.swapItemMeta}>
+                                                        <Text style={[styles.swapItemCat, { color: theme.textSecondary }]} numberOfLines={1}>
+                                                            {normalizeCategory(item.category).toUpperCase()}
+                                                        </Text>
+                                                        <TouchableOpacity
+                                                            style={styles.swapBtn}
+                                                            onPress={() => openSelector(normalizeCategory(item.category))}
+                                                        >
+                                                            <Ionicons name="swap-horizontal" size={14} color={Colors.goldDark} />
+                                                            <Text style={styles.swapBtnText}>Swap</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
                                                 </View>
                                             ))}
-                                        </ScrollView>
-                                    </>
+                                        </View>
+                                    </View>
                                 )}
 
                                 {bestLook?.note ? (
@@ -1589,6 +1125,45 @@ export default function OutfitsScreen() {
                         </View>
                     </ScrollView>
                 </View>
+            </Modal>
+
+            <Modal visible={selectorModalVisible} animationType="slide" transparent={false}>
+                <SafeAreaView style={[styles.selectorModal, { backgroundColor: theme.background }]}>
+                    <View style={[styles.selectorHeader, { borderBottomColor: theme.border }]}>
+                        <TouchableOpacity onPress={() => setSelectorModalVisible(false)} style={styles.selectorCloseBtn}>
+                            <Ionicons name="close" size={24} color={theme.text} />
+                        </TouchableOpacity>
+                        <Text style={[styles.selectorTitle, { color: theme.text }]}>
+                            Select {swappingCategory}
+                        </Text>
+                        <View style={{ width: 40 }} />
+                    </View>
+                    <ScrollView contentContainerStyle={styles.selectorGrid} showsVerticalScrollIndicator={false}>
+                        {wardrobeItems
+                            .filter(it => normalizeCategory(it.category) === swappingCategory)
+                            .map(item => (
+                                <TouchableOpacity
+                                    key={item.id}
+                                    style={[styles.selectorCard, { backgroundColor: theme.card }]}
+                                    onPress={() => handleSelectManualItem(item)}
+                                >
+                                    <Image
+                                        source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                        style={styles.selectorImg}
+                                        resizeMode="contain"
+                                    />
+                                    <Text style={[styles.selectorName, { color: theme.text }]} numberOfLines={1}>
+                                        {item.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        {wardrobeItems.filter(it => normalizeCategory(it.category) === swappingCategory).length === 0 && (
+                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 100 }}>
+                                <Text style={{ color: theme.textSecondary }}>No items found in this category</Text>
+                            </View>
+                        )}
+                    </ScrollView>
+                </SafeAreaView>
             </Modal>
         </SafeAreaView>
     );
@@ -2224,6 +1799,107 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         marginTop: Spacing.md,
     },
+    suggestedOutfitContainer: {
+        marginTop: Spacing.md,
+    },
+    manualSwapGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.md,
+        justifyContent: 'space-between',
+    },
+    swapItemCard: {
+        width: '47%',
+        borderRadius: BorderRadius.md,
+        backgroundColor: '#F5F5F5',
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#EEE',
+    },
+    swapItemImg: {
+        width: '100%',
+        height: 160,
+    },
+    swapItemMeta: {
+        padding: 10,
+        backgroundColor: Colors.white,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderTopWidth: 1,
+        borderTopColor: '#EEE',
+    },
+    swapItemCat: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
+    swapBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
+        backgroundColor: '#FFF3D6',
+    },
+    swapBtnText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: Colors.goldDark,
+    },
+    selectorModal: {
+        flex: 1,
+    },
+    selectorHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+    },
+    selectorCloseBtn: {
+        padding: 5,
+    },
+    selectorTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        textTransform: 'capitalize',
+    },
+    selectorGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        padding: 15,
+        gap: 15,
+    },
+    selectorCard: {
+        width: '30%',
+        borderRadius: 12,
+        padding: 8,
+        alignItems: 'center',
+    },
+    selectorImg: {
+        width: '100%',
+        height: 80,
+        marginBottom: 8,
+    },
+    selectorName: {
+        fontSize: 10,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    lookPieceImgWrap: {
+        alignItems: 'center',
+        marginRight: 15,
+    },
+    lookPieceLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: '#666',
+        marginTop: 4,
+        textTransform: 'capitalize',
+    },
     generatedSection: {
         marginHorizontal: Spacing.xl,
         marginBottom: Spacing.xl,
@@ -2400,7 +2076,56 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F5',
         marginRight: Spacing.sm,
     },
+    // Occasion chips and Score Pills
+    occasionChipsStrip: {
+        flexDirection: 'row',
+        paddingHorizontal: Spacing.sm,
+        marginBottom: Spacing.md,
+    },
+    occasionChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        marginRight: 8,
+    },
+    occasionChipActive: {
+        backgroundColor: Colors.goldDark,
+        borderColor: Colors.goldDark,
+    },
+    occasionChipText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    occasionChipTextActive: {
+        color: Colors.white,
+    },
+    scoreBreakdownRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: Spacing.md,
+        paddingHorizontal: Spacing.sm,
+    },
+    scorePill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: 'rgba(0,0,0,0.04)',
+    },
+    scoreDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 6,
+    },
+    scoreText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: Colors.charcoal,
+    },
 });
-
 
 
