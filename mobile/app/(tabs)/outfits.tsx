@@ -27,6 +27,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { generateStyleOfDayForWardrobe } from '../../engine';
 import { RecommendationContext, StyleOfTheDayResult } from '../../engine/types';
 import { useAuth } from '../../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import MannequinAvatar from '../../components/MannequinAvatar';
+import AvatarCreator from '../../components/AvatarCreator';
 
 const TABS = ['My Looks', 'AI Stylist'];
 
@@ -36,7 +39,10 @@ type StylePreference = 'Casual' | 'Streetwear' | 'Formal' | 'Minimal';
 type BodyType = 'Slim' | 'Athletic' | 'Average' | 'Heavy';
 type SkinTone = 'Light' | 'Medium' | 'Tan' | 'Dark';
 
+type Gender = 'male' | 'female';
+
 type StyleProfile = {
+    gender: Gender | null;
     bodyType: BodyType | null;
     skinTone: SkinTone | null;
     height: number;
@@ -237,6 +243,7 @@ export default function OutfitsScreen() {
     const [savingLook, setSavingLook] = useState(false);
     const [profileStep, setProfileStep] = useState(1);
     const [styleProfile, setStyleProfile] = useState<StyleProfile>({
+        gender: null,
         bodyType: null,
         skinTone: null,
         height: 172,
@@ -250,6 +257,8 @@ export default function OutfitsScreen() {
     const [manuallySwappedItems, setManuallySwappedItems] = useState<Record<string, WardrobeItem>>({});
     const [selectorModalVisible, setSelectorModalVisible] = useState(false);
     const [swappingCategory, setSwappingCategory] = useState<string | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [avatarCreatorVisible, setAvatarCreatorVisible] = useState(false);
 
     const [styleContext, setStyleContext] = useState<RecommendationContext>({
         temperatureC: 24,
@@ -337,6 +346,18 @@ export default function OutfitsScreen() {
         }
     }, [authLoading, user]);
 
+    // Load saved avatar URL from AsyncStorage
+    useEffect(() => {
+        AsyncStorage.getItem('rpm_avatar_url').then((url) => {
+            if (url) setAvatarUrl(url);
+        });
+    }, []);
+
+    const handleAvatarCreated = async (url: string) => {
+        setAvatarUrl(url);
+        await AsyncStorage.setItem('rpm_avatar_url', url);
+    };
+
     const onRefresh = async () => {
         setRefreshing(true);
         await loadData(true);
@@ -358,17 +379,19 @@ export default function OutfitsScreen() {
     const alternativeLooks = backendSuggestion?.alternativeOutfits ?? suggestion?.alternativeOutfits ?? [];
     const bestLook = alternativeLooks[0] ?? null;
     const isProfileComplete = Boolean(
+        styleProfile.gender &&
         styleProfile.bodyType &&
         styleProfile.skinTone &&
         styleProfile.waistSize &&
         styleProfile.stylePreference,
     );
     const isCurrentStepReady = (
-        (profileStep === 1 && Boolean(styleProfile.bodyType)) ||
-        (profileStep === 2 && Boolean(styleProfile.skinTone)) ||
-        profileStep === 3 ||
-        (profileStep === 4 && Boolean(styleProfile.waistSize)) ||
-        (profileStep === 5 && Boolean(styleProfile.stylePreference))
+        (profileStep === 1 && Boolean(styleProfile.gender)) ||
+        (profileStep === 2 && Boolean(styleProfile.bodyType)) ||
+        (profileStep === 3 && Boolean(styleProfile.skinTone)) ||
+        profileStep === 4 ||
+        (profileStep === 5 && Boolean(styleProfile.waistSize)) ||
+        (profileStep === 6 && Boolean(styleProfile.stylePreference))
     );
 
     const wardrobeById = useMemo(() => {
@@ -420,7 +443,7 @@ export default function OutfitsScreen() {
         setStyleProfile((prev) => ({ ...prev, [key]: value }));
     };
 
-    const nextProfileStep = () => setProfileStep((prev) => Math.min(prev + 1, 5));
+    const nextProfileStep = () => setProfileStep((prev) => Math.min(prev + 1, 6));
     const previousProfileStep = () => setProfileStep((prev) => Math.max(prev - 1, 1));
 
     const openSelector = (category: string) => {
@@ -504,6 +527,43 @@ export default function OutfitsScreen() {
         if (profileStep === 1) {
             return (
                 <>
+                    <Text style={styles.quizQuestionTitle}>Choose your avatar</Text>
+                    <View style={styles.quizChoiceGrid}>
+                        {(['male', 'female'] as Gender[]).map((g, index) =>
+                            renderQuizChoiceCard(
+                                g === 'male' ? 'Male' : 'Female',
+                                styleProfile.gender === g,
+                                () => updateStyleProfile('gender', g),
+                                index,
+                                g === 'male' ? 'Masculine silhouette' : 'Feminine silhouette',
+                            ),
+                        )}
+                    </View>
+
+                    {/* Create 3D Avatar button */}
+                    {styleProfile.gender && (
+                        <TouchableOpacity
+                            style={styles.createAvatarBtn}
+                            onPress={() => setAvatarCreatorVisible(true)}
+                        >
+                            <Ionicons name="color-palette-outline" size={18} color="#1A1410" />
+                            <Text style={styles.createAvatarBtnText}>
+                                {avatarUrl ? 'Edit Your Avatar' : 'Customize Avatar (Optional)'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                    <Text style={styles.avatarCreatedHint}>
+                        {avatarUrl
+                            ? '✓ Custom avatar set — visible in your outfit view'
+                            : 'A default avatar will be used to show your outfits'}
+                    </Text>
+                </>
+            );
+        }
+
+        if (profileStep === 2) {
+            return (
+                <>
                     <Text style={styles.quizQuestionTitle}>What is your body type?</Text>
                     <View style={styles.quizChoiceGrid}>
                         {BODY_TYPES.map((bodyType, index) =>
@@ -521,7 +581,7 @@ export default function OutfitsScreen() {
             );
         }
 
-        if (profileStep === 2) {
+        if (profileStep === 3) {
             return (
                 <>
                     <Text style={styles.quizQuestionTitle}>What is your skin tone?</Text>
@@ -541,7 +601,7 @@ export default function OutfitsScreen() {
             );
         }
 
-        if (profileStep === 3) {
+        if (profileStep === 4) {
             return (
                 <>
                     <Text style={styles.quizQuestionTitle}>What is your height?</Text>
@@ -578,7 +638,7 @@ export default function OutfitsScreen() {
             );
         }
 
-        if (profileStep === 4) {
+        if (profileStep === 5) {
             return (
                 <>
                     <Text style={styles.quizQuestionTitle}>What is your waist size?</Text>
@@ -637,6 +697,7 @@ export default function OutfitsScreen() {
     };
 
     return (
+        <>
         <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
             <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
@@ -744,6 +805,21 @@ export default function OutfitsScreen() {
                                         );
                                     })}
                                 </ScrollView>
+
+                                {/* Mannequin Avatar with clothing overlays */}
+                                {styleProfile.gender && (
+                                    <MannequinAvatar
+                                        gender={styleProfile.gender}
+                                        topItem={layeredOutfitItems.top}
+                                        bottomItem={layeredOutfitItems.bottom}
+                                        footwearItem={layeredOutfitItems.footwear}
+                                        outerwearItem={layeredOutfitItems.outerwear}
+                                        occasion={styleContext.occasion}
+                                        isDarkMode={isDarkMode}
+                                        avatarUrl={avatarUrl}
+                                        onCreateAvatar={() => setAvatarCreatorVisible(true)}
+                                    />
+                                )}
 
                                 {suggestedOutfit.length === 0 ? (
                                     <View style={styles.emptySuggestion}>
@@ -1125,11 +1201,11 @@ export default function OutfitsScreen() {
                                 <Text style={styles.quizStepEyebrow}>STEP {String(profileStep).padStart(2, '0')}</Text>
                                 <Text style={styles.quizIntroTitle}>Your Style Profile</Text>
                             </View>
-                            <Text style={styles.quizIntroCount}>{profileStep}/5</Text>
+                            <Text style={styles.quizIntroCount}>{profileStep}/6</Text>
                         </View>
 
                         <View style={styles.quizProgressTrack}>
-                            <View style={[styles.quizProgressFill, { width: `${(profileStep / 5) * 100}%` }]} />
+                            <View style={[styles.quizProgressFill, { width: `${(profileStep / 6) * 100}%` }]} />
                         </View>
 
                         {renderQuizStepContent()}
@@ -1143,7 +1219,7 @@ export default function OutfitsScreen() {
                                 <View />
                             )}
 
-                            {profileStep < 5 ? (
+                            {profileStep < 6 ? (
                                 <TouchableOpacity
                                     style={[styles.quizPrimaryBtn, !isCurrentStepReady && styles.profileNavBtnDisabled]}
                                     onPress={nextProfileStep}
@@ -1211,6 +1287,15 @@ export default function OutfitsScreen() {
                 </SafeAreaView>
             </Modal>
         </SafeAreaView>
+
+            {/* Ready Player Me Avatar Creator Modal */}
+            <AvatarCreator
+                visible={avatarCreatorVisible}
+                onClose={() => setAvatarCreatorVisible(false)}
+                onAvatarCreated={handleAvatarCreated}
+                gender={styleProfile.gender ?? undefined}
+            />
+        </>
     );
 }
 
@@ -1431,7 +1516,29 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
-        marginBottom: Spacing.xxl,
+        marginBottom: Spacing.lg,
+    },
+    createAvatarBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: '#D4A843',
+        paddingVertical: 14,
+        borderRadius: BorderRadius.lg,
+        marginBottom: 8,
+    },
+    createAvatarBtnText: {
+        color: '#1A1410',
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    avatarCreatedHint: {
+        color: '#4ECDC4',
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginBottom: Spacing.lg,
     },
     quizChoiceCard: {
         width: '48%',

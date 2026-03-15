@@ -321,7 +321,7 @@ export default function HomeScreen() {
                                         style={styles.menuItem}
                                         onPress={() => {
                                             setShowMenuDropdown(false);
-                                            router.push('/profile');
+                                            router.push('/(tabs)/profile');
                                         }}
                                     >
                                         <Ionicons name="person-circle-outline" size={20} color={textSecondary} />

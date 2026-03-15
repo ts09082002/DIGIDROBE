@@ -11,10 +11,12 @@ import { auth, storage } from '../config/firebase';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import { useAuth } from '../context/AuthContext';
 
 export default function SignupScreen() {
     const { isDarkMode } = useTheme();
     const router = useRouter();
+    const { refreshUser } = useAuth();
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -70,11 +72,14 @@ export default function SignupScreen() {
                 photoURL = await getDownloadURL(storageRef);
             }
 
-            await updateProfile(user, { 
+            await updateProfile(user, {
                 displayName: name,
                 photoURL: photoURL
             });
-            
+
+            // Refresh AuthContext so displayName & photoURL are available immediately
+            await refreshUser();
+
             // Router will automatically redirect to home due to auth state change
         } catch (error: any) {
             Alert.alert('Signup Failed', error.message || 'Could not create account');

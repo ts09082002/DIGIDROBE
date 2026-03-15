@@ -1,10 +1,9 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 // @ts-ignore
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// TODO: Replace with your actual Firebase project config
 const firebaseConfig = {
   apiKey: "AIzaSyBXylgSGdg_fqrsvAp6KLywu0zogxMavmg",
   authDomain: "digidrobe-backend.firebaseapp.com",
@@ -16,9 +15,16 @@ const firebaseConfig = {
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage)
-});
+// initializeAuth throws if called twice (e.g. during hot-reload).
+// Fall back to getAuth which returns the already-initialised instance.
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch {
+  auth = getAuth(app);
+}
 
 const storage = getStorage(app);
 

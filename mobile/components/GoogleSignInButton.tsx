@@ -1,27 +1,31 @@
 /**
- * Google Sign-In button - safely loads expo-auth-session.
- * If native modules (ExpoApplication, ExpoWebBrowser) are unavailable,
- * shows the button but displays a helpful message on press.
- * 
- * To enable Google sign-in: run "npx expo run:android" with device/emulator connected.
+ * Google Sign-In button — uses dynamic require so the app doesn't crash
+ * in Expo Go (where native ExpoWebBrowser module is unavailable).
+ *
+ * • Expo Go  → shows a friendly "use dev build" message
+ * • Dev build (npx expo run:android) → full Google OAuth flow
  */
-import React, { useEffect } from 'react';
-import { TouchableOpacity, Text, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { TouchableOpacity, Text, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
-let GoogleModule: typeof import('expo-auth-session/providers/google') | null = null;
+// ── Dynamic imports — these crash if native modules are missing (Expo Go) ──
+let AuthSession: typeof import('expo-auth-session') | null = null;
+let WebBrowser: typeof import('expo-web-browser') | null = null;
+
 try {
-    GoogleModule = require('expo-auth-session/providers/google');
+    WebBrowser = require('expo-web-browser');
+    AuthSession = require('expo-auth-session');
+    WebBrowser!.maybeCompleteAuthSession();
 } catch {
-    GoogleModule = null;
+    AuthSession = null;
+    WebBrowser = null;
 }
 
-const GOOGLE_CONFIG = {
-    webClientId: '838322575800-lluotvoiimbfrftp44bphkrtmge8i2ii.apps.googleusercontent.com',
-    androidClientId: '838322575800-lluotvoiimbfrftp44bphkrtmge8i2ii.apps.googleusercontent.com',
-};
+const WEB_CLIENT_ID =
+    '838322575800-lluotvoiimbfrftp44bphkrtmge8i2ii.apps.googleusercontent.com';
 
 interface GoogleSignInButtonProps {
     label: string;
@@ -30,6 +34,7 @@ interface GoogleSignInButtonProps {
     disabled?: boolean;
 }
 
+// ── Fallback shown in Expo Go ──
 function FallbackButton({ label, style, textStyle, disabled }: GoogleSignInButtonProps) {
     return (
         <TouchableOpacity
@@ -37,7 +42,7 @@ function FallbackButton({ label, style, textStyle, disabled }: GoogleSignInButto
             onPress={() =>
                 Alert.alert(
                     'Google Sign-In',
-                    'Run "npx expo run:android" (with device/emulator) to enable Google sign-in. Expo Go does not support this feature.'
+                    'Google Sign-In requires a development build.\n\nRun this command to enable it:\nnpx expo run:android',
                 )
             }
             disabled={disabled}
@@ -48,58 +53,98 @@ function FallbackButton({ label, style, textStyle, disabled }: GoogleSignInButto
     );
 }
 
+// ── Real Google Sign-In (only rendered when native modules are available) ──
 function GoogleSignInButtonInner({ label, style, textStyle, disabled }: GoogleSignInButtonProps) {
-    const [request, response, promptAsync] = GoogleModule!.useAuthRequest(GOOGLE_CONFIG);
+    const [loading, setLoading] = useState(false);
+
+    const redirectUri = AuthSession!.makeRedirectUri({
+        scheme: 'digidrobe',
+        path: 'redirect',
+    });
+
+    const discovery = AuthSession!.useAutoDiscovery('https://accounts.google.com');
+
+    const [request, response, promptAsync] = AuthSession!.useAuthRequest(
+        {
+            clientId: WEB_CLIENT_ID,
+            redirectUri,
+            scopes: ['openid', 'profile', 'email'],
+            responseType: AuthSession!.ResponseType.IdToken,
+        },
+        discovery,
+    );
 
     useEffect(() => {
-        try {
-            require('expo-web-browser').maybeCompleteAuthSession();
-        } catch {
-            // Ignore - WebBrowser not available
-        }
-    }, []);
+        if (!response) return;
 
-    useEffect(() => {
         const handleResponse = async () => {
-            if (response?.type === 'success') {
-                const { id_token } = response.params;
-                if (!id_token) {
-                    Alert.alert('Login Error', 'No ID token received from Google');
+            if (response.type === 'success') {
+                const idToken =
+                    response.params?.id_token ||
+                    (response as any).authentication?.idToken;
+
+                if (!idToken) {
+                    Alert.alert('Login Error', 'No ID token received from Google.');
                     return;
                 }
-                
+
                 try {
-                    const credential = GoogleAuthProvider.credential(id_token);
+                    const credential = GoogleAuthProvider.credential(idToken);
                     await signInWithCredential(auth, credential);
                 } catch (error: any) {
-                    Alert.alert('Google Sign-In Failed', error.message);
+                    console.error('Firebase credential error:', error);
+                    Alert.alert(
+                        'Google Sign-In Failed',
+                        error?.message || 'Could not sign in with Google.',
+                    );
                 }
-            } else if (response?.type === 'error') {
-                Alert.alert('Google Error', response.error?.message || 'Failed to authenticate');
+            } else if (response.type === 'error') {
+                console.error('Google auth error:', response.error);
+                Alert.alert('Google Error', response.error?.message || 'Authentication failed.');
             }
         };
-        
+
         handleResponse();
     }, [response]);
 
     const handlePress = async () => {
-        if (!request) {
-            Alert.alert('Auth Error', 'Google Auth request is not ready. Please try again.');
+        if (!request || !discovery) {
+            Alert.alert('Please Wait', 'Google Sign-In is still loading. Try again in a moment.');
             return;
         }
-        await promptAsync();
+        setLoading(true);
+        try {
+            await promptAsync();
+        } catch (error: any) {
+            console.error('Google promptAsync error:', error);
+            Alert.alert(
+                'Google Sign-In Error',
+                error?.message || 'Could not open Google sign-in. Please try again.',
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <TouchableOpacity style={style} onPress={handlePress} disabled={disabled || !request}>
-            <Ionicons name="logo-google" size={20} color="#EA4335" />
+        <TouchableOpacity
+            style={style}
+            onPress={handlePress}
+            disabled={disabled || loading || !request}
+        >
+            {loading ? (
+                <ActivityIndicator size={20} color="#EA4335" />
+            ) : (
+                <Ionicons name="logo-google" size={20} color="#EA4335" />
+            )}
             <Text style={textStyle}>{label}</Text>
         </TouchableOpacity>
     );
 }
 
+// ── Exported component — picks the right version automatically ──
 export default function GoogleSignInButton(props: GoogleSignInButtonProps) {
-    if (!GoogleModule) {
+    if (!AuthSession || !WebBrowser) {
         return <FallbackButton {...props} />;
     }
     return <GoogleSignInButtonInner {...props} />;

@@ -24,6 +24,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { api, WardrobeStats, OOTDStats } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
+// Pull refreshUser from AuthContext so name/photo changes are reflected immediately
 const STYLE_DNA = [
     { label: 'Chic', active: false },
     { label: 'Sustainable', active: true },
@@ -41,7 +42,7 @@ const ESSENTIAL_LINKS = [
 
 export default function ProfileScreen() {
     const { isDarkMode } = useTheme();
-    const { user, isLoading: authLoading } = useAuth();
+    const { user, isLoading: authLoading, refreshUser } = useAuth();
     const [stats, setStats] = useState<WardrobeStats | null>(null);
     const [ootdStats, setOotdStats] = useState<OOTDStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -94,6 +95,7 @@ export default function ProfileScreen() {
         setIsUpdating(true);
         try {
             await updateProfile(user, { displayName: newName });
+            await refreshUser();
             setIsEditingName(false);
             Alert.alert('Success', 'Profile name updated!');
         } catch (error) {
@@ -167,6 +169,7 @@ export default function ProfileScreen() {
                 const photoURL = await getDownloadURL(storageRef);
                 
                 await updateProfile(user, { photoURL });
+                await refreshUser();
                 Alert.alert('Success', 'Profile picture updated!');
             } catch (error: any) {
                 console.error('Update profile picture error:', error);
@@ -271,7 +274,7 @@ export default function ProfileScreen() {
                     </View>
                     <View style={[styles.statCard, { backgroundColor: theme.card }]}>
                         <Text style={[styles.statNumber, { color: theme.textGold }]}>
-                            {ootdStats?.mostWorn.length || 0}
+                            {ootdStats?.mostWorn?.length || 0}
                         </Text>
                         <Text style={[styles.statLabel, { color: theme.textSecondary }]}>OUTFITS</Text>
                     </View>
@@ -285,10 +288,10 @@ export default function ProfileScreen() {
 
                 {/* Style DNA */}
                 <View style={styles.sectionContainer}>
-                    <div className="sectionHeader" style={styles.sectionHeader}>
+                    <View style={styles.sectionHeader}>
                         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>STYLE DNA</Text>
                         <View style={[styles.sectionLine, { backgroundColor: theme.divider }]} />
-                    </div>
+                    </View>
                     <View style={styles.dnaPills}>
                         {STYLE_DNA.map((pill, index) => (
                             <View 
