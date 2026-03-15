@@ -1,3 +1,4 @@
+import type { Response } from 'express';
 import { UploadService } from './upload.service';
 export declare class UploadController {
     private readonly uploadService;
@@ -10,5 +11,5 @@ export declare class UploadController {
         success: boolean;
         data: import("./upload.service").BodyPhotoResult;
     }>;
-    getProcessedImage(filename: string, res: any): Promise<void>;
+    getProcessedImage(filename: string, res: Response): Promise<void>;
 }

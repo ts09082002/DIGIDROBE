@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  InternalServerErrorException,
   forwardRef,
 } from '@nestjs/common';
 import { getFirebaseAdmin } from '../firebase-admin';
@@ -60,9 +61,25 @@ export class CreateItemDto {
 @Injectable()
 export class WardrobeService {
   private readonly logger = new Logger(WardrobeService.name);
-  private readonly collection = getFirebaseAdmin()
-    .firestore()
-    .collection('wardrobeItems');
+  private _collection: FirebaseFirestore.CollectionReference | null = null;
+
+  /** Lazy-initializes the Firestore collection to avoid crashing at startup if creds are missing. */
+  private get collection(): FirebaseFirestore.CollectionReference {
+    if (!this._collection) {
+      try {
+        this._collection = getFirebaseAdmin()
+          .firestore()
+          .collection('wardrobeItems');
+      } catch (error: any) {
+        this.logger.error(`Firebase initialization failed: ${error.message}`);
+        throw new InternalServerErrorException(
+          'Database connection unavailable. Please check server configuration.',
+        );
+      }
+    }
+    return this._collection;
+  }
+
   constructor(
     @Inject(forwardRef(() => NotificationsService))
     private readonly notifications: NotificationsService,

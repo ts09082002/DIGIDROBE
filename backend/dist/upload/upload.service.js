@@ -147,13 +147,21 @@ let UploadService = UploadService_1 = class UploadService {
         }
         catch (error) {
             this.logger.error(`Body photo processing failed: ${error.message}`);
+            let fileSize = file.size || 0;
+            try {
+                if (fs.existsSync(originalPath)) {
+                    fileSize = fs.statSync(originalPath).size;
+                }
+            }
+            catch {
+            }
             return {
                 id,
                 originalFilename: file.originalname,
                 originalUrl: `/uploads/body/originals/${originalFilenameOnDisk}`,
                 processedUrl: '',
                 mimeType: file.mimetype,
-                size: fs.statSync(originalPath).size,
+                size: fileSize,
                 createdAt,
                 status: 'failed',
             };
@@ -336,8 +344,17 @@ let UploadService = UploadService_1 = class UploadService {
         const itemsFile = (0, path_1.join)(metaDir, 'items.json');
         let items = [];
         if (fs.existsSync(itemsFile)) {
-            const raw = fs.readFileSync(itemsFile, 'utf-8');
-            items = JSON.parse(raw);
+            try {
+                const raw = fs.readFileSync(itemsFile, 'utf-8');
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    items = parsed;
+                }
+            }
+            catch (parseError) {
+                this.logger.warn(`Metadata file corrupted, starting fresh: ${parseError.message}`);
+                items = [];
+            }
         }
         items.push(data);
         fs.writeFileSync(itemsFile, JSON.stringify(items, null, 2));

@@ -4,6 +4,7 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  NotFoundException,
   Get,
   Param,
   Res,
@@ -13,8 +14,9 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { UploadService } from './upload.service';
 
 const ALLOWED_TYPES = [
@@ -25,6 +27,12 @@ const ALLOWED_TYPES = [
   'image/heif',
 ];
 const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+
+// Ensure upload directories exist at module load so multer diskStorage doesn't fail
+const ORIGINALS_DIR = join(__dirname, '..', '..', 'uploads', 'originals');
+const BODY_ORIGINALS_DIR = join(__dirname, '..', '..', 'uploads', 'body', 'originals');
+try { mkdirSync(ORIGINALS_DIR, { recursive: true }); } catch { /* already exists */ }
+try { mkdirSync(BODY_ORIGINALS_DIR, { recursive: true }); } catch { /* already exists */ }
 
 @Controller('api/upload')
 export class UploadController {
@@ -145,16 +153,21 @@ export class UploadController {
   @Get('processed/:filename')
   async getProcessedImage(
     @Param('filename') filename: string,
-    @Res() res: any,
+    @Res() res: Response,
   ) {
+    // Sanitize filename to prevent path traversal attacks
+    const sanitized = filename.replace(/[^a-zA-Z0-9._-]/g, '');
     const filePath = join(
       __dirname,
       '..',
       '..',
       'uploads',
       'processed',
-      filename,
+      sanitized,
     );
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('Processed image not found');
+    }
     res.sendFile(filePath);
   }
 }

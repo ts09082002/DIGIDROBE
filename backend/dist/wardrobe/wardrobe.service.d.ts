@@ -45,7 +45,8 @@ export declare class CreateItemDto {
 export declare class WardrobeService {
     private readonly notifications;
     private readonly logger;
-    private readonly collection;
+    private _collection;
+    private get collection();
     constructor(notifications: NotificationsService);
     private sanitizeForFirestore;
     private docToItem;

@@ -273,7 +273,7 @@ export default function WardrobeScreen() {
         );
     }, [hasMoreSuggestions, suggestionPool.length]);
 
-    const loadItems = useCallback(async () => {
+    const loadItems = useCallback(async (showErrorToast = false) => {
         if (authLoading) return;
         try {
             setLoading(true);
@@ -283,14 +283,19 @@ export default function WardrobeScreen() {
                 search: searchQuery || undefined,
             });
             setItems(
-                data.map((item) => ({
+                (data ?? []).map((item) => ({
                     ...item,
                     category: normalizeCategory(item.category),
                 })),
             );
-        } catch (e) {
-            // Server might not be running
+        } catch (e: any) {
             console.log('Failed to load items:', e);
+            setItems([]);
+            if (showErrorToast) {
+                setToastType('error');
+                setToastMessage(e?.message || 'Could not load wardrobe items. Check your connection.');
+                setToastVisible(true);
+            }
         } finally {
             setLoading(false);
         }
@@ -319,7 +324,7 @@ export default function WardrobeScreen() {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await loadItems();
+        await loadItems(true);
         setRefreshing(false);
     };
 
@@ -501,7 +506,7 @@ export default function WardrobeScreen() {
             await uploadAssets(result.assets, 'gallery');
         } catch (error: any) {
             setToastType('error');
-            setToastMessage(error.message || 'Upload failed');
+            setToastMessage(error?.message || 'Upload failed');
             setToastVisible(true);
         } finally {
             setUploading(false);
@@ -574,7 +579,7 @@ export default function WardrobeScreen() {
             await uploadAssets(capturedAssets, 'camera');
         } catch (error: any) {
             setToastType('error');
-            setToastMessage(error.message || 'Something went wrong');
+            setToastMessage(error?.message || 'Something went wrong');
             setToastVisible(true);
         } finally {
             setUploading(false);
@@ -589,8 +594,10 @@ export default function WardrobeScreen() {
                     item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
                 )
             );
-        } catch (e) {
-            console.log('Toggle failed:', e);
+        } catch (e: any) {
+            setToastType('error');
+            setToastMessage(e?.message || 'Failed to update favorite status');
+            setToastVisible(true);
         }
     };
 

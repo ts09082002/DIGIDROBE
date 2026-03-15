@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
 const path_1 = require("path");
+const fs_1 = require("fs");
 const uuid_1 = require("uuid");
 const upload_service_1 = require("./upload.service");
 const ALLOWED_TYPES = [
@@ -27,6 +28,16 @@ const ALLOWED_TYPES = [
     'image/heif',
 ];
 const MAX_SIZE = 20 * 1024 * 1024;
+const ORIGINALS_DIR = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'originals');
+const BODY_ORIGINALS_DIR = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'body', 'originals');
+try {
+    (0, fs_1.mkdirSync)(ORIGINALS_DIR, { recursive: true });
+}
+catch { }
+try {
+    (0, fs_1.mkdirSync)(BODY_ORIGINALS_DIR, { recursive: true });
+}
+catch { }
 let UploadController = class UploadController {
     uploadService;
     constructor(uploadService) {
@@ -68,7 +79,11 @@ let UploadController = class UploadController {
         };
     }
     async getProcessedImage(filename, res) {
-        const filePath = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'processed', filename);
+        const sanitized = filename.replace(/[^a-zA-Z0-9._-]/g, '');
+        const filePath = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'processed', sanitized);
+        if (!(0, fs_1.existsSync)(filePath)) {
+            throw new common_1.NotFoundException('Processed image not found');
+        }
         res.sendFile(filePath);
     }
 };

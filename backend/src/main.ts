@@ -1,11 +1,17 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './all-exceptions.filter';
 import { join } from 'path';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Global exception filter — catches unhandled errors and returns consistent JSON
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Enable CORS for mobile app
   app.enableCors({
@@ -30,6 +36,9 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
-  console.log(`🚀 Digidrobe Backend running on http://0.0.0.0:${port}`);
+  logger.log(`Digidrobe Backend running on http://0.0.0.0:${port}`);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Failed to start application:', err);
+  process.exit(1);
+});

@@ -611,6 +611,22 @@ async def health_check():
     }
 
 
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
+
+
+def _safe_delete(file_path: Path) -> None:
+    """Delete a file, ignoring errors if it doesn't exist."""
+    try:
+        file_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Remove path traversal characters from filename."""
+    return os.path.basename(filename).replace("..", "")
+
+
 @app.post("/process")
 async def process_image(image: UploadFile = File(...)):
     """Process clothing image: remove background, classify, and extract attributes."""
@@ -621,7 +637,20 @@ async def process_image(image: UploadFile = File(...)):
     file_id = str(uuid.uuid4())
     ext = os.path.splitext(image.filename or "image.png")[1] or ".png"
 
-    raw_contents = await image.read()
+    try:
+        raw_contents = await image.read()
+    except Exception as e:
+        logger.error(f"Failed to read uploaded file: {e}")
+        raise HTTPException(status_code=400, detail="Failed to read uploaded file")
+
+    if len(raw_contents) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    if len(raw_contents) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB",
+        )
 
     # ── EXIF orientation fix ─────────────────────────────────────────────────
     # Apply EXIF transpose early so all downstream steps (rembg, OpenCV, crop)
@@ -647,17 +676,30 @@ async def process_image(image: UploadFile = File(...)):
 
     # Save original (EXIF-corrected) to disk for later retrieval
     original_path = UPLOAD_DIR / f"{file_id}{ext}"
-    with open(original_path, "wb") as f:
-        f.write(contents)
+    processed_path = PROCESSED_DIR / f"{file_id}_clean.png"
+
+    try:
+        with open(original_path, "wb") as f:
+            f.write(contents)
+    except OSError as e:
+        logger.error(f"Failed to save original file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save uploaded file")
 
     # Process with rembg in a worker thread to keep the event loop responsive
-    bg_removed_bytes = await run_in_threadpool(_remove_background_sync, contents)
+    try:
+        bg_removed_bytes = await run_in_threadpool(_remove_background_sync, contents)
 
-    # Apply studio-style post-processing (crop, square canvas, edge cleanup, enhancement)
-    processed_bytes = await run_in_threadpool(apply_studio_look, bg_removed_bytes)
+        # Apply studio-style post-processing (crop, square canvas, edge cleanup, enhancement)
+        processed_bytes = await run_in_threadpool(apply_studio_look, bg_removed_bytes)
+    except Exception as e:
+        logger.error(f"Image processing failed for {image.filename}: {e}")
+        _safe_delete(original_path)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Image processing failed: {str(e)}. The image may be corrupted or in an unsupported format.",
+        )
 
     # Persist processed image
-    processed_path = PROCESSED_DIR / f"{file_id}_clean.png"
     with open(processed_path, "wb") as f:
         f.write(processed_bytes)
 
@@ -698,7 +740,8 @@ async def process_image(image: UploadFile = File(...)):
 
 @app.get("/uploads/{filename}")
 async def get_upload(filename: str):
-    path = UPLOAD_DIR / filename
+    sanitized = _sanitize_filename(filename)
+    path = UPLOAD_DIR / sanitized
     if not path.exists():
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(str(path))
@@ -706,7 +749,8 @@ async def get_upload(filename: str):
 
 @app.get("/processed/{filename}")
 async def get_processed(filename: str):
-    path = PROCESSED_DIR / filename
+    sanitized = _sanitize_filename(filename)
+    path = PROCESSED_DIR / sanitized
     if not path.exists():
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(str(path))

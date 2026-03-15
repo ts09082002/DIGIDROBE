@@ -157,6 +157,41 @@ class ApiService {
         return `${this.baseUrl}${path}`;
     }
 
+    /**
+     * Checks response status and parses the JSON body.
+     * Throws a descriptive Error on non-2xx or unsuccessful API responses.
+     */
+    private async handleResponse<T>(response: Response): Promise<T> {
+        if (!response.ok) {
+            let message = `Request failed (${response.status})`;
+            try {
+                const error = await response.json();
+                message = error.message || message;
+            } catch {
+                // Server didn't return JSON — keep default message.
+            }
+            throw new Error(message);
+        }
+
+        const result: ApiResponse<T> = await response.json();
+        if (result && result.success === false) {
+            throw new Error(result.message || 'Request failed');
+        }
+        return result.data;
+    }
+
+    /**
+     * Re-throws with a user-friendly message when the backend is unreachable.
+     */
+    private handleNetworkError(error: any): never {
+        if (error?.message?.includes('Network request failed')) {
+            throw new Error(
+                `Cannot reach backend at ${this.baseUrl}. Make sure the server is running and your device can access this IP.`,
+            );
+        }
+        throw error;
+    }
+
     // Upload clothing image
     async uploadClothingImage(
         imageUri: string,
@@ -213,14 +248,16 @@ class ApiService {
 
     // Create wardrobe item from upload result
     async createWardrobeItem(data: Partial<WardrobeItem>): Promise<WardrobeItem> {
-        const response = await this.fetch(this.getFullUrl('/api/wardrobe'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-
-        const result: ApiResponse<WardrobeItem> = await response.json();
-        return result.data;
+        try {
+            const response = await this.fetch(this.getFullUrl('/api/wardrobe'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            return await this.handleResponse<WardrobeItem>(response);
+        } catch (error: any) {
+            this.handleNetworkError(error);
+        }
     }
 
     // Get all wardrobe items
@@ -243,50 +280,79 @@ class ApiService {
 
     // Get single wardrobe item
     async getWardrobeItem(id: string): Promise<WardrobeItem> {
-        const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`));
-        const result: ApiResponse<WardrobeItem> = await response.json();
-        return result.data;
+        try {
+            const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`));
+            return await this.handleResponse<WardrobeItem>(response);
+        } catch (error: any) {
+            this.handleNetworkError(error);
+        }
     }
 
     // Toggle favorite
     async toggleFavorite(id: string): Promise<WardrobeItem> {
-        const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}/favorite`), {
-            method: 'PATCH',
-        });
-        const result: ApiResponse<WardrobeItem> = await response.json();
-        return result.data;
+        try {
+            const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}/favorite`), {
+                method: 'PATCH',
+            });
+            return await this.handleResponse<WardrobeItem>(response);
+        } catch (error: any) {
+            this.handleNetworkError(error);
+        }
     }
 
     // Update wardrobe item (e.g., rename)
     async updateWardrobeItem(id: string, data: Partial<WardrobeItem>): Promise<WardrobeItem> {
-        const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`), {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-        const result: ApiResponse<WardrobeItem> = await response.json();
-        return result.data;
+        try {
+            const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`), {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            return await this.handleResponse<WardrobeItem>(response);
+        } catch (error: any) {
+            this.handleNetworkError(error);
+        }
     }
 
     // Delete item
     async deleteItem(id: string): Promise<void> {
-        await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`), { method: 'DELETE' });
+        try {
+            const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`), { method: 'DELETE' });
+            if (!response.ok) {
+                let message = `Delete failed (${response.status})`;
+                try {
+                    const error = await response.json();
+                    message = error.message || message;
+                } catch {
+                    // Keep default message.
+                }
+                throw new Error(message);
+            }
+        } catch (error: any) {
+            this.handleNetworkError(error);
+        }
     }
 
     // Claim anonymous items
     async claimGuestItems(): Promise<{ count: number }> {
-        const response = await this.fetch(this.getFullUrl('/api/wardrobe/claim'), {
-            method: 'POST',
-        });
-        const result: ApiResponse<{ count: number }> = await response.json();
-        return result.data;
+        try {
+            const response = await this.fetch(this.getFullUrl('/api/wardrobe/claim'), {
+                method: 'POST',
+            });
+            return await this.handleResponse<{ count: number }>(response);
+        } catch (error: any) {
+            this.handleNetworkError(error);
+        }
     }
 
     // Get stats
     async getStats(): Promise<WardrobeStats> {
-        const response = await this.fetch(this.getFullUrl('/api/wardrobe/stats'));
-        const result: ApiResponse<WardrobeStats> = await response.json();
-        return result.data;
+        try {
+            const response = await this.fetch(this.getFullUrl('/api/wardrobe/stats'));
+            return await this.handleResponse<WardrobeStats>(response);
+        } catch (error: any) {
+            this.handleNetworkError(error);
+        }
     }
 
     // Get image URL
@@ -450,15 +516,35 @@ class ApiService {
 
     // Notifications
     async getNotifications(): Promise<NotificationDto[]> {
-        const response = await this.fetch(this.getFullUrl('/api/notifications'));
-        const result: ApiResponse<NotificationDto[]> = await response.json();
-        return result?.data || [];
+        try {
+            const response = await this.fetch(this.getFullUrl('/api/notifications'));
+            const data = await this.handleResponse<NotificationDto[]>(response);
+            return data ?? [];
+        } catch (error: any) {
+            // Non-critical — return empty list rather than crashing the UI
+            console.warn('Failed to fetch notifications:', error?.message);
+            return [];
+        }
     }
 
     async deleteNotification(id: string): Promise<void> {
-        await this.fetch(this.getFullUrl(`/api/notifications/${id}`), {
-            method: 'DELETE',
-        });
+        try {
+            const response = await this.fetch(this.getFullUrl(`/api/notifications/${id}`), {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                let message = `Delete notification failed (${response.status})`;
+                try {
+                    const error = await response.json();
+                    message = error.message || message;
+                } catch {
+                    // Keep default message.
+                }
+                throw new Error(message);
+            }
+        } catch (error: any) {
+            this.handleNetworkError(error);
+        }
     }
 }
 

@@ -66,9 +66,21 @@ exports.CreateItemDto = CreateItemDto;
 let WardrobeService = WardrobeService_1 = class WardrobeService {
     notifications;
     logger = new common_1.Logger(WardrobeService_1.name);
-    collection = (0, firebase_admin_1.getFirebaseAdmin)()
-        .firestore()
-        .collection('wardrobeItems');
+    _collection = null;
+    get collection() {
+        if (!this._collection) {
+            try {
+                this._collection = (0, firebase_admin_1.getFirebaseAdmin)()
+                    .firestore()
+                    .collection('wardrobeItems');
+            }
+            catch (error) {
+                this.logger.error(`Firebase initialization failed: ${error.message}`);
+                throw new common_1.InternalServerErrorException('Database connection unavailable. Please check server configuration.');
+            }
+        }
+        return this._collection;
+    }
     constructor(notifications) {
         this.notifications = notifications;
     }

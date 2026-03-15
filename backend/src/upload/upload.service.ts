@@ -191,13 +191,21 @@ export class UploadService {
       };
     } catch (error: any) {
       this.logger.error(`Body photo processing failed: ${error.message}`);
+      let fileSize = file.size || 0;
+      try {
+        if (fs.existsSync(originalPath)) {
+          fileSize = fs.statSync(originalPath).size;
+        }
+      } catch {
+        // Keep fallback file.size
+      }
       return {
         id,
         originalFilename: file.originalname,
         originalUrl: `/uploads/body/originals/${originalFilenameOnDisk}`,
         processedUrl: '',
         mimeType: file.mimetype,
-        size: fs.statSync(originalPath).size,
+        size: fileSize,
         createdAt,
         status: 'failed',
       };
@@ -400,8 +408,18 @@ export class UploadService {
     let items: ProcessedImage[] = [];
 
     if (fs.existsSync(itemsFile)) {
-      const raw = fs.readFileSync(itemsFile, 'utf-8');
-      items = JSON.parse(raw);
+      try {
+        const raw = fs.readFileSync(itemsFile, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          items = parsed;
+        }
+      } catch (parseError: any) {
+        this.logger.warn(
+          `Metadata file corrupted, starting fresh: ${parseError.message}`,
+        );
+        items = [];
+      }
     }
 
     items.push(data);
