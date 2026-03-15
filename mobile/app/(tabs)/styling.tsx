@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -27,26 +28,34 @@ const SAMPLE_ITEMS = [
 const SKIN_TONES = ['#F5D6C3', '#E8C4A8', '#D4A574', '#B8865A', '#8B6542', '#5C3D2E'];
 
 export default function StylingScreen() {
+    const { isDarkMode } = useTheme();
+    const bg = isDarkMode ? '#1A1410' : '#FEFCF9';
+    const cardBg = isDarkMode ? '#2A2018' : Colors.white;
+    const surfaceBg = isDarkMode ? '#332A1E' : '#F5F5F3';
+    const gold = '#D4A843';
+    const textPrimary = isDarkMode ? '#FFFFFF' : Colors.charcoal;
+    const textSecondary = isDarkMode ? '#A09080' : Colors.darkGray;
+
     const [selectedCategory, setSelectedCategory] = useState('Tops');
     const [selectedItem, setSelectedItem] = useState('2');
     const [selectedSkinTone, setSelectedSkinTone] = useState('#E8C4A8');
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: bg }]}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity>
-                    <Ionicons name="arrow-back" size={24} color={Colors.charcoal} />
+                    <Ionicons name="arrow-back" size={24} color={textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Avatar Styling</Text>
+                <Text style={[styles.headerTitle, { color: textPrimary }]}>Avatar Styling</Text>
                 <TouchableOpacity>
-                    <Text style={styles.resetText}>Reset</Text>
+                    <Text style={[styles.resetText, { color: gold }]}>Reset</Text>
                 </TouchableOpacity>
             </View>
 
             {/* Avatar Area */}
             <View style={styles.avatarContainer}>
-                <View style={styles.avatarPlaceholder}>
+                <View style={[styles.avatarPlaceholder, { backgroundColor: isDarkMode ? '#2A2018' : '#3A3A4E' }]}>
                     {/* Placeholder for 3D avatar */}
                     <View style={styles.avatarBody}>
                         <View style={[styles.avatarHead, { backgroundColor: selectedSkinTone }]} />
@@ -56,25 +65,25 @@ export default function StylingScreen() {
                     </View>
 
                     {/* Dashed guides */}
-                    <View style={styles.guideDashed} />
-                    <View style={styles.guideHorizontal} />
+                    <View style={[styles.guideDashed, { borderColor: gold }]} />
+                    <View style={[styles.guideHorizontal, { backgroundColor: gold }]} />
 
                     {/* Controls */}
-                    <TouchableOpacity style={styles.controlBtnLeft}>
-                        <Ionicons name="link-outline" size={20} color={Colors.charcoal} />
+                    <TouchableOpacity style={[styles.controlBtnLeft, { backgroundColor: surfaceBg }]}>
+                        <Ionicons name="link-outline" size={20} color={textPrimary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.controlBtnRight}>
-                        <Ionicons name="refresh-outline" size={20} color={Colors.charcoal} />
+                    <TouchableOpacity style={[styles.controlBtnRight, { backgroundColor: surfaceBg }]}>
+                        <Ionicons name="refresh-outline" size={20} color={textPrimary} />
                     </TouchableOpacity>
 
                     {/* Move icon */}
-                    <View style={styles.moveIcon}>
-                        <Ionicons name="move" size={16} color={Colors.gold} />
+                    <View style={[styles.moveIcon, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.9)' }]}>
+                        <Ionicons name="move" size={16} color={gold} />
                     </View>
 
                     {/* Resize icon */}
-                    <View style={styles.resizeIcon}>
-                        <Ionicons name="resize-outline" size={16} color={Colors.gold} />
+                    <View style={[styles.resizeIcon, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.9)' }]}>
+                        <Ionicons name="resize-outline" size={16} color={gold} />
                     </View>
                 </View>
 
@@ -86,7 +95,7 @@ export default function StylingScreen() {
                             style={[
                                 styles.skinToneDot,
                                 { backgroundColor: tone },
-                                selectedSkinTone === tone && styles.skinToneDotActive,
+                                selectedSkinTone === tone && [styles.skinToneDotActive, { borderColor: gold }],
                             ]}
                             onPress={() => setSelectedSkinTone(tone)}
                         />
@@ -112,12 +121,13 @@ export default function StylingScreen() {
                         <Text
                             style={[
                                 styles.categoryTabText,
-                                selectedCategory === cat && styles.categoryTabTextActive,
+                                { color: textSecondary },
+                                selectedCategory === cat && [styles.categoryTabTextActive, { color: gold }],
                             ]}
                         >
                             {cat}
                         </Text>
-                        {selectedCategory === cat && <View style={styles.categoryIndicator} />}
+                        {selectedCategory === cat && <View style={[styles.categoryIndicator, { backgroundColor: gold }]} />}
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -137,18 +147,19 @@ export default function StylingScreen() {
                         ]}
                         onPress={() => setSelectedItem(item.id)}
                     >
-                        <View style={[styles.itemImage, { backgroundColor: item.color }]}>
-                            <Ionicons name="shirt-outline" size={40} color={Colors.darkGray} />
+                        <View style={[styles.itemImage, { backgroundColor: isDarkMode ? '#332A1E' : item.color }]}>
+                            <Ionicons name="shirt-outline" size={40} color={isDarkMode ? gold : Colors.darkGray} />
                             {selectedItem === item.id && (
                                 <View style={styles.checkmark}>
-                                    <Ionicons name="checkmark-circle" size={22} color={Colors.gold} />
+                                    <Ionicons name="checkmark-circle" size={22} color={gold} />
                                 </View>
                             )}
                         </View>
                         <Text
                             style={[
                                 styles.itemLabel,
-                                selectedItem === item.id && styles.itemLabelActive,
+                                { color: textSecondary },
+                                selectedItem === item.id && [styles.itemLabelActive, { color: gold }],
                             ]}
                         >
                             {item.type}
@@ -158,18 +169,18 @@ export default function StylingScreen() {
             />
 
             {/* Bottom Actions */}
-            <View style={styles.bottomActions}>
+            <View style={[styles.bottomActions, { backgroundColor: cardBg, borderTopColor: surfaceBg }]}>
                 <View style={styles.bottomLeft}>
                     <TouchableOpacity style={styles.actionBtn}>
-                        <Ionicons name="shirt-outline" size={20} color={Colors.charcoal} />
-                        <Text style={styles.actionLabel}>CLOSET</Text>
+                        <Ionicons name="shirt-outline" size={20} color={textPrimary} />
+                        <Text style={[styles.actionLabel, { color: textSecondary }]}>CLOSET</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.actionBtn}>
-                        <Ionicons name="sparkles-outline" size={20} color={Colors.charcoal} />
-                        <Text style={styles.actionLabel}>AI GEN</Text>
+                        <Ionicons name="sparkles-outline" size={20} color={textPrimary} />
+                        <Text style={[styles.actionLabel, { color: textSecondary }]}>AI GEN</Text>
                     </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.finishButton}>
+                <TouchableOpacity style={[styles.finishButton, { backgroundColor: gold }]}>
                     <Text style={styles.finishButtonText}>Finish Look →</Text>
                 </TouchableOpacity>
             </View>

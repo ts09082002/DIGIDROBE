@@ -29,6 +29,7 @@ import {
 import { api, WardrobeItem } from '../../services/api';
 import { classifyClothing, canonicalToBackend } from '../../services/ml-classifier';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { Toast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 
@@ -92,6 +93,7 @@ const SECTION_SUGGESTIONS: Record<CanonicalCategory, SuggestionItem[]> = {
 
 export default function WardrobeScreen() {
     const { isDarkMode } = useTheme();
+    const { user, isLoading: authLoading } = useAuth();
     const [items, setItems] = useState<WardrobeItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('All Items');
     const [searchQuery, setSearchQuery] = useState('');
@@ -272,6 +274,7 @@ export default function WardrobeScreen() {
     }, [hasMoreSuggestions, suggestionPool.length]);
 
     const loadItems = useCallback(async () => {
+        if (authLoading) return;
         try {
             setLoading(true);
             const selectedCanonical = FILTER_TO_CANONICAL[selectedCategory] ?? 'all';
@@ -291,7 +294,24 @@ export default function WardrobeScreen() {
         } finally {
             setLoading(false);
         }
-    }, [selectedCategory, searchQuery]);
+    }, [selectedCategory, searchQuery, authLoading]);
+
+    useEffect(() => {
+        const migrateItems = async () => {
+            if (user && !authLoading) {
+                try {
+                    const result = await api.claimGuestItems();
+                    if (result.count > 0) {
+                        console.log(`Migrated ${result.count} guest items`);
+                        await loadItems();
+                    }
+                } catch (e) {
+                    console.warn('Migration failed:', e);
+                }
+            }
+        };
+        migrateItems();
+    }, [user, authLoading, loadItems]);
 
     useEffect(() => {
         loadItems();

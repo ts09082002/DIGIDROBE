@@ -139,6 +139,9 @@ class ApiService {
         const currentUser = auth.currentUser;
         if (currentUser) {
             headers.set('x-user-id', currentUser.uid);
+            console.log(`[API] Fetch: ${url} (User: ${currentUser.uid.substring(0, 6)}...)`);
+        } else {
+            console.log(`[API] Fetch: ${url} (Anonymous)`);
         }
         
         return fetch(url, { ...init, headers });
@@ -235,7 +238,7 @@ class ApiService {
         const url = this.getFullUrl(`/api/wardrobe${query ? `?${query}` : ''}`);
         const response = await this.fetch(url);
         const result: ApiResponse<WardrobeItem[]> = await response.json();
-        return result.data;
+        return result?.data || [];
     }
 
     // Get single wardrobe item
@@ -270,6 +273,15 @@ class ApiService {
         await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`), { method: 'DELETE' });
     }
 
+    // Claim anonymous items
+    async claimGuestItems(): Promise<{ count: number }> {
+        const response = await this.fetch(this.getFullUrl('/api/wardrobe/claim'), {
+            method: 'POST',
+        });
+        const result: ApiResponse<{ count: number }> = await response.json();
+        return result.data;
+    }
+
     // Get stats
     async getStats(): Promise<WardrobeStats> {
         const response = await this.fetch(this.getFullUrl('/api/wardrobe/stats'));
@@ -287,10 +299,11 @@ class ApiService {
 
     async getOOTDByMonth(year: number, month: number): Promise<OOTD[]> {
         try {
-            const response = await this.fetch(`${this.baseUrl}/api/calendar?year=${year}&month=${month}`);
+            const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+            const response = await this.fetch(this.getFullUrl(`/api/calendar?month=${monthStr}`));
             if (!response.ok) throw new Error('Failed to fetch OOTD');
             const result = await response.json();
-            return result.data as OOTD[];
+            return (result?.data || []) as OOTD[];
         } catch (error) {
             console.error('Error fetching calendar:', error);
             return [];
@@ -434,7 +447,34 @@ class ApiService {
         const result: ApiResponse<TryOnPreviewResult> = await response.json();
         return result.data;
     }
+
+    // Notifications
+    async getNotifications(): Promise<NotificationDto[]> {
+        const response = await this.fetch(this.getFullUrl('/api/notifications'));
+        const result: ApiResponse<NotificationDto[]> = await response.json();
+        return result?.data || [];
+    }
+
+    async deleteNotification(id: string): Promise<void> {
+        await this.fetch(this.getFullUrl(`/api/notifications/${id}`), {
+            method: 'DELETE',
+        });
+    }
 }
 
 export const api = new ApiService();
+
+export interface NotificationDto {
+    id: string;
+    userId: string;
+    type: 'daily_outfit' | 'upload';
+    title: string;
+    message: string;
+    createdAt: string;
+    read: boolean;
+    metadata?: {
+        outfitItemIds?: string[];
+        quote?: string;
+    };
+}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useRouter } from 'expo-router';
 import { api, WardrobeItem } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { auth } from '../../config/firebase';
@@ -28,6 +29,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.38;
 const BODY_PHOTO_KEY = '@digidrobe_body_photo_url';
+
+const MODEL_SLIDES = [
+    {
+        id: 'look-1',
+        title: 'Soft Neutrals',
+        subtitle: 'Layered beige coat with crisp white base.',
+        image: require('../../assets/model-placeholder.png'),
+    },
+    {
+        id: 'look-2',
+        title: 'City Casual',
+        subtitle: 'Relaxed denim with structured outerwear.',
+        image: require('../../assets/model-placeholder.png'),
+    },
+    {
+        id: 'look-3',
+        title: 'Evening Edit',
+        subtitle: 'Monochrome set with subtle gold accents.',
+        image: require('../../assets/model-placeholder.png'),
+    },
+];
 
 const CATEGORIES = ['All Items', 'Tops', 'Bottoms', 'Footwear', 'Outerwear', 'Accessories'];
 
@@ -52,7 +74,18 @@ function getSubLabel(item: WardrobeItem): string {
     return labels[item.category?.toLowerCase()] || 'Collection';
 }
 
+type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
+
+function getTimeOfDay(): TimeOfDay {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 17) return 'afternoon';
+    if (hour >= 17 && hour < 21) return 'evening';
+    return 'night';
+}
+
 export default function HomeScreen() {
+    const { user, isLoading: authLoading } = useAuth();
     const [activeCategory, setActiveCategory] = useState('All Items');
     const [arMode, setArMode] = useState(false);
     const [items, setItems] = useState<WardrobeItem[]>([]);
@@ -62,20 +95,21 @@ export default function HomeScreen() {
     const [bodyPhotoUploading, setBodyPhotoUploading] = useState(false);
     const [showPhotoActionSheet, setShowPhotoActionSheet] = useState(false);
     const [showMenuDropdown, setShowMenuDropdown] = useState(false);
+    const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(getTimeOfDay());
+    const [currentSlide, setCurrentSlide] = useState(0);
+    const [notificationCount, setNotificationCount] = useState(0);
+    const carouselRef = useRef<FlatList>(null);
     const { isDarkMode, toggleTheme } = useTheme();
     const router = useRouter();
 
-    // Load saved body photo on mount
+    // Refresh time-of-day label periodically
     useEffect(() => {
-        (async () => {
-            try {
-                const saved = await AsyncStorage.getItem(BODY_PHOTO_KEY);
-                if (saved) setBodyPhotoUri(saved);
-            } catch { }
-        })();
+        const id = setInterval(() => setTimeOfDay(getTimeOfDay()), 5 * 60 * 1000);
+        return () => clearInterval(id);
     }, []);
 
     const fetchItems = useCallback(async () => {
+        if (authLoading || !user) return;
         try {
             setLoading(true);
             const category = CATEGORY_MAP[activeCategory] || undefined;
@@ -93,44 +127,40 @@ export default function HomeScreen() {
         fetchItems();
     }, [fetchItems]);
 
-    const pickBodyPhoto = async (source: 'camera' | 'gallery') => {
+    const fetchNotifications = useCallback(async () => {
+        if (authLoading || !user) return;
         try {
-            const permission =
-                source === 'camera'
-                    ? await ImagePicker.requestCameraPermissionsAsync()
-                    : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-            if (!permission.granted) {
-                Alert.alert('Permission needed', `Please allow ${source} access to continue.`);
-                return;
-            }
-
-            const result =
-                source === 'camera'
-                    ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
-                    : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
-
-            if (result.canceled || !result.assets?.length) return;
-
-            const asset = result.assets[0];
-            setBodyPhotoUploading(true);
-
-            const uploaded = await api.uploadBodyPhoto(
-                asset.uri,
-                asset.fileName || `body-photo-${Date.now()}.jpg`,
-                asset.mimeType || 'image/jpeg',
-            );
-
-            const photoUrl = api.getImageUrl(uploaded.processedUrl || uploaded.originalUrl);
-            setBodyPhotoUri(photoUrl);
-            await AsyncStorage.setItem(BODY_PHOTO_KEY, photoUrl);
-            setShowPhotoActionSheet(false);
-        } catch (error: any) {
-            Alert.alert('Upload failed', error?.message || 'Could not upload photo');
-        } finally {
-            setBodyPhotoUploading(false);
+            const data = await api.getNotifications();
+            const unread = data.filter(n => !n.read).length;
+            setNotificationCount(unread);
+        } catch (e) {
+            console.log('Failed to fetch notifications', e);
         }
-    };
+    }, [authLoading, user]);
+
+    useEffect(() => {
+        fetchNotifications();
+        // Poll for notifications every 30 seconds
+        const id = setInterval(fetchNotifications, 30000);
+        return () => clearInterval(id);
+    }, [fetchNotifications]);
+
+    useEffect(() => {
+        const migrateItems = async () => {
+            if (user && !authLoading) {
+                try {
+                    const result = await api.claimGuestItems();
+                    if (result.count > 0) {
+                        console.log(`[Home] Migrated ${result.count} guest items`);
+                        await fetchItems();
+                    }
+                } catch (e) {
+                    console.warn('[Home] Migration failed:', e);
+                }
+            }
+        };
+        migrateItems();
+    }, [user, authLoading, fetchItems]);
 
     const handleTryOn = (item: WardrobeItem) => {
         setSelectedItem(item);
@@ -161,6 +191,50 @@ export default function HomeScreen() {
     const textPrimary = isDarkMode ? '#FFFFFF' : '#1A1A1A';
     const textSecondary = isDarkMode ? '#A09080' : '#666666';
     const textMuted = isDarkMode ? '#6A5E52' : '#999999';
+
+    const dayConfig: Record<TimeOfDay, { title: string; subtitle: string; badge: string }> = {
+        morning: {
+            title: 'Morning Radiance',
+            subtitle: 'Soft layers and light tones pair well with the start of your day.',
+            badge: 'Morning',
+        },
+        afternoon: {
+            title: 'Daytime Ease',
+            subtitle: 'Breathable fabrics and relaxed fits keep you comfortable.',
+            badge: 'Afternoon',
+        },
+        evening: {
+            title: 'Evening Glow',
+            subtitle: 'Richer tones and light outerwear work perfectly now.',
+            badge: 'Evening',
+        },
+        night: {
+            title: 'Night Out',
+            subtitle: 'Structured pieces and deeper colors elevate your look.',
+            badge: 'Night',
+        },
+    };
+
+    const currentDayConfig = dayConfig[timeOfDay];
+
+    // simple outfit suggestion: first top, bottom, footwear
+    const topItem = items.find((i) => i.category.toLowerCase().includes('top'));
+    const bottomItem = items.find((i) => i.category.toLowerCase().includes('bottom'));
+    const shoeItem = items.find((i) => i.category.toLowerCase().includes('foot'));
+    const suggestedPieces = [topItem, bottomItem, shoeItem].filter(Boolean) as WardrobeItem[];
+
+    // auto-advance model carousel
+    useEffect(() => {
+        if (!carouselRef.current) return;
+        const id = setInterval(() => {
+            setCurrentSlide((prev) => {
+                const next = (prev + 1) % MODEL_SLIDES.length;
+                carouselRef.current?.scrollToIndex({ index: next, animated: true });
+                return next;
+            });
+        }, 4500);
+        return () => clearInterval(id);
+    }, []);
 
     const renderClothingCard = ({ item }: { item: WardrobeItem }) => {
         const imageUrl = item.processedUrl || item.originalUrl;
@@ -211,6 +285,18 @@ export default function HomeScreen() {
                     <Text style={[styles.logoText, { color: textPrimary }]}>Digidrobe</Text>
                 </View>
                 <View style={styles.headerRight}>
+                    <TouchableOpacity
+                        onPress={() => router.push('/notifications')}
+                        style={[styles.threeDotsBtn, { backgroundColor: surfaceBg }]}
+                    >
+                        <Ionicons name="notifications-outline" size={20} color={textSecondary} />
+                        {notificationCount > 0 && (
+                            <View style={[styles.badge, { backgroundColor: gold }]}>
+                                <Text style={styles.badgeText}>{notificationCount}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+
                     <View style={styles.menuContainer}>
                         <TouchableOpacity
                             onPress={() => setShowMenuDropdown(true)}
@@ -243,7 +329,10 @@ export default function HomeScreen() {
                                     </TouchableOpacity>
                                     <TouchableOpacity
                                         style={styles.menuItem}
-                                        onPress={() => setShowMenuDropdown(false)}
+                                        onPress={() => {
+                                            setShowMenuDropdown(false);
+                                            router.push('/notifications');
+                                        }}
                                     >
                                         <Ionicons name="notifications-outline" size={20} color={textSecondary} />
                                         <Text style={[styles.menuItemText, { color: textPrimary }]}>Notifications</Text>
@@ -282,66 +371,122 @@ export default function HomeScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
-                {/* ─── Your Photo / Model Viewer ─── */}
+                {/* ─── Today’s Outfit & Weather ─── */}
+                <View style={styles.dayCard}>
+                    <LinearGradient
+                        colors={
+                            timeOfDay === 'morning'
+                                ? ['#FFE7C3', '#FFC896']
+                                : timeOfDay === 'afternoon'
+                                ? ['#FFE9C8', '#FFD08A']
+                                : timeOfDay === 'evening'
+                                ? ['#FDD0C7', '#F8A6B1']
+                                : ['#1E2140', '#101321']
+                        }
+                        style={styles.dayCardGradient}
+                    >
+                        <View style={styles.dayCardHeader}>
+                            <View>
+                                <Text
+                                    style={[
+                                        styles.dayCardGreeting,
+                                        { color: timeOfDay === 'night' ? '#D0D4FF' : '#8B6A42' },
+                                    ]}
+                                >
+                                    {timeOfDay === 'morning'
+                                        ? 'Good morning'
+                                        : timeOfDay === 'afternoon'
+                                        ? 'Good afternoon'
+                                        : timeOfDay === 'evening'
+                                        ? 'Good evening'
+                                        : 'Tonight'}
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.dayCardTitle,
+                                        { color: timeOfDay === 'night' ? '#FFFFFF' : '#3B2618' },
+                                    ]}
+                                >
+                                    {currentDayConfig.title}
+                                </Text>
+                            </View>
+                            <View style={styles.dayCardIconBadge}>
+                                <Ionicons
+                                    name={
+                                        timeOfDay === 'morning'
+                                            ? 'sunny-outline'
+                                            : timeOfDay === 'afternoon'
+                                            ? 'partly-sunny-outline'
+                                            : timeOfDay === 'evening'
+                                            ? 'cloudy-night-outline'
+                                            : 'moon-outline'
+                                    }
+                                    size={20}
+                                    color={timeOfDay === 'night' ? '#FCE68E' : '#FFDF8A'}
+                                />
+                            </View>
+                        </View>
+                        <Text
+                            style={[
+                                styles.dayCardSubtitle,
+                                { color: timeOfDay === 'night' ? '#C3C7FF' : '#6A4C32' },
+                            ]}
+                        >
+                            {currentDayConfig.subtitle}
+                        </Text>
+                        {suggestedPieces.length > 0 && (
+                            <View style={styles.dayCardOutfitRow}>
+                                {suggestedPieces.map((piece) => (
+                                    <View key={piece.id} style={styles.dayCardPiece}>
+                                        <Image
+                                            source={{
+                                                uri: api.getImageUrl(
+                                                    piece.processedUrl || piece.originalUrl,
+                                                ),
+                                            }}
+                                            style={styles.dayCardPieceImg}
+                                            resizeMode="contain"
+                                        />
+                                        <Text
+                                            style={styles.dayCardPieceLabel}
+                                            numberOfLines={1}
+                                        >
+                                            {piece.category}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+                    </LinearGradient>
+                </View>
+
+                {/* ─── Model Outfit Carousel ─── */}
                 <View style={[styles.modelContainer, { backgroundColor: cardBg }]}>
-                    {bodyPhotoUploading ? (
-                        <View style={styles.uploadPlaceholder}>
-                            <ActivityIndicator size="large" color={gold} />
-                            <Text style={[styles.uploadingText, { color: textSecondary }]}>
-                                Uploading your photo...
-                            </Text>
-                        </View>
-                    ) : bodyPhotoUri ? (
-                        <>
-                            <Image
-                                source={{ uri: bodyPhotoUri }}
-                                style={styles.modelImage}
-                                resizeMode="contain"
-                            />
-                            <LinearGradient
-                                colors={['transparent', 'rgba(26,20,16,0.85)']}
-                                style={styles.modelGradient}
-                            />
-                            <TouchableOpacity
-                                style={styles.changePhotoBtn}
-                                onPress={() => setShowPhotoActionSheet(true)}
-                                activeOpacity={0.8}
-                            >
-                                <Ionicons name="camera-outline" size={14} color="#FFF" />
-                                <Text style={styles.changePhotoText}>Change Photo</Text>
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <View style={styles.uploadPlaceholder}>
-                            <View style={styles.uploadIconCircle}>
-                                <Ionicons name="person-outline" size={40} color={gold} />
+                    <FlatList
+                        ref={carouselRef}
+                        data={MODEL_SLIDES}
+                        horizontal
+                        keyExtractor={(item) => item.id}
+                        showsHorizontalScrollIndicator={false}
+                        pagingEnabled
+                        renderItem={({ item }) => (
+                            <View style={styles.modelSlide}>
+                                <Image
+                                    source={item.image}
+                                    style={styles.modelImage}
+                                    resizeMode="cover"
+                                />
+                                <LinearGradient
+                                    colors={['transparent', 'rgba(0,0,0,0.7)']}
+                                    style={styles.modelGradient}
+                                />
+                                <View style={styles.modelCaption}>
+                                    <Text style={styles.modelTitle}>{item.title}</Text>
+                                    <Text style={styles.modelSubtitle}>{item.subtitle}</Text>
+                                </View>
                             </View>
-                            <Text style={[styles.uploadTitle, { color: textPrimary }]}>
-                                Upload Your Photo
-                            </Text>
-                            <Text style={[styles.uploadSubtitle, { color: textSecondary }]}>
-                                Add a full-body photo to see outfit suggestions on you
-                            </Text>
-                            <View style={styles.uploadBtnRow}>
-                                <TouchableOpacity
-                                    style={[styles.uploadBtn, { backgroundColor: gold }]}
-                                    onPress={() => pickBodyPhoto('camera')}
-                                    activeOpacity={0.8}
-                                >
-                                    <Ionicons name="camera-outline" size={16} color="#000" />
-                                    <Text style={styles.uploadBtnTextDark}>Camera</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.uploadBtn, { backgroundColor: surfaceBg, borderWidth: 1, borderColor: gold }]}
-                                    onPress={() => pickBodyPhoto('gallery')}
-                                    activeOpacity={0.8}
-                                >
-                                    <Ionicons name="images-outline" size={16} color={gold} />
-                                    <Text style={[styles.uploadBtnTextLight, { color: gold }]}>Gallery</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
+                        )}
+                    />
                 </View>
 
                 {/* ─── Category Filter ─── */}
@@ -438,54 +583,7 @@ export default function HomeScreen() {
                 <View style={{ height: 100 }} />
             </ScrollView>
 
-            {/* Custom Action Sheet for Photo Upload */}
-            {showPhotoActionSheet && (
-                <View style={styles.actionSheetOverlay}>
-                    <TouchableOpacity
-                        style={StyleSheet.absoluteFillObject}
-                        activeOpacity={1}
-                        onPress={() => setShowPhotoActionSheet(false)}
-                    />
-                    <View style={[styles.actionSheetContainer, { backgroundColor: cardBg }]}>
-                        <View style={styles.actionSheetHandle} />
-                        <Text style={[styles.actionSheetTitle, { color: textPrimary }]}>Update Photo</Text>
-                        <Text style={[styles.actionSheetSubtitle, { color: textSecondary }]}>
-                            Choose a clear, full-body photo for the best AI try-on experience.
-                        </Text>
-
-                        <View style={styles.actionSheetRow}>
-                            <TouchableOpacity
-                                style={[styles.actionSheetBtn, { backgroundColor: surfaceBg }]}
-                                onPress={() => pickBodyPhoto('camera')}
-                                activeOpacity={0.8}
-                            >
-                                <View style={[styles.actionSheetIconBox, { backgroundColor: 'rgba(212,168,67,0.15)' }]}>
-                                    <Ionicons name="camera" size={24} color={gold} />
-                                </View>
-                                <Text style={[styles.actionSheetBtnText, { color: textPrimary }]}>Camera</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.actionSheetBtn, { backgroundColor: surfaceBg }]}
-                                onPress={() => pickBodyPhoto('gallery')}
-                                activeOpacity={0.8}
-                            >
-                                <View style={[styles.actionSheetIconBox, { backgroundColor: 'rgba(212,168,67,0.15)' }]}>
-                                    <Ionicons name="images" size={24} color={gold} />
-                                </View>
-                                <Text style={[styles.actionSheetBtnText, { color: textPrimary }]}>Gallery</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.actionSheetCancel}
-                            onPress={() => setShowPhotoActionSheet(false)}
-                        >
-                            <Text style={[styles.actionSheetCancelText, { color: textMuted }]}>Cancel</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
+            {/* (photo upload sheet removed in favour of model carousel) */}
         </SafeAreaView>
     );
 }
@@ -531,11 +629,30 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     threeDotsBtn: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         justifyContent: 'center',
         alignItems: 'center',
+        position: 'relative',
+    },
+    badge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 2,
+        borderColor: '#1A1410',
+    },
+    badgeText: {
+        color: '#000',
+        fontSize: 10,
+        fontWeight: '800',
     },
     menuOverlay: {
         flex: 1,
@@ -594,6 +711,69 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
 
+    /* ── Day Card ── */
+    dayCard: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    dayCardGradient: {
+        paddingHorizontal: 18,
+        paddingVertical: 16,
+    },
+    dayCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    dayCardGreeting: {
+        fontSize: 11,
+        fontWeight: '600',
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+    },
+    dayCardTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        marginTop: 4,
+    },
+    dayCardSubtitle: {
+        fontSize: 13,
+        marginTop: 4,
+    },
+    dayCardIconBadge: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    dayCardOutfitRow: {
+        flexDirection: 'row',
+        marginTop: 10,
+        gap: 10,
+    },
+    dayCardPiece: {
+        width: 56,
+        alignItems: 'center',
+    },
+    dayCardPieceImg: {
+        width: 56,
+        height: 64,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.35)',
+    },
+    dayCardPieceLabel: {
+        marginTop: 4,
+        fontSize: 10,
+        fontWeight: '600',
+        color: 'rgba(0,0,0,0.75)',
+        textTransform: 'capitalize',
+    },
+
     /* ── Model Viewer / Photo Upload ── */
     modelContainer: {
         marginHorizontal: 16,
@@ -602,6 +782,12 @@ const styles = StyleSheet.create({
         height: height * 0.45,
         position: 'relative',
         marginBottom: 16,
+    },
+    modelSlide: {
+        width: width - 32,
+        height: '100%',
+        borderRadius: 20,
+        overflow: 'hidden',
     },
     modelImage: {
         width: '100%',
@@ -612,78 +798,23 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        height: 80,
+        height: 90,
     },
-
-    /* ── Upload Placeholder ── */
-    uploadPlaceholder: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 32,
-        gap: 12,
-    },
-    uploadIconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: 'rgba(212,168,67,0.15)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    uploadTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        textAlign: 'center',
-    },
-    uploadSubtitle: {
-        fontSize: 13,
-        textAlign: 'center',
-        lineHeight: 18,
-    },
-    uploadingText: {
-        fontSize: 14,
-        marginTop: 8,
-    },
-    uploadBtnRow: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 8,
-    },
-    uploadBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 14,
-        gap: 8,
-    },
-    uploadBtnTextDark: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#000',
-    },
-    uploadBtnTextLight: {
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    changePhotoBtn: {
+    modelCaption: {
         position: 'absolute',
-        bottom: 16,
-        right: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 20,
-        gap: 6,
+        bottom: 18,
+        left: 18,
+        right: 18,
     },
-    changePhotoText: {
-        color: '#FFF',
-        fontSize: 12,
-        fontWeight: '600',
+    modelTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#FFFFFF',
+    },
+    modelSubtitle: {
+        fontSize: 13,
+        color: '#F3F4FF',
+        marginTop: 2,
     },
 
     /* ── Category Filters ── */

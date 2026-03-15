@@ -19,6 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { api, OOTD, WardrobeItem } from '../../services/api';
 import { Toast } from '../../components/Toast';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 60) / 3;
@@ -29,6 +30,7 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 
 export default function CalendarScreen() {
     const { isDarkMode } = useTheme();
+    const { user, isLoading: authLoading } = useAuth();
     const [loading, setLoading] = useState(false);
     const [ootds, setOotds] = useState<OOTD[]>([]);
     const [wardrobe, setWardrobe] = useState<WardrobeItem[]>([]);
@@ -69,6 +71,7 @@ export default function CalendarScreen() {
     }
 
     const loadData = useCallback(async () => {
+        if (authLoading || !user) return;
         try {
             setLoading(true);
             const year = today.getFullYear();
@@ -103,7 +106,11 @@ export default function CalendarScreen() {
         }
     }, []);
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => {
+        if (!authLoading && user) {
+            loadData();
+        }
+    }, [authLoading, user, loadData]);
 
     const openPicker = (dateStr: string) => {
         const existing = ootds.find(o => o.date === dateStr);

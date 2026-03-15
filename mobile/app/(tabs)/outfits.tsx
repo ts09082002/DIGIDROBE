@@ -24,6 +24,7 @@ import { api, BodyPhotoUploadResult, StyleProfilePayload, StylistSuggestion, Try
 import { SavedLook, getSavedLooks, saveLook } from '../../storage/savedLooks';
 import { normalizeCategory } from '../../constants/categories';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../context/AuthContext';
 
 const TABS = ['My Looks', 'AI Stylist'];
 
@@ -318,6 +319,7 @@ function DraggableCanvasItem({
 
 export default function OutfitsScreen() {
     const { isDarkMode } = useTheme();
+    const { user, isLoading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState('AI Stylist');
     const [suggestion, setSuggestion] = useState<StylistSuggestion | null>(null);
     const [loading, setLoading] = useState(true);
@@ -347,17 +349,18 @@ export default function OutfitsScreen() {
     const insets = useSafeAreaInsets();
 
     const theme = {
-        background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
-        card: isDarkMode ? '#242424' : Colors.white,
+        background: isDarkMode ? '#1A1410' : '#F8F9FA',
+        card: isDarkMode ? '#2A2018' : Colors.white,
         text: isDarkMode ? '#FFFFFF' : Colors.charcoal,
-        textSecondary: isDarkMode ? '#A0A0A0' : Colors.darkGray,
-        iconBtnBg: isDarkMode ? '#333333' : Colors.white,
-        tabBg: isDarkMode ? '#333333' : Colors.lightGray,
-        border: isDarkMode ? '#333333' : Colors.lightGray,
-        gold: Colors.gold,
+        textSecondary: isDarkMode ? '#A09080' : Colors.darkGray,
+        iconBtnBg: isDarkMode ? '#332A1E' : Colors.white,
+        tabBg: isDarkMode ? '#332A1E' : Colors.lightGray,
+        border: isDarkMode ? '#332A1E' : Colors.lightGray,
+        gold: '#D4A843',
     };
 
     const loadData = async (silent = false) => {
+        if (authLoading || !user) return;
         try {
             if (!silent) setLoading(true);
             const data = await api.getStylistSuggestion();
@@ -374,6 +377,7 @@ export default function OutfitsScreen() {
     };
 
     const loadLooks = async () => {
+        if (authLoading || !user) return;
         try {
             setLooksLoading(true);
             const [looks, allItems] = await Promise.all([
@@ -415,9 +419,11 @@ export default function OutfitsScreen() {
     };
 
     useEffect(() => {
-        loadData();
-        loadLooks();
-    }, []);
+        if (!authLoading && user) {
+            loadData();
+            loadLooks();
+        }
+    }, [authLoading, user]);
 
     const onRefresh = () => {
         setRefreshing(true);
