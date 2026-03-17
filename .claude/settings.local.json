@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit)",
+      "Bash(xargs grep -l \"useEffect.*\\\\[\\\\s*\\\\]\")",
+      "Bash(node -e \"try { const m = require\\(''expo-file-system/legacy''\\); console.log\\(''legacy OK, keys:'', Object.keys\\(m\\).slice\\(0,15\\).join\\('', ''\\)\\); } catch\\(e\\) { console.log\\(''FAILED:'', e.message\\); }\")",
+      "Bash(ls \"C:\\\\Users\\\\hp\\\\digidrobe\\\\DIGIDROBE\\\\mobile\\\\node_modules\\\\expo-file-system\"\" 2>nul && echo \"---\" && cat \"C:UsershpdigidrobeDIGIDROBEmobilenode_modulesexpo-file-systempackage.json\" 2>nul | findstr /i \"exports main legacy \")",
+      "WebSearch",
+      "WebFetch(domain:storage.googleapis.com)",
+      "WebFetch(domain:tfhub.dev)",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(npm search:*)",
+      "Bash(npm view:*)",
+      "Bash(curl -s https://api.github.com/repos/a7med-mahmoud/react-native-ml-kit/contents)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:medium.com)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npx tsc:*)",
+      "Bash(head -200 /c/Users/hp/digidrobe/DIGIDROBE/mobile/app/\\\\\\(tabs\\\\\\)/wardrobe.tsx)",
+      "Bash(grep -r \"WatermelonDB\\\\|@nozbe\\\\|realm\\\\|sqlite\\\\|database\\\\|schema\" /c/Users/hp/digidrobe/DIGIDROBE/mobile --include=*.json --include=*.ts --include=*.tsx)",
+      "Bash(xargs grep:*)",
+      "Bash(head -50 /c/Users/hp/digidrobe/DIGIDROBE/mobile/app/\\\\\\(tabs\\\\\\)/outfits.tsx)",
+      "Bash(node -e \"console.log\\(require\\(''@nozbe/watermelondb/package.json''\\).version\\)\")",
+      "Bash(node --print \"require.resolve\\(''react-native-worklets/package.json''\\)\")",
+      "Bash(node -e \"const pkg = require\\(''react-native-reanimated/package.json''\\); console.log\\(''version:'', pkg.version\\); console.log\\(''deps:'', JSON.stringify\\(pkg.dependencies, null, 2\\)\\); console.log\\(''peerDeps:'', JSON.stringify\\(pkg.peerDependencies, null, 2\\)\\)\")"
+    ]
+  }
+}

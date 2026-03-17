@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     View,
     Text,
@@ -26,8 +26,11 @@ import {
     normalizeCategory,
     CanonicalCategory,
 } from '../../constants/categories';
-import { api, WardrobeItem } from '../../services/api';
+import { WardrobeItem } from '../../services/api';
+import * as wardrobeLocal from '../../services/wardrobe-local';
+import * as ootdLocal from '../../services/ootd-local';
 import { classifyClothing, canonicalToBackend } from '../../services/ml-classifier';
+import { processClothingImageOnDevice } from '../../services/image-processor';
 import { useTheme } from '../../context/ThemeContext';
 import { Toast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -119,6 +122,17 @@ export default function WardrobeScreen() {
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
     const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+    // In-memory cache for wardrobe items (30s TTL)
+    const itemsCache = useRef<Map<string, { data: WardrobeItem[]; time: number }>>(new Map());
+    const CACHE_TTL = 30_000;
+
+    // Debounce search input (400ms)
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 400);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     const AI_CATEGORIES = [
         { label: 'Topwear', value: 'topwear' },
@@ -189,7 +203,7 @@ export default function WardrobeScreen() {
 
             const updates = await Promise.all(
                 targetIds.map((id) =>
-                    api.updateWardrobeItem(id, {
+                    wardrobeLocal.updateItem(id, {
                         category: backendCategory,
                         isLowConfidence: false,
                     }),
@@ -213,13 +227,15 @@ export default function WardrobeScreen() {
                 setToastVisible(true);
                 setSelectionMode(false);
                 setSelectedItemIds([]);
-                await loadItems();
+                invalidateCache();
+                await loadItems(true);
             } else {
                 setToastType('success');
                 setToastMessage(tagPickerMode === 'move' ? 'Item moved successfully' : 'Item category updated');
                 setToastVisible(true);
                 if (tagPickerMode === 'move') {
-                    await loadItems();
+                    invalidateCache();
+                    await loadItems(true);
                 }
             }
         } catch (e: any) {
@@ -231,7 +247,7 @@ export default function WardrobeScreen() {
         }
     };
 
-    const theme = {
+    const theme = useMemo(() => ({
         background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
         card: isDarkMode ? '#242424' : Colors.white,
         text: isDarkMode ? '#FFFFFF' : Colors.charcoal,
@@ -239,7 +255,7 @@ export default function WardrobeScreen() {
         border: isDarkMode ? '#333333' : Colors.lightGray,
         iconBtnBg: isDarkMode ? '#333333' : Colors.white,
         imageBg: isDarkMode ? '#111111' : Colors.warmGray,
-    };
+    }), [isDarkMode]);
 
     const currentFilterCanonical = (FILTER_TO_CANONICAL[selectedCategory] ?? 'all') as CanonicalCategory | 'all';
     const suggestionPool = useMemo(() => {
@@ -271,35 +287,59 @@ export default function WardrobeScreen() {
         );
     }, [hasMoreSuggestions, suggestionPool.length]);
 
-    const loadItems = useCallback(async () => {
+    const loadItems = useCallback(async (bypassCache = false) => {
         try {
-            setLoading(true);
             const selectedCanonical = FILTER_TO_CANONICAL[selectedCategory] ?? 'all';
-            const data = await api.getWardrobeItems({
+            const cacheKey = `${selectedCanonical}|${debouncedSearchQuery}`;
+
+            // Check cache first (unless bypassed)
+            if (!bypassCache) {
+                const cached = itemsCache.current.get(cacheKey);
+                if (cached && Date.now() - cached.time < CACHE_TTL) {
+                    setItems(cached.data);
+                    return;
+                }
+            }
+
+            setLoading(true);
+            const data = await wardrobeLocal.getAllItems({
                 category: CANONICAL_TO_FILTER_PARAM[selectedCanonical],
-                search: searchQuery || undefined,
+                search: debouncedSearchQuery || undefined,
             });
-            setItems(
-                data.map((item) => ({
-                    ...item,
-                    category: normalizeCategory(item.category),
-                })),
-            );
-        } catch (e) {
-            // Server might not be running
+            const normalized = data.map((item) => ({
+                ...item,
+                category: normalizeCategory(item.category),
+            }));
+            setItems(normalized);
+
+            // Store in cache
+            itemsCache.current.set(cacheKey, { data: normalized, time: Date.now() });
+        } catch (e: any) {
             console.log('Failed to load items:', e);
+            setToastType('error');
+            setToastMessage(
+                e?.message?.includes('Network request failed') || e?.message?.includes('fetch')
+                    ? 'Cannot reach server. Make sure the backend is running.'
+                    : `Could not load wardrobe: ${e?.message || 'Unknown error'}`,
+            );
+            setToastVisible(true);
         } finally {
             setLoading(false);
         }
-    }, [selectedCategory, searchQuery]);
+    }, [selectedCategory, debouncedSearchQuery]);
 
     useEffect(() => {
         loadItems();
     }, [loadItems]);
 
+    const invalidateCache = useCallback(() => {
+        itemsCache.current.clear();
+    }, []);
+
     const onRefresh = async () => {
         setRefreshing(true);
-        await loadItems();
+        invalidateCache();
+        await loadItems(true);
         setRefreshing(false);
     };
 
@@ -363,46 +403,10 @@ export default function WardrobeScreen() {
 
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    const watchProcessingItems = async (itemIds: string[]) => {
-        if (!itemIds.length) return;
-        const pending = new Set(itemIds);
-
-        for (let attempt = 0; attempt < 20 && pending.size > 0; attempt++) {
-            await wait(1500);
-            const updates = await Promise.all(
-                Array.from(pending).map(async (id) => {
-                    try {
-                        const item = await api.getWardrobeItem(id);
-                        return {
-                            ...item,
-                            category: normalizeCategory(item.category),
-                        } as WardrobeItem;
-                    } catch {
-                        return null;
-                    }
-                }),
-            );
-
-            const valid = updates.filter((u): u is WardrobeItem => u !== null);
-            if (!valid.length) continue;
-
-            const byId = new Map(valid.map((u) => [u.id, u]));
-            valid.forEach((u) => {
-                if (u.status !== 'processing') pending.delete(u.id);
-            });
-
-            setItems((prev) =>
-                prev.map((item) => byId.get(item.id) ?? item),
-            );
-            setSelectedItem((prev) => (prev ? (byId.get(prev.id) ?? prev) : prev));
-        }
-    };
-
     const uploadAssets = async (assets: ImagePicker.ImagePickerAsset[], source: 'gallery' | 'camera') => {
         if (!assets.length) return;
 
         const start = Date.now();
-        // Only use the UI filter category as an override if the user has explicitly chosen one.
         const preferredCategoryFromFilter = getPreferredUploadCategory();
 
         const uploadedItems = await Promise.all(
@@ -410,34 +414,26 @@ export default function WardrobeScreen() {
                 const filename = asset.fileName || `${source}_photo.jpg`;
                 const uploadUri = await autoCropAndResize(asset.uri, asset.width, asset.height);
 
-                // ── On-Device ML Kit Classification ──────────────────────
-                // Always run ML Kit on the image first to get accurate category.
-                // Only fall back to the UI filter category if ML Kit returns unclassified.
                 let finalCategory: string | undefined = preferredCategoryFromFilter;
 
-                const mlResult = await classifyClothing(uploadUri);
+                // ── On-Device Processing ─────────────────────
+                const result = await processClothingImageOnDevice(uploadUri);
                 console.log(
-                    `[ML Kit] ${filename} → category: ${mlResult.category}, ` +
-                    `subCategory: ${mlResult.subCategory}, confidence: ${mlResult.confidence}, ` +
-                    `labels: [${mlResult.mlLabels.slice(0, 5).join(', ')}]`
+                    `[OnDevice] ${filename} → category: ${result.classification.category}, ` +
+                    `color: ${result.colors.dominantName}`
                 );
-
-                if (!mlResult.isLowConfidence && mlResult.category !== 'unclassified') {
-                    // ML Kit is confident — use its result regardless of UI filter
-                    finalCategory = canonicalToBackend(mlResult.category);
+                if (!result.classification.isLowConfidence && result.classification.category !== 'unclassified') {
+                    finalCategory = canonicalToBackend(result.classification.category);
                 } else if (preferredCategoryFromFilter) {
-                    // If ML Kit is uncertain/missing, use the current folder/filter the user is in
                     finalCategory = preferredCategoryFromFilter;
                 }
-                // ─────────────────────────────────────────────────────────
 
-                const newItem = await api.uploadClothingImage(
+                // ── Save locally (no backend upload) ─────────
+                const newItem = await wardrobeLocal.addClothingItem(
+                    result,
                     uploadUri,
                     filename,
-                    'image/jpeg',
                     finalCategory,
-                    mlResult.mlLabels,
-                    mlResult.subCategory,
                 );
                 return {
                     ...newItem,
@@ -447,6 +443,7 @@ export default function WardrobeScreen() {
         );
 
         if (uploadedItems.length > 0) {
+            invalidateCache();
             setItems((prev) => [...uploadedItems, ...prev]);
             const elapsed = Date.now() - start;
             console.log(`Wardrobe upload (${source}) completed in ${elapsed}ms for ${uploadedItems.length} image(s)`);
@@ -459,8 +456,6 @@ export default function WardrobeScreen() {
                     : `${uploadedItems.length} items added`,
             );
             setToastVisible(true);
-            // Auto-refresh each uploaded item until backend background processing finishes.
-            watchProcessingItems(uploadedItems.map((item) => item.id));
         }
     };
 
@@ -563,7 +558,7 @@ export default function WardrobeScreen() {
 
     const handleToggleFavorite = async (id: string) => {
         try {
-            await api.toggleFavorite(id);
+            await wardrobeLocal.toggleFavorite(id);
             setItems(prev =>
                 prev.map(item =>
                     item.id === id ? { ...item, isFavorite: !item.isFavorite } : item
@@ -587,8 +582,7 @@ export default function WardrobeScreen() {
                     ? suggestion.backendCategory
                     : CANONICAL_TO_FILTER_PARAM[selectedCanonical];
 
-            const newItem = await api.createWardrobeItem({
-                originalFilename: `${suggestion.name.replace(/\s+/g, '_').toLowerCase()}.png`,
+            const newItem = await wardrobeLocal.createItemManual({
                 originalUrl: suggestion.imageUrl,
                 processedUrl: suggestion.imageUrl,
                 category: targetCategory,
@@ -640,7 +634,7 @@ export default function WardrobeScreen() {
             activeOpacity={0.9}
         >
             <Image
-                source={{ uri: api.getImageUrl(item.processedUrl || item.originalUrl) }}
+                source={{ uri: item.processedUrl || item.originalUrl }}
                 style={[styles.cardImage, { backgroundColor: theme.imageBg }]}
                 resizeMode="contain"
             />
@@ -884,6 +878,15 @@ export default function WardrobeScreen() {
                     showsVerticalScrollIndicator={false}
                     onEndReachedThreshold={0.25}
                     onEndReached={loadMoreSuggestions}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    initialNumToRender={8}
+                    getItemLayout={(_data, index) => ({
+                        length: CARD_WIDTH * TARGET_ASPECT_RATIO + Spacing.md,
+                        offset: (CARD_WIDTH * TARGET_ASPECT_RATIO + Spacing.md) * Math.floor(index / 2),
+                        index,
+                    })}
                     ListHeaderComponent={
                         <View style={styles.uploadedSectionHeader}>
                             <Text style={[styles.uploadedSectionTitle, { color: theme.text }]}>Uploaded Items</Text>
@@ -1003,7 +1006,7 @@ export default function WardrobeScreen() {
                             <>
                                 <View style={[styles.expandedImageContainer, { backgroundColor: theme.imageBg }]}>
                                     <Image
-                                        source={{ uri: api.getImageUrl(selectedItem.processedUrl || selectedItem.originalUrl) }}
+                                        source={{ uri: selectedItem.processedUrl || selectedItem.originalUrl }}
                                         style={styles.expandedImage}
                                         resizeMode="contain"
                                     />
@@ -1031,7 +1034,7 @@ export default function WardrobeScreen() {
                                                         if (!nameInput.trim()) return;
                                                         try {
                                                             setSavingName(true);
-                                                            const updated = await api.updateWardrobeItem(selectedItem.id, {
+                                                            const updated = await wardrobeLocal.updateItem(selectedItem.id, {
                                                                 name: nameInput.trim(),
                                                             });
                                                             const normalizedUpdated = {
@@ -1091,7 +1094,7 @@ export default function WardrobeScreen() {
                                             onPress={async () => {
                                                 try {
                                                     const today = new Date().toISOString().split('T')[0];
-                                                    await api.saveOOTD(today, [selectedItem.id], 'Added from Wardrobe');
+                                                    await ootdLocal.saveOOTD(today, [selectedItem.id], 'Added from Wardrobe');
                                                     setToastType('success');
                                                     setToastMessage('Added to today\'s outfit');
                                                     setToastVisible(true);
@@ -1218,10 +1221,11 @@ export default function WardrobeScreen() {
                 onConfirm={async () => {
                     if (!selectedItem) return;
                     try {
-                        await api.deleteItem(selectedItem.id);
+                        await wardrobeLocal.deleteItem(selectedItem.id);
                         setSelectedItem(null);
                         setDeleteDialogVisible(false);
-                        loadItems();
+                        invalidateCache();
+                        loadItems(true);
                         setToastType('success');
                         setToastMessage('Item deleted');
                         setToastVisible(true);

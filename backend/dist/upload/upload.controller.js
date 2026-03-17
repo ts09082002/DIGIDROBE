@@ -27,13 +27,28 @@ const ALLOWED_TYPES = [
     'image/heif',
 ];
 const MAX_SIZE = 20 * 1024 * 1024;
+const clothingStorage = (0, multer_1.diskStorage)({
+    destination: (0, path_1.join)(__dirname, '..', '..', 'uploads', 'originals'),
+    filename: (_req, file, cb) => {
+        const uniqueName = `${(0, uuid_1.v4)()}${(0, path_1.extname)(file.originalname)}`;
+        cb(null, uniqueName);
+    },
+});
+const clothingFileFilter = (_req, file, cb) => {
+    if (!ALLOWED_TYPES.includes(file.mimetype)) {
+        cb(new common_1.BadRequestException('Only JPEG, PNG, WebP, and HEIC images are allowed'), false);
+        return;
+    }
+    cb(null, true);
+};
 let UploadController = class UploadController {
     uploadService;
     constructor(uploadService) {
         this.uploadService = uploadService;
     }
-    async uploadClothing(file, category, subCategory, mlLabelsJson) {
-        if (!file) {
+    async uploadClothing(files, category, subCategory, mlLabelsJson, colorPaletteJson, processedOnDevice) {
+        const imageFile = files?.image?.[0];
+        if (!imageFile) {
             throw new common_1.BadRequestException('No image file provided');
         }
         let mlLabels;
@@ -45,7 +60,11 @@ let UploadController = class UploadController {
                 mlLabels = undefined;
             }
         }
-        const result = await this.uploadService.processClothingImage(file, category, subCategory, mlLabels);
+        if (processedOnDevice === 'true') {
+            const result = await this.uploadService.storeProcessedClothingImage(imageFile, files?.original?.[0], category, subCategory, mlLabels, colorPaletteJson);
+            return { success: true, data: result };
+        }
+        const result = await this.uploadService.processClothingImage(imageFile, category, subCategory, mlLabels);
         return {
             success: true,
             data: result,
@@ -69,29 +88,22 @@ let UploadController = class UploadController {
 exports.UploadController = UploadController;
 __decorate([
     (0, common_1.Post)('clothing'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('image', {
-        storage: (0, multer_1.diskStorage)({
-            destination: (0, path_1.join)(__dirname, '..', '..', 'uploads', 'originals'),
-            filename: (_req, file, cb) => {
-                const uniqueName = `${(0, uuid_1.v4)()}${(0, path_1.extname)(file.originalname)}`;
-                cb(null, uniqueName);
-            },
-        }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
+        { name: 'image', maxCount: 1 },
+        { name: 'original', maxCount: 1 },
+    ], {
+        storage: clothingStorage,
         limits: { fileSize: MAX_SIZE },
-        fileFilter: (_req, file, cb) => {
-            if (!ALLOWED_TYPES.includes(file.mimetype)) {
-                cb(new common_1.BadRequestException('Only JPEG, PNG, WebP, and HEIC images are allowed'), false);
-                return;
-            }
-            cb(null, true);
-        },
+        fileFilter: clothingFileFilter,
     })),
-    __param(0, (0, common_1.UploadedFile)()),
+    __param(0, (0, common_1.UploadedFiles)()),
     __param(1, (0, common_1.Body)('category')),
     __param(2, (0, common_1.Body)('subCategory')),
     __param(3, (0, common_1.Body)('mlLabels')),
+    __param(4, (0, common_1.Body)('colorPalette')),
+    __param(5, (0, common_1.Body)('processedOnDevice')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], UploadController.prototype, "uploadClothing", null);
 __decorate([

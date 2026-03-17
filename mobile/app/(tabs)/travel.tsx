@@ -164,7 +164,7 @@ export default function TravelScreen() {
                                 {packingList.map((item, index) => (
                                     <View key={index} style={[styles.itemCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
                                         <Image
-                                            source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                            source={{ uri: item.processedUrl }}
                                             style={styles.itemImage}
                                             resizeMode="contain"
                                         />

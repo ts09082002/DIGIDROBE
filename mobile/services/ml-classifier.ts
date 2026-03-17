@@ -171,8 +171,13 @@ function labelToSubCategory(label: string, category: string): string {
 export async function classifyClothing(imageUri: string): Promise<ClothingClassification> {
     try {
         const labels = await ImageLabeling.label(imageUri);
-        console.log('[ML Kit] Raw labels from ImageLabeling.label:', JSON.stringify(labels, null, 2));
         const mlLabels = labels.map((l: any) => l.text);
+
+        if (labels.length === 0) {
+            console.log('[ML Kit] No labels returned (native module may need EAS build). Using manual category.');
+        } else {
+            console.log(`[ML Kit] Classified: ${labels.length} labels, top: ${labels[0]?.text} (${(labels[0]?.confidence * 100).toFixed(0)}%)`);
+        }
 
         let bestCategory: string | null = null;
         let bestLabel = '';

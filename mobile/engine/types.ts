@@ -69,15 +69,25 @@ export interface RecommendationContext {
     timeOfDay: TimeOfDay;
 }
 
+export interface OnlineLearningWeights {
+    colorNudges: Record<string, number>;
+    categoryNudges: Record<EngineItemCategory, number>;
+    tagNudges: Record<string, number>;
+    formalityNudge: number;
+    interactionCount: number;
+}
+
 export interface UserStyleProfile {
     preferredColors: Record<string, number>;
     preferredTypes: Record<EngineItemCategory, number>;
     preferredTags: Record<string, number>;
     /** 0 casual – 1 formal. */
     preferredFormality: number;
+    /** Online learning nudges from accept/skip interactions. */
+    onlineWeights?: OnlineLearningWeights;
 }
 
-export type UserInteractionType = 'wear' | 'like' | 'favorite' | 'click';
+export type UserInteractionType = 'wear' | 'like' | 'favorite' | 'click' | 'skip';
 
 export interface UserInteractionEvent {
     id: string;
@@ -86,6 +96,11 @@ export interface UserInteractionEvent {
     outfitId?: string;
     itemIds: string[];
     context?: RecommendationContext;
+    /** Denormalized item metadata for profile building (avoids re-resolving IDs). */
+    itemColors?: string[];
+    itemCategories?: EngineItemCategory[];
+    itemTags?: string[];
+    outfitFormality?: number;
 }
 
 export interface WearEvent {
@@ -107,6 +122,7 @@ export interface OutfitScoreBreakdown {
     weatherScore: number;
     userPreferenceScore: number;
     noveltyScore: number;
+    coherenceScore: number;
     totalScore: number;
 }
 

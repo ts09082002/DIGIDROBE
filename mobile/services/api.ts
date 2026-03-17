@@ -183,6 +183,65 @@ class ApiService {
         }
     }
 
+    // Upload a clothing image that was already processed on-device (bg removed, colors extracted)
+    async uploadProcessedClothingImage(
+        processedUri: string,
+        originalUri: string,
+        filename: string,
+        category?: string,
+        mlLabels?: string[],
+        subCategory?: string,
+        colorPalette?: { hex: string; name: string }[],
+    ): Promise<UploadResult> {
+        const formData = new FormData();
+        formData.append('image', {
+            uri: processedUri,
+            type: 'image/png',
+            name: 'processed.png',
+        } as any);
+        formData.append('original', {
+            uri: originalUri,
+            type: 'image/jpeg',
+            name: filename || 'original.jpg',
+        } as any);
+        formData.append('processedOnDevice', 'true');
+        if (category) formData.append('category', category);
+        if (subCategory) formData.append('subCategory', subCategory);
+        if (mlLabels && mlLabels.length > 0) {
+            formData.append('mlLabels', JSON.stringify(mlLabels));
+        }
+        if (colorPalette && colorPalette.length > 0) {
+            formData.append('colorPalette', JSON.stringify(colorPalette));
+        }
+        try {
+            const response = await this.fetch(this.getFullUrl('/api/upload/clothing'), {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                let message = 'Upload failed';
+                try {
+                    const error = await response.json();
+                    message = error.message || message;
+                } catch {
+                    // Keep default message if server didn't return JSON.
+                }
+                throw new Error(message);
+            }
+
+            const result: ApiResponse<UploadResult> = await response.json();
+            return result.data;
+        } catch (error: any) {
+            if (error?.message?.includes('Network request failed')) {
+                throw new Error(
+                    `Cannot reach backend at ${this.baseUrl}. Make sure backend is running and phone/emulator can access this IP.`,
+                );
+            }
+            throw error;
+        }
+    }
+
     // Create wardrobe item from upload result
     async createWardrobeItem(data: Partial<WardrobeItem>): Promise<WardrobeItem> {
         const response = await this.fetch(this.getFullUrl('/api/wardrobe'), {
@@ -209,8 +268,11 @@ class ApiService {
         const query = searchParams.toString();
         const url = this.getFullUrl(`/api/wardrobe${query ? `?${query}` : ''}`);
         const response = await this.fetch(url);
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+        }
         const result: ApiResponse<WardrobeItem[]> = await response.json();
-        return result.data;
+        return result.data ?? [];
     }
 
     // Get single wardrobe item

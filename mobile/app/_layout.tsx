@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '../constants/theme';
 import { ThemeProvider } from '../context/ThemeContext';
+import { DatabaseProvider } from '../db/DatabaseProvider';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
 
@@ -13,7 +14,7 @@ export default function RootLayout() {
     useEffect(() => {
         const progressAnim = Animated.timing(progress, {
             toValue: 1,
-            duration: 1800,
+            duration: 800,
             easing: Easing.inOut(Easing.ease),
             useNativeDriver: false,
         });
@@ -23,10 +24,10 @@ export default function RootLayout() {
         const hideTimer = setTimeout(() => {
             Animated.timing(opacity, {
                 toValue: 0,
-                duration: 280,
+                duration: 250,
                 useNativeDriver: true,
             }).start(() => setShowStartupSplash(false));
-        }, 2000);
+        }, 1000);
 
         return () => {
             clearTimeout(hideTimer);
@@ -40,6 +41,7 @@ export default function RootLayout() {
     });
 
     return (
+        <DatabaseProvider>
         <ThemeProvider>
             <StatusBar style="auto" />
             <View style={styles.root}>
@@ -65,6 +67,7 @@ export default function RootLayout() {
                 )}
             </View>
         </ThemeProvider>
+        </DatabaseProvider>
     );
 }
 

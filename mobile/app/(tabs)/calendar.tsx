@@ -16,7 +16,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
-import { api, OOTD, WardrobeItem } from '../../services/api';
+import { OOTD, WardrobeItem } from '../../services/api';
+import * as wardrobeLocal from '../../services/wardrobe-local';
+import * as ootdLocal from '../../services/ootd-local';
 import { Toast } from '../../components/Toast';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -74,8 +76,8 @@ export default function CalendarScreen() {
             const year = today.getFullYear();
             const month = today.getMonth() + 1;
             const [ootdRes, wardrobeRes] = await Promise.all([
-                api.getOOTDByMonth(year, month),
-                api.getWardrobeItems(),
+                ootdLocal.getOOTDByMonth(year, month),
+                wardrobeLocal.getAllItems(),
             ]);
             setOotds(ootdRes);
             const ready = wardrobeRes.filter(i => i.status === 'done' && i.processedUrl);
@@ -123,7 +125,7 @@ export default function CalendarScreen() {
         if (!selectedDay) return;
         try {
             setSaving(true);
-            await api.saveOOTD(selectedDay, selectedItems, notes);
+            await ootdLocal.saveOOTD(selectedDay, selectedItems, notes);
             setPickerVisible(false);
             await loadData();
             setToastType('success');
@@ -198,7 +200,7 @@ export default function CalendarScreen() {
                                             {previewItems.slice(0, 2).map((item, i) => (
                                                 <Image
                                                     key={i}
-                                                    source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                                    source={{ uri: item.processedUrl }}
                                                     style={[styles.previewImg, { marginTop: i > 0 ? -8 : 0 }]}
                                                 />
                                             ))}
@@ -227,7 +229,7 @@ export default function CalendarScreen() {
                                 {itemsForOOTD(ootdForDay(todayStr)!).map((item, i) => (
                                     <Image
                                         key={i}
-                                        source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                        source={{ uri: item.processedUrl }}
                                         style={styles.todayItemImg}
                                         resizeMode="contain"
                                     />
@@ -255,7 +257,7 @@ export default function CalendarScreen() {
                             statsItems.map(({ item, count }, i) => (
                                 <View key={i} style={[styles.statRow, { borderBottomColor: theme.border }]}>
                                     <Image
-                                        source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                        source={{ uri: item.processedUrl }}
                                         style={styles.statImg}
                                         resizeMode="contain"
                                     />
@@ -346,7 +348,7 @@ export default function CalendarScreen() {
                                         activeOpacity={0.8}
                                     >
                                         <Image
-                                            source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                            source={{ uri: item.processedUrl }}
                                             style={styles.pickerImg}
                                             resizeMode="cover"
                                         />

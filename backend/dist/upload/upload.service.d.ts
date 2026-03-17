@@ -40,5 +40,6 @@ export declare class UploadService {
     private classifyClothing;
     private normalizePreferredCategory;
     private storeMetadata;
+    storeProcessedClothingImage(processedFile: any, originalFile: any | undefined, preferredCategory?: string, preferredSubCategory?: string, mlLabels?: string[], colorPaletteJson?: string): Promise<WardrobeItem>;
     private startBackgroundProcessing;
 }

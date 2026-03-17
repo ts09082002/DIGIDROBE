@@ -5,6 +5,7 @@ import { UploadModule } from './upload/upload.module';
 import { WardrobeModule } from './wardrobe/wardrobe.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { PackingModule } from './packing/packing.module';
+import { SyncModule } from './sync/sync.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PackingModule } from './packing/packing.module';
     WardrobeModule,
     CalendarModule,
     PackingModule,
+    SyncModule,
   ],
 })
 export class AppModule {}

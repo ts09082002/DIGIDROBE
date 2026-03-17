@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -6,11 +6,14 @@ import {
     ScrollView,
     TouchableOpacity,
     Switch,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { isSyncEnabled, setSyncEnabled, getLastSyncTime, performSync } from '../../db/sync';
 
 const MENU_ITEMS = [
     { id: 'edit', icon: 'person-outline', label: 'Edit Profile', chevron: true },
@@ -25,6 +28,45 @@ const MENU_ITEMS = [
 export default function ProfileScreen() {
     const { isDarkMode } = useTheme();
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+    const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
+    const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+    const [syncing, setSyncing] = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            setCloudSyncEnabled(await isSyncEnabled());
+            setLastSyncTime(await getLastSyncTime());
+        })();
+    }, []);
+
+    const handleSyncToggle = useCallback(async (value: boolean) => {
+        setCloudSyncEnabled(value);
+        await setSyncEnabled(value);
+        if (value) {
+            // Trigger initial sync
+            try {
+                setSyncing(true);
+                await performSync();
+                setLastSyncTime(await getLastSyncTime());
+            } catch (e: any) {
+                Alert.alert('Sync failed', e?.message || 'Could not connect to server');
+            } finally {
+                setSyncing(false);
+            }
+        }
+    }, []);
+
+    const handleManualSync = useCallback(async () => {
+        try {
+            setSyncing(true);
+            await performSync();
+            setLastSyncTime(await getLastSyncTime());
+        } catch (e: any) {
+            Alert.alert('Sync failed', e?.message || 'Could not connect to server');
+        } finally {
+            setSyncing(false);
+        }
+    }, []);
 
     const theme = {
         background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
@@ -105,6 +147,62 @@ export default function ProfileScreen() {
                             )}
                         </TouchableOpacity>
                     ))}
+                </View>
+
+                {/* Cloud Sync Section */}
+                <View style={[styles.menuCard, { backgroundColor: theme.card, marginTop: Spacing.md }]}>
+                    <View
+                        style={[
+                            styles.menuItem,
+                            styles.menuItemBorder,
+                            { borderBottomColor: theme.border },
+                        ]}
+                    >
+                        <View style={styles.menuLeft}>
+                            <View style={[styles.menuIcon, { backgroundColor: theme.iconBg }]}>
+                                <Ionicons name="cloud-outline" size={20} color={Colors.gold} />
+                            </View>
+                            <View>
+                                <Text style={[styles.menuLabel, { color: theme.text }]}>Cloud Sync</Text>
+                                <Text style={[styles.syncSubtext, { color: theme.textSecondary }]}>
+                                    Metadata only — images stay on device
+                                </Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={cloudSyncEnabled}
+                            onValueChange={handleSyncToggle}
+                            trackColor={{ false: Colors.lightGray, true: Colors.goldLight }}
+                            thumbColor={cloudSyncEnabled ? Colors.gold : Colors.mediumGray}
+                        />
+                    </View>
+                    {cloudSyncEnabled && (
+                        <TouchableOpacity
+                            style={styles.menuItem}
+                            onPress={handleManualSync}
+                            disabled={syncing}
+                        >
+                            <View style={styles.menuLeft}>
+                                <View style={[styles.menuIcon, { backgroundColor: theme.iconBg }]}>
+                                    {syncing ? (
+                                        <ActivityIndicator size="small" color={Colors.gold} />
+                                    ) : (
+                                        <Ionicons name="sync-outline" size={20} color={Colors.gold} />
+                                    )}
+                                </View>
+                                <View>
+                                    <Text style={[styles.menuLabel, { color: theme.text }]}>
+                                        {syncing ? 'Syncing...' : 'Sync Now'}
+                                    </Text>
+                                    {lastSyncTime && (
+                                        <Text style={[styles.syncSubtext, { color: theme.textSecondary }]}>
+                                            Last synced: {new Date(lastSyncTime).toLocaleString()}
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* Logout Button */}
@@ -245,6 +343,10 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.cream,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    syncSubtext: {
+        fontSize: 12,
+        marginTop: 2,
     },
     menuLabel: {
         fontSize: 15,

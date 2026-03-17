@@ -10,7 +10,7 @@ const NEUTRAL_COLORS = new Set([
     'Charcoal',
 ]);
 
-const COLOR_BUCKETS: Record<string, string> = {
+export const COLOR_BUCKETS: Record<string, string> = {
     Black: 'black',
     White: 'white',
     Grey: 'grey',
@@ -75,7 +75,7 @@ const COMPATIBILITY_MATRIX: Record<Bucket, Partial<Record<Bucket, number>>> = {
     pink: { pink: 0.5, white: 0.7, beige: 0.7, blue: 0.5, red: 0.4 },
 };
 
-function toBucket(colorName: string | undefined): Bucket | null {
+export function toBucket(colorName: string | undefined): Bucket | null {
     if (!colorName) return null;
     const mapped = COLOR_BUCKETS[colorName] ?? COLOR_BUCKETS[colorName.trim()];
     if (mapped && (BUCKETS as readonly string[]).includes(mapped)) {

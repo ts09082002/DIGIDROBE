@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
   BadRequestException,
   Get,
@@ -9,7 +10,7 @@ import {
   Res,
   Body,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -25,42 +26,55 @@ const ALLOWED_TYPES = [
 ];
 const MAX_SIZE = 20 * 1024 * 1024; // 20MB
 
+const clothingStorage = diskStorage({
+  destination: join(__dirname, '..', '..', 'uploads', 'originals'),
+  filename: (_req, file, cb) => {
+    const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
+    cb(null, uniqueName);
+  },
+});
+
+const clothingFileFilter = (_req: any, file: any, cb: any) => {
+  if (!ALLOWED_TYPES.includes(file.mimetype)) {
+    cb(
+      new BadRequestException(
+        'Only JPEG, PNG, WebP, and HEIC images are allowed',
+      ),
+      false,
+    );
+    return;
+  }
+  cb(null, true);
+};
+
 @Controller('api/upload')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) { }
 
   @Post('clothing')
   @UseInterceptors(
-    FileInterceptor('image', {
-      storage: diskStorage({
-        destination: join(__dirname, '..', '..', 'uploads', 'originals'),
-        filename: (_req, file, cb) => {
-          const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
-          cb(null, uniqueName);
-        },
-      }),
-      limits: { fileSize: MAX_SIZE },
-      fileFilter: (_req, file, cb) => {
-        if (!ALLOWED_TYPES.includes(file.mimetype)) {
-          cb(
-            new BadRequestException(
-              'Only JPEG, PNG, WebP, and HEIC images are allowed',
-            ),
-            false,
-          );
-          return;
-        }
-        cb(null, true);
+    FileFieldsInterceptor(
+      [
+        { name: 'image', maxCount: 1 },
+        { name: 'original', maxCount: 1 },
+      ],
+      {
+        storage: clothingStorage,
+        limits: { fileSize: MAX_SIZE },
+        fileFilter: clothingFileFilter,
       },
-    }),
+    ),
   )
   async uploadClothing(
-    @UploadedFile() file: any,
+    @UploadedFiles() files: { image?: any[]; original?: any[] },
     @Body('category') category?: string,
     @Body('subCategory') subCategory?: string,
     @Body('mlLabels') mlLabelsJson?: string,
+    @Body('colorPalette') colorPaletteJson?: string,
+    @Body('processedOnDevice') processedOnDevice?: string,
   ) {
-    if (!file) {
+    const imageFile = files?.image?.[0];
+    if (!imageFile) {
       throw new BadRequestException('No image file provided');
     }
 
@@ -73,8 +87,22 @@ export class UploadController {
       }
     }
 
+    // On-device processed path: mobile already did bg removal + color extraction
+    if (processedOnDevice === 'true') {
+      const result = await this.uploadService.storeProcessedClothingImage(
+        imageFile,
+        files?.original?.[0],
+        category,
+        subCategory,
+        mlLabels,
+        colorPaletteJson,
+      );
+      return { success: true, data: result };
+    }
+
+    // Legacy path: backend processes via AI service
     const result = await this.uploadService.processClothingImage(
-      file,
+      imageFile,
       category,
       subCategory,
       mlLabels,

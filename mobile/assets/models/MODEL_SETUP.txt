@@ -1,0 +1,8 @@
+Place the U2Net-Lite TFLite model file here as "u2net_lite.tflite".
+
+Download a quantized U2Net-Lite model (~4.7MB) converted to TFLite format.
+The model should accept 320x320 RGB input and output a 320x320 segmentation mask.
+
+Sources:
+- Convert from ONNX: https://github.com/danielgatis/rembg (u2netp model)
+- Pre-converted TFLite models: search "u2net tflite" on HuggingFace or GitHub

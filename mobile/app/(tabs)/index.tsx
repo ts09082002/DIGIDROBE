@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useRouter } from 'expo-router';
 import { api, WardrobeItem } from '../../services/api';
+import * as wardrobeLocal from '../../services/wardrobe-local';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -76,7 +77,7 @@ export default function HomeScreen() {
         try {
             setLoading(true);
             const category = CATEGORY_MAP[activeCategory] || undefined;
-            const data = await api.getWardrobeItems(category ? { category } : undefined);
+            const data = await wardrobeLocal.getAllItems(category ? { category } : undefined);
             setItems(data || []);
         } catch (e) {
             console.log('Failed to fetch wardrobe items', e);
@@ -161,7 +162,7 @@ export default function HomeScreen() {
 
     const renderClothingCard = ({ item }: { item: WardrobeItem }) => {
         const imageUrl = item.processedUrl || item.originalUrl;
-        const resolvedUrl = imageUrl ? api.getImageUrl(imageUrl) : null;
+        const resolvedUrl = imageUrl || null;
 
         return (
             <View style={styles.clothingCard}>

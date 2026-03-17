@@ -329,6 +329,62 @@ let UploadService = UploadService_1 = class UploadService {
         items.push(data);
         fs.writeFileSync(itemsFile, JSON.stringify(items, null, 2));
     }
+    async storeProcessedClothingImage(processedFile, originalFile, preferredCategory, preferredSubCategory, mlLabels, colorPaletteJson) {
+        const id = (0, uuid_1.v4)();
+        this.logger.log(`Storing on-device processed image: ${processedFile.originalname} (${processedFile.size} bytes)`);
+        let originalUrl = '';
+        if (originalFile) {
+            const originalsDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'originals');
+            if (!fs.existsSync(originalsDir)) {
+                fs.mkdirSync(originalsDir, { recursive: true });
+            }
+            const originalFilename = originalFile.filename || `${id}_orig${(0, path_1.extname)(originalFile.originalname)}`;
+            const originalPath = (0, path_1.join)(originalsDir, originalFilename);
+            if (!fs.existsSync(originalPath) && originalFile.path && fs.existsSync(originalFile.path)) {
+                fs.copyFileSync(originalFile.path, originalPath);
+            }
+            originalUrl = `/uploads/originals/${originalFilename}`;
+        }
+        const processedDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'processed');
+        if (!fs.existsSync(processedDir)) {
+            fs.mkdirSync(processedDir, { recursive: true });
+        }
+        const processedFilename = `${id}_clean.png`;
+        const processedPath = (0, path_1.join)(processedDir, processedFilename);
+        fs.copyFileSync(processedFile.path, processedPath);
+        const category = this.normalizePreferredCategory(preferredCategory) || 'unclassified';
+        const size = fs.statSync(processedPath).size;
+        const wardrobeItem = await this.wardrobeService.create({
+            id,
+            originalFilename: originalFile?.originalname || processedFile.originalname,
+            originalUrl,
+            processedUrl: `/uploads/processed/${processedFilename}`,
+            category,
+            subCategory: preferredSubCategory,
+            name: this.buildDefaultName(category),
+            brand: '',
+            isFavorite: false,
+            mlLabels,
+            colorPalette: colorPaletteJson,
+            mimeType: 'image/png',
+            size,
+            createdAt: new Date().toISOString(),
+            status: 'done',
+        });
+        this.logger.log(`On-device processed item stored: ${wardrobeItem.id} (category: ${category})`);
+        try {
+            if (processedFile.path && fs.existsSync(processedFile.path)) {
+                fs.unlinkSync(processedFile.path);
+            }
+            if (originalFile?.path && fs.existsSync(originalFile.path)) {
+                fs.unlinkSync(originalFile.path);
+            }
+        }
+        catch (err) {
+            this.logger.warn(`Failed to clean up temp files: ${err.message}`);
+        }
+        return wardrobeItem;
+    }
     async startBackgroundProcessing(file, wardrobeItemId, preferredCategory, mobileMlLabels) {
         try {
             const processedDir = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'processed');

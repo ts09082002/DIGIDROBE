@@ -21,11 +21,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { api, BodyPhotoUploadResult, StyleProfilePayload, StylistSuggestion, TryOnPreviewResult, WardrobeItem } from '../../services/api';
-import { SavedLook, getSavedLooks, saveLook } from '../../storage/savedLooks';
+import * as wardrobeLocal from '../../services/wardrobe-local';
+import { SavedLook, getSavedLooks, saveLook } from '../../services/saved-looks-local';
 import { normalizeCategory } from '../../constants/categories';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateStyleOfDayForWardrobe } from '../../engine';
-import { RecommendationContext, StyleOfTheDayResult } from '../../engine/types';
+import { EngineWardrobeItem, RecommendationContext, StyleOfTheDayResult, UserInteractionEvent } from '../../engine/types';
+import { appendUserEvent, invalidateProfileCache, loadOnlineWeights, saveOnlineWeights } from '../../engine/storage';
+import { applyOnlineUpdate } from '../../engine/personalization';
 
 const TABS = ['My Looks', 'AI Stylist'];
 
@@ -283,7 +286,7 @@ export default function OutfitsScreen() {
             setLooksLoading(true);
             const [looks, allItems] = await Promise.all([
                 getSavedLooks(),
-                api.getWardrobeItems({ category: 'all' }),
+                wardrobeLocal.getAllItems(),
             ]);
             setSavedLooks(looks);
             setWardrobeItems(
@@ -300,7 +303,40 @@ export default function OutfitsScreen() {
         }
     };
 
+    const recordOutfitInteraction = async (
+        result: StyleOfTheDayResult | null,
+        type: 'wear' | 'skip',
+    ) => {
+        if (!result) return;
+        try {
+            const items = result.outfit.items as EngineWardrobeItem[];
+            const event: UserInteractionEvent = {
+                id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                type,
+                date: new Date().toISOString(),
+                outfitId: result.outfit.id,
+                itemIds: items.map(i => i.id),
+                itemColors: items.map(i => i.primaryColor),
+                itemCategories: items.map(i => i.category),
+                itemTags: items.flatMap(i => i.styleTags),
+                outfitFormality: items.length > 0
+                    ? items.reduce((s, i) => s + i.formality, 0) / items.length
+                    : 0.5,
+            };
+            await appendUserEvent(event);
+            await invalidateProfileCache();
+
+            const weights = await loadOnlineWeights();
+            const updated = applyOnlineUpdate(weights, items, type !== 'skip');
+            await saveOnlineWeights(updated);
+        } catch (e) {
+            console.warn('Failed to record outfit interaction:', e);
+        }
+    };
+
     const regenerateSuggestion = async () => {
+        // Record skip before regenerating
+        await recordOutfitInteraction(styleOfDay, 'skip');
         setManuallySwappedItems({});
         const topId = styleOfDayItems.find(it => normalizeCategory(it.category) === 'topwear')?.id;
         await generateOfflineStyleOfDay(wardrobeItems, undefined, topId ? [topId] : []);
@@ -437,6 +473,8 @@ export default function OutfitsScreen() {
         if (!suggestedOutfit.length || savingLook) return;
         try {
             setSavingLook(true);
+            // Record wear interaction for personalization
+            await recordOutfitInteraction(styleOfDay, 'wear');
             const now = new Date();
             const look: SavedLook = {
                 id: `${now.getTime()}`,
@@ -774,7 +812,7 @@ export default function OutfitsScreen() {
                                             {suggestedOutfit.map((item, i) => (
                                                 <View key={item.id} style={styles.swapItemCard}>
                                                     <Image
-                                                        source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                                        source={{ uri: item.processedUrl }}
                                                         style={styles.swapItemImg}
                                                         resizeMode="contain"
                                                     />
@@ -846,7 +884,7 @@ export default function OutfitsScreen() {
                                                 {look.items.map((item) => (
                                                     <View key={item.id} style={styles.generatedLookItem}>
                                                         <Image
-                                                            source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                                            source={{ uri: item.processedUrl }}
                                                             style={styles.generatedLookImage}
                                                             resizeMode="contain"
                                                         />
@@ -950,7 +988,7 @@ export default function OutfitsScreen() {
                                                 {primaryThumb && (
                                                     <View style={styles.lookThumbRow}>
                                                         <Image
-                                                            source={{ uri: api.getImageUrl(primaryThumb.processedUrl) }}
+                                                            source={{ uri: primaryThumb.processedUrl }}
                                                             style={styles.lookThumb}
                                                             resizeMode="contain"
                                                         />
@@ -992,7 +1030,7 @@ export default function OutfitsScreen() {
                                                                     {topItems.map((wItem) => (
                                                                         <Image
                                                                             key={wItem.id}
-                                                                            source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                            source={{ uri: wItem.processedUrl }}
                                                                             style={styles.lookPieceImg}
                                                                             resizeMode="contain"
                                                                         />
@@ -1007,7 +1045,7 @@ export default function OutfitsScreen() {
                                                                     {bottomItems.map((wItem) => (
                                                                         <Image
                                                                             key={wItem.id}
-                                                                            source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                            source={{ uri: wItem.processedUrl }}
                                                                             style={styles.lookPieceImg}
                                                                             resizeMode="contain"
                                                                         />
@@ -1022,7 +1060,7 @@ export default function OutfitsScreen() {
                                                                     {footwearItems.map((wItem) => (
                                                                         <Image
                                                                             key={wItem.id}
-                                                                            source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                            source={{ uri: wItem.processedUrl }}
                                                                             style={styles.lookPieceImg}
                                                                             resizeMode="contain"
                                                                         />
@@ -1037,7 +1075,7 @@ export default function OutfitsScreen() {
                                                                     {accessoryItems.map((wItem) => (
                                                                         <Image
                                                                             key={wItem.id}
-                                                                            source={{ uri: api.getImageUrl(wItem.processedUrl) }}
+                                                                            source={{ uri: wItem.processedUrl }}
                                                                             style={styles.lookPieceImg}
                                                                             resizeMode="contain"
                                                                         />
@@ -1148,7 +1186,7 @@ export default function OutfitsScreen() {
                                     onPress={() => handleSelectManualItem(item)}
                                 >
                                     <Image
-                                        source={{ uri: api.getImageUrl(item.processedUrl) }}
+                                        source={{ uri: item.processedUrl }}
                                         style={styles.selectorImg}
                                         resizeMode="contain"
                                     />
