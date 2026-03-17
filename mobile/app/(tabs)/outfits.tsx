@@ -16,7 +16,7 @@ import {
     Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -27,9 +27,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { generateStyleOfDayForWardrobe } from '../../engine';
 import { RecommendationContext, StyleOfTheDayResult } from '../../engine/types';
 import { useAuth } from '../../context/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import MannequinAvatar from '../../components/MannequinAvatar';
-import AvatarCreator from '../../components/AvatarCreator';
+
 
 const TABS = ['My Looks', 'AI Stylist'];
 
@@ -257,9 +255,6 @@ export default function OutfitsScreen() {
     const [manuallySwappedItems, setManuallySwappedItems] = useState<Record<string, WardrobeItem>>({});
     const [selectorModalVisible, setSelectorModalVisible] = useState(false);
     const [swappingCategory, setSwappingCategory] = useState<string | null>(null);
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-    const [avatarCreatorVisible, setAvatarCreatorVisible] = useState(false);
-
     const [styleContext, setStyleContext] = useState<RecommendationContext>({
         temperatureC: 24,
         weather: 'sunny',
@@ -270,14 +265,14 @@ export default function OutfitsScreen() {
     const insets = useSafeAreaInsets();
 
     const theme = {
-        background: isDarkMode ? '#1A1410' : '#F8F9FA',
-        card: isDarkMode ? '#2A2018' : Colors.white,
+        background: isDarkMode ? '#000000' : '#F8F9FA',
+        card: isDarkMode ? '#0D0D0D' : Colors.white,
         text: isDarkMode ? '#FFFFFF' : Colors.charcoal,
         textSecondary: isDarkMode ? '#A09080' : Colors.darkGray,
-        iconBtnBg: isDarkMode ? '#332A1E' : Colors.white,
-        tabBg: isDarkMode ? '#332A1E' : Colors.lightGray,
-        border: isDarkMode ? '#332A1E' : Colors.lightGray,
-        gold: '#D4A843',
+        iconBtnBg: isDarkMode ? '#1A1A1A' : Colors.white,
+        tabBg: isDarkMode ? '#1A1A1A' : Colors.lightGray,
+        border: isDarkMode ? '#1A1A1A' : Colors.lightGray,
+        gold: '#5DADE2',
     };
 
     const loadData = async (silent = false) => {
@@ -345,18 +340,6 @@ export default function OutfitsScreen() {
             loadLooks();
         }
     }, [authLoading, user]);
-
-    // Load saved avatar URL from AsyncStorage
-    useEffect(() => {
-        AsyncStorage.getItem('rpm_avatar_url').then((url) => {
-            if (url) setAvatarUrl(url);
-        });
-    }, []);
-
-    const handleAvatarCreated = async (url: string) => {
-        setAvatarUrl(url);
-        await AsyncStorage.setItem('rpm_avatar_url', url);
-    };
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -540,23 +523,6 @@ export default function OutfitsScreen() {
                         )}
                     </View>
 
-                    {/* Create 3D Avatar button */}
-                    {styleProfile.gender && (
-                        <TouchableOpacity
-                            style={styles.createAvatarBtn}
-                            onPress={() => setAvatarCreatorVisible(true)}
-                        >
-                            <Ionicons name="color-palette-outline" size={18} color="#1A1410" />
-                            <Text style={styles.createAvatarBtnText}>
-                                {avatarUrl ? 'Edit Your Avatar' : 'Customize Avatar (Optional)'}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-                    <Text style={styles.avatarCreatedHint}>
-                        {avatarUrl
-                            ? '✓ Custom avatar set — visible in your outfit view'
-                            : 'A default avatar will be used to show your outfits'}
-                    </Text>
                 </>
             );
         }
@@ -697,7 +663,6 @@ export default function OutfitsScreen() {
     };
 
     return (
-        <>
         <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
             <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
 
@@ -805,21 +770,6 @@ export default function OutfitsScreen() {
                                         );
                                     })}
                                 </ScrollView>
-
-                                {/* Mannequin Avatar with clothing overlays */}
-                                {styleProfile.gender && (
-                                    <MannequinAvatar
-                                        gender={styleProfile.gender}
-                                        topItem={layeredOutfitItems.top}
-                                        bottomItem={layeredOutfitItems.bottom}
-                                        footwearItem={layeredOutfitItems.footwear}
-                                        outerwearItem={layeredOutfitItems.outerwear}
-                                        occasion={styleContext.occasion}
-                                        isDarkMode={isDarkMode}
-                                        avatarUrl={avatarUrl}
-                                        onCreateAvatar={() => setAvatarCreatorVisible(true)}
-                                    />
-                                )}
 
                                 {suggestedOutfit.length === 0 ? (
                                     <View style={styles.emptySuggestion}>
@@ -1180,73 +1130,7 @@ export default function OutfitsScreen() {
                 </ScrollView>
             )}
 
-            <Modal
-                visible={quizVisible}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={closeQuiz}
-            >
-                <View style={styles.quizModalScreen}>
-                    <View style={styles.quizModalHeader}>
-                        <TouchableOpacity style={styles.quizCloseBtn} onPress={closeQuiz}>
-                            <Ionicons name="close" size={28} color={Colors.charcoal} />
-                        </TouchableOpacity>
-                        <Text style={styles.quizModalTitle}>Style Quiz</Text>
-                        <View style={styles.quizCloseBtnSpacer} />
-                    </View>
 
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.quizModalContent}>
-                        <View style={styles.quizIntroRow}>
-                            <View>
-                                <Text style={styles.quizStepEyebrow}>STEP {String(profileStep).padStart(2, '0')}</Text>
-                                <Text style={styles.quizIntroTitle}>Your Style Profile</Text>
-                            </View>
-                            <Text style={styles.quizIntroCount}>{profileStep}/6</Text>
-                        </View>
-
-                        <View style={styles.quizProgressTrack}>
-                            <View style={[styles.quizProgressFill, { width: `${(profileStep / 6) * 100}%` }]} />
-                        </View>
-
-                        {renderQuizStepContent()}
-
-                        <View style={styles.quizBottomActions}>
-                            {profileStep > 1 ? (
-                                <TouchableOpacity style={styles.quizSecondaryBtn} onPress={previousProfileStep}>
-                                    <Text style={styles.quizSecondaryBtnText}>Back</Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <View />
-                            )}
-
-                            {profileStep < 6 ? (
-                                <TouchableOpacity
-                                    style={[styles.quizPrimaryBtn, !isCurrentStepReady && styles.profileNavBtnDisabled]}
-                                    onPress={nextProfileStep}
-                                    disabled={!isCurrentStepReady}
-                                >
-                                    <Text style={styles.quizPrimaryBtnText}>Next Step</Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <TouchableOpacity
-                                    style={[styles.quizPrimaryBtn, !isCurrentStepReady && styles.profileNavBtnDisabled]}
-                                    onPress={async () => {
-                                        await regenerateSuggestion();
-                                        closeQuiz();
-                                    }}
-                                    disabled={!isCurrentStepReady || suggestionLoading}
-                                >
-                                    {suggestionLoading ? (
-                                        <ActivityIndicator size="small" color={Colors.white} />
-                                    ) : (
-                                        <Text style={styles.quizPrimaryBtnText}>Show Outfits</Text>
-                                    )}
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    </ScrollView>
-                </View>
-            </Modal>
 
             <Modal visible={selectorModalVisible} animationType="slide" transparent={false}>
                 <SafeAreaView style={[styles.selectorModal, { backgroundColor: theme.background }]}>
@@ -1287,15 +1171,6 @@ export default function OutfitsScreen() {
                 </SafeAreaView>
             </Modal>
         </SafeAreaView>
-
-            {/* Ready Player Me Avatar Creator Modal */}
-            <AvatarCreator
-                visible={avatarCreatorVisible}
-                onClose={() => setAvatarCreatorVisible(false)}
-                onAvatarCreated={handleAvatarCreated}
-                gender={styleProfile.gender ?? undefined}
-            />
-        </>
     );
 }
 
@@ -1516,28 +1391,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
-        marginBottom: Spacing.lg,
-    },
-    createAvatarBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        backgroundColor: '#D4A843',
-        paddingVertical: 14,
-        borderRadius: BorderRadius.lg,
-        marginBottom: 8,
-    },
-    createAvatarBtnText: {
-        color: '#1A1410',
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    avatarCreatedHint: {
-        color: '#4ECDC4',
-        fontSize: 12,
-        fontWeight: '600',
-        textAlign: 'center',
         marginBottom: Spacing.lg,
     },
     quizChoiceCard: {

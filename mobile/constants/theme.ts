@@ -7,18 +7,18 @@ import { Platform } from 'react-native';
  */
 
 export const Colors = {
-    // Primary
-    gold: '#C9A84C',
-    goldLight: '#E8D5A0',
-    goldDark: '#A88B3C',
-    amber: '#F5A623',
-    amberLight: '#FFD580',
+    // Primary — Sky Blue palette
+    gold: '#5DADE2',          // was gold, now sky blue primary
+    goldLight: '#AED6F1',     // was goldLight, now light sky blue
+    goldDark: '#2E86C1',      // was goldDark, now deeper sky blue
+    amber: '#5DADE2',         // unified to sky blue
+    amberLight: '#AED6F1',
 
     // Neutrals
     white: '#FFFFFF',
-    cream: '#F5F0E8',
-    warmGray: '#F8F6F3',
-    lightGray: '#EDEDED',
+    cream: '#EBF5FB',         // sky-tinted cream
+    warmGray: '#F4F9FD',      // sky-tinted warm gray
+    lightGray: '#E3F0F9',     // sky-tinted light gray
     mediumGray: '#B0B0B0',
     darkGray: '#6B6B6B',
     charcoal: '#333333',
@@ -33,12 +33,12 @@ export const Colors = {
 
     // Card backgrounds
     cardBg: '#FFFFFF',
-    cardBgAlt: '#FAF8F5',
+    cardBgAlt: '#F0F7FC',
     overlayBg: 'rgba(0,0,0,0.5)',
 
     // Category colors
-    categoryActive: '#FFF3D6',
-    categoryBorder: '#C9A84C',
+    categoryActive: '#D6EAF8',   // light sky blue
+    categoryBorder: '#5DADE2',   // sky blue
 };
 
 export const Typography = {

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Digidrobe",
-    "slug": "digidrobe",
+    "name": "Wardora",
+    "slug": "wardora",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "digidrobe",
+    "scheme": "wardora",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "updates": {
@@ -42,8 +42,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Digidrobe needs access to your photos to upload clothing items.",
-          "cameraPermission": "Digidrobe needs camera access to photograph clothing items."
+          "photosPermission": "Wardora needs access to your photos to upload clothing items.",
+          "cameraPermission": "Wardora needs camera access to photograph clothing items."
         }
       ],
       "expo-web-browser"

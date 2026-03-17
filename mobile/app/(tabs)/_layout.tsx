@@ -21,7 +21,7 @@ export default function TabLayout() {
     const themeColors = {
         background: isDark ? '#1A1A1A' : '#FFFFFF',
         border: isDark ? '#333333' : '#F0F0F0',
-        activeTint: '#F2A900',
+        activeTint: '#5DADE2',
         inactiveTint: isDark ? '#888888' : '#A0A0A0',
     };
 

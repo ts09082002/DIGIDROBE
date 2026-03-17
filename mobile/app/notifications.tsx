@@ -143,10 +143,10 @@ export default function NotificationsScreen() {
     };
 
     const { isDarkMode } = useTheme();
-    const bg = isDarkMode ? '#1A1410' : '#FEFCF9';
-    const cardBg = isDarkMode ? '#2A2018' : '#FFFFFF';
-    const surfaceBg = isDarkMode ? '#332A1E' : '#F5F5F3';
-    const gold = isDarkMode ? '#D4A843' : '#D4A843';
+    const bg = isDarkMode ? '#000000' : '#FEFCF9';
+    const cardBg = isDarkMode ? '#0D0D0D' : '#FFFFFF';
+    const surfaceBg = isDarkMode ? '#1A1A1A' : '#F5F5F3';
+    const gold = isDarkMode ? '#5DADE2' : '#5DADE2';
     const textPrimary = isDarkMode ? '#FFFFFF' : '#1A1A1A';
     const textSecondary = isDarkMode ? '#A09080' : '#666666';
 
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     },
     cardNew: {
         borderWidth: 1,
-        borderColor: '#D4A843',
+        borderColor: '#5DADE2',
     },
     cardHeader: {
         flexDirection: 'row',
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: '#D4A843',
+        backgroundColor: '#5DADE2',
     },
     emptyState: {
         marginTop: Spacing.xxl,

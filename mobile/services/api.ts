@@ -369,7 +369,10 @@ class ApiService {
             const response = await this.fetch(this.getFullUrl(`/api/calendar?month=${monthStr}`));
             if (!response.ok) throw new Error('Failed to fetch OOTD');
             const result = await response.json();
-            return (result?.data || []) as OOTD[];
+            return (result?.data || []).map((o: any) => ({
+                ...o,
+                itemIds: o.outfitItems || o.itemIds || [],
+            })) as OOTD[];
         } catch (error) {
             console.error('Error fetching calendar:', error);
             return [];
@@ -393,11 +396,15 @@ class ApiService {
             const response = await this.fetch(`${this.baseUrl}/api/calendar`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date, itemIds, notes }),
+                body: JSON.stringify({ date, items: itemIds, notes }),
             });
             if (!response.ok) throw new Error('Failed to save OOTD');
             const result = await response.json();
-            return result.data as OOTD;
+            const o = result.data;
+            return {
+                ...o,
+                itemIds: o.outfitItems || o.itemIds || [],
+            } as OOTD;
         } catch (error) {
             console.error('Error saving OOTD:', error);
             throw error;

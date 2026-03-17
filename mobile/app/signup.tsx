@@ -26,11 +26,11 @@ export default function SignupScreen() {
     const [isLoading, setIsLoading] = useState(false);
 
     const theme = {
-        background: isDarkMode ? '#1A1410' : '#F8F9FA',
-        card: isDarkMode ? '#2A2018' : Colors.white,
+        background: isDarkMode ? '#000000' : '#F8F9FA',
+        card: isDarkMode ? '#0D0D0D' : Colors.white,
         text: isDarkMode ? '#FFFFFF' : Colors.charcoal,
         textSecondary: isDarkMode ? '#A09080' : Colors.darkGray,
-        inputBg: isDarkMode ? '#332A1E' : '#F5F5F5',
+        inputBg: isDarkMode ? '#1A1A1A' : '#F5F5F5',
         border: isDarkMode ? '#3A2E22' : Colors.lightGray,
     };
 
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     avatarPlaceholder: {
-        backgroundColor: '#D4A843',
+        backgroundColor: '#5DADE2',
         width: 100,
         height: 100,
         borderRadius: 50,
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     /* Buttons */
     primaryButton: {
         flexDirection: 'row',
-        backgroundColor: '#D4A843',
+        backgroundColor: '#5DADE2',
         height: 54,
         borderRadius: BorderRadius.lg,
         justifyContent: 'center',
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     footerLink: {
         fontSize: 15,
         fontWeight: '700',
-        color: '#D4A843',
+        color: '#5DADE2',
     },
     /* Legal */
     legalText: {

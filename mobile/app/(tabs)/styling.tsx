@@ -29,10 +29,10 @@ const SKIN_TONES = ['#F5D6C3', '#E8C4A8', '#D4A574', '#B8865A', '#8B6542', '#5C3
 
 export default function StylingScreen() {
     const { isDarkMode } = useTheme();
-    const bg = isDarkMode ? '#1A1410' : '#FEFCF9';
-    const cardBg = isDarkMode ? '#2A2018' : Colors.white;
-    const surfaceBg = isDarkMode ? '#332A1E' : '#F5F5F3';
-    const gold = '#D4A843';
+    const bg = isDarkMode ? '#000000' : '#FEFCF9';
+    const cardBg = isDarkMode ? '#0D0D0D' : Colors.white;
+    const surfaceBg = isDarkMode ? '#1A1A1A' : '#F5F5F3';
+    const gold = '#5DADE2';
     const textPrimary = isDarkMode ? '#FFFFFF' : Colors.charcoal;
     const textSecondary = isDarkMode ? '#A09080' : Colors.darkGray;
 
@@ -55,7 +55,7 @@ export default function StylingScreen() {
 
             {/* Avatar Area */}
             <View style={styles.avatarContainer}>
-                <View style={[styles.avatarPlaceholder, { backgroundColor: isDarkMode ? '#2A2018' : '#3A3A4E' }]}>
+                <View style={[styles.avatarPlaceholder, { backgroundColor: isDarkMode ? '#0D0D0D' : '#3A3A4E' }]}>
                     {/* Placeholder for 3D avatar */}
                     <View style={styles.avatarBody}>
                         <View style={[styles.avatarHead, { backgroundColor: selectedSkinTone }]} />
@@ -147,7 +147,7 @@ export default function StylingScreen() {
                         ]}
                         onPress={() => setSelectedItem(item.id)}
                     >
-                        <View style={[styles.itemImage, { backgroundColor: isDarkMode ? '#332A1E' : item.color }]}>
+                        <View style={[styles.itemImage, { backgroundColor: isDarkMode ? '#1A1A1A' : item.color }]}>
                             <Ionicons name="shirt-outline" size={40} color={isDarkMode ? gold : Colors.darkGray} />
                             {selectedItem === item.id && (
                                 <View style={styles.checkmark}>

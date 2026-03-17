@@ -80,14 +80,14 @@ export default function ProfileScreen() {
     };
 
     const theme = {
-        background: isDarkMode ? '#1A1410' : '#FEFCF9', // Creamy white
-        card: isDarkMode ? '#2A2018' : Colors.white,
+        background: isDarkMode ? '#000000' : '#FEFCF9', // Creamy white
+        card: isDarkMode ? '#0D0D0D' : Colors.white,
         textPrimary: isDarkMode ? '#FFFFFF' : '#1C2B39', // Navy-ish dark blue
         textSecondary: isDarkMode ? '#A09080' : '#6B7A8B',
-        textGold: isDarkMode ? '#EAD699' : '#D4A843',
-        pillBg: isDarkMode ? '#332A1E' : '#FAF6ED',
+        textGold: isDarkMode ? '#AED6F1' : '#5DADE2',
+        pillBg: isDarkMode ? '#1A1A1A' : '#EBF5FB',
         divider: isDarkMode ? '#3A2E22' : '#EAE8E3',
-        inputBg: isDarkMode ? '#332A1E' : '#F9F9F9',
+        inputBg: isDarkMode ? '#1A1A1A' : '#F9F9F9',
     };
 
     const handleUpdateName = async () => {
@@ -212,7 +212,7 @@ export default function ProfileScreen() {
                                     <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
                                 ) : (
                                     <View style={[styles.avatarImage, { backgroundColor: '#F0D4A0', justifyContent: 'center', alignItems: 'center' }]}>
-                                        <Ionicons name="person" size={50} color="#D4A843" />
+                                        <Ionicons name="person" size={50} color="#5DADE2" />
                                     </View>
                                 )}
                             </View>
@@ -222,7 +222,7 @@ export default function ProfileScreen() {
                         </View>
                         {isUpdating && (
                             <View style={styles.avatarLoader}>
-                                <ActivityIndicator color="#D4A843" />
+                                <ActivityIndicator color="#5DADE2" />
                             </View>
                         )}
                     </TouchableOpacity>
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
         width: 130,
         height: 130,
         borderRadius: 65,
-        backgroundColor: 'rgba(212, 168, 67, 0.15)',
+        backgroundColor: 'rgba(93, 173, 226, 0.15)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 0,
         right: 0,
-        backgroundColor: '#D4A843',
+        backgroundColor: '#5DADE2',
         width: 32,
         height: 32,
         borderRadius: 16,

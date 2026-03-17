@@ -19,11 +19,11 @@ export default function LoginScreen() {
     const [isLoading, setIsLoading] = useState(false);
 
     const theme = {
-        background: isDarkMode ? '#1A1410' : '#F8F9FA',
-        card: isDarkMode ? '#2A2018' : Colors.white,
+        background: isDarkMode ? '#000000' : '#F8F9FA',
+        card: isDarkMode ? '#0D0D0D' : Colors.white,
         text: isDarkMode ? '#FFFFFF' : Colors.charcoal,
         textSecondary: isDarkMode ? '#A09080' : Colors.darkGray,
-        inputBg: isDarkMode ? '#332A1E' : '#F5F5F5',
+        inputBg: isDarkMode ? '#1A1A1A' : '#F5F5F5',
         border: isDarkMode ? '#3A2E22' : Colors.lightGray,
     };
 
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     },
     forgotPassword: {
         fontSize: 12,
-        color: '#D4A843',
+        color: '#5DADE2',
         fontWeight: '600',
     },
     inputContainer: {
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     },
     /* Buttons */
     primaryButton: {
-        backgroundColor: '#D4A843',
+        backgroundColor: '#5DADE2',
         height: 50,
         borderRadius: BorderRadius.lg,
         justifyContent: 'center',
@@ -272,6 +272,6 @@ const styles = StyleSheet.create({
     footerLink: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#D4A843',
+        color: '#5DADE2',
     },
 });
