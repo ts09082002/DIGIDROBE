@@ -25,7 +25,9 @@
       "Bash(head -50 /c/Users/hp/digidrobe/DIGIDROBE/mobile/app/\\\\\\(tabs\\\\\\)/outfits.tsx)",
       "Bash(node -e \"console.log\\(require\\(''@nozbe/watermelondb/package.json''\\).version\\)\")",
       "Bash(node --print \"require.resolve\\(''react-native-worklets/package.json''\\)\")",
-      "Bash(node -e \"const pkg = require\\(''react-native-reanimated/package.json''\\); console.log\\(''version:'', pkg.version\\); console.log\\(''deps:'', JSON.stringify\\(pkg.dependencies, null, 2\\)\\); console.log\\(''peerDeps:'', JSON.stringify\\(pkg.peerDependencies, null, 2\\)\\)\")"
+      "Bash(node -e \"const pkg = require\\(''react-native-reanimated/package.json''\\); console.log\\(''version:'', pkg.version\\); console.log\\(''deps:'', JSON.stringify\\(pkg.dependencies, null, 2\\)\\); console.log\\(''peerDeps:'', JSON.stringify\\(pkg.peerDependencies, null, 2\\)\\)\")",
+      "Bash(find C:/Users/hp/digidrobe/DIGIDROBE/ai-service -type f \\\\\\(-name *.md -o -name *.txt -o -name Dockerfile* -o -name *.py \\\\\\))",
+      "Bash(grep -r \"localhost:8000\\\\|127.0.0.1:8000\\\\|AI_SERVICE\\\\|ai-service\\\\|ai_service\" C:/Users/hp/digidrobe/DIGIDROBE --include=*.ts --include=*.js --include=*.md --include=*.yml --include=*.yaml --include=*.env)"
     ]
   }
 }
