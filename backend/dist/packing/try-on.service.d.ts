@@ -1,4 +1,5 @@
 import { WardrobeItem, WardrobeService } from '../wardrobe/wardrobe.service';
+import { type BodyPose } from '../utils/pose';
 import { PackingService, StyleProfileRequest } from './packing.service';
 type NormalizedBox = {
     left: number;
@@ -19,6 +20,7 @@ export interface TryOnPreviewResult {
     outfitItems: WardrobeItem[];
     suggestedOutfit: WardrobeItem[];
     bodyBox?: NormalizedBox;
+    pose?: BodyPose;
     note: string;
     mode: 'local-compose';
 }
@@ -37,6 +39,8 @@ export declare class TryOnService {
     private blurAndSoftenRegion;
     private eraseAndNeutralizeRegion;
     private buildGarmentPlacements;
+    private buildPoseAwareLayout;
+    private cropOverlayToBounds;
     private prepareGarmentOverlay;
     private groupOutfitItems;
     private toPixels;

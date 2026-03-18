@@ -44,7 +44,7 @@ const SUGGESTIONS_MAX = 120;
 const TARGET_WIDTH = 800;
 const TARGET_ASPECT_RATIO = 4 / 5;
 
-const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Outerwear', 'Footwear', 'Bags', 'Accessories'];
+const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Dresses', 'Outerwear', 'Footwear', 'Bags', 'Accessories'];
 
 type SuggestionItem = {
     id: string;

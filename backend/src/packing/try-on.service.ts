@@ -9,6 +9,7 @@ import { join, normalize } from 'path';
 import sharp from 'sharp';
 import { v4 as uuid } from 'uuid';
 import { WardrobeItem, WardrobeService } from '../wardrobe/wardrobe.service';
+import { inferBodyPoseFromAlphaPng, type BodyPose } from '../utils/pose';
 import {
   buildLookNote,
   categorize,
@@ -44,6 +45,7 @@ export interface TryOnPreviewResult {
   outfitItems: WardrobeItem[];
   suggestedOutfit: WardrobeItem[];
   bodyBox?: NormalizedBox;
+  pose?: BodyPose;
   note: string;
   mode: 'local-compose';
 }
@@ -106,7 +108,13 @@ export class TryOnService {
 
     const bodyBuffer = fs.readFileSync(bodyPhotoPath);
     const bodyBox = await this.extractBodyBox(bodyBuffer);
-    const previewBuffer = await this.composePreview(bodyBuffer, bodyBox, outfitItems);
+    let pose: BodyPose | undefined;
+    try {
+      pose = await inferBodyPoseFromAlphaPng(bodyBuffer, bodyBox);
+    } catch (e: any) {
+      this.logger.warn(`Pose inference failed: ${e?.message || e}`);
+    }
+    const previewBuffer = await this.composePreview(bodyBuffer, bodyBox, pose, outfitItems);
 
     const filename = `${uuid()}_preview.png`;
     const outputPath = join(this.generatedDir, filename);
@@ -118,6 +126,7 @@ export class TryOnService {
       outfitItems,
       suggestedOutfit,
       bodyBox,
+      pose,
       note: `${buildLookNote(request.profile)} | server-composed preview`,
       mode: 'local-compose',
     };
@@ -208,6 +217,7 @@ export class TryOnService {
   private async composePreview(
     bodyBuffer: Buffer,
     bodyBox: NormalizedBox | undefined,
+    pose: BodyPose | undefined,
     outfitItems: WardrobeItem[],
   ): Promise<Buffer> {
     const bodyMeta = await sharp(bodyBuffer).metadata();
@@ -234,6 +244,7 @@ export class TryOnService {
 
     const placements = await this.buildGarmentPlacements(
       normalizedBox,
+      pose,
       width,
       height,
       outfitItems,
@@ -322,69 +333,14 @@ export class TryOnService {
 
   private async buildGarmentPlacements(
     bodyBox: NormalizedBox,
+    pose: BodyPose | undefined,
     imageWidth: number,
     imageHeight: number,
     outfitItems: WardrobeItem[],
   ): Promise<Array<{ input: Buffer; left: number; top: number }>> {
     const grouped = this.groupOutfitItems(outfitItems);
     const box = this.toPixels(bodyBox, imageWidth, imageHeight);
-
-    const layout = [
-      {
-        item: grouped.bottom,
-        region: {
-          left: Math.round(box.left + box.width * 0.14),
-          top: Math.round(box.top + box.height * 0.32),
-          width: Math.round(box.width * 0.72),
-          height: Math.round(box.height * 0.54),
-        },
-      },
-      {
-        item: grouped.top,
-        region: {
-          left: Math.round(box.left + box.width * 0.04),
-          top: Math.round(box.top + box.height * 0.06),
-          width: Math.round(box.width * 0.92),
-          height: Math.round(box.height * 0.38),
-        },
-      },
-      {
-        item: grouped.outerwear,
-        region: {
-          left: Math.round(box.left + box.width * 0.02),
-          top: Math.round(box.top + box.height * 0.04),
-          width: Math.round(box.width * 0.96),
-          height: Math.round(box.height * 0.46),
-        },
-      },
-      {
-        item: grouped.footwear,
-        region: {
-          left: Math.round(box.left + box.width * 0.18),
-          top: Math.round(box.top + box.height * 0.84),
-          width: Math.round(box.width * 0.64),
-          height: Math.round(box.height * 0.13),
-        },
-      },
-      {
-        item: grouped.accessories[0],
-        region: {
-          left: Math.round(box.left + box.width * 0.06),
-          top: Math.round(box.top + box.height * 0.22),
-          width: Math.round(box.width * 0.20),
-          height: Math.round(box.height * 0.16),
-        },
-      },
-      {
-        item: grouped.accessories[1],
-        region: {
-          left: Math.round(box.left + box.width * 0.74),
-          top: Math.round(box.top + box.height * 0.22),
-          width: Math.round(box.width * 0.20),
-          height: Math.round(box.height * 0.16),
-        },
-      },
-    ].filter((entry) => Boolean(entry.item));
+    const layout = this.buildPoseAwareLayout(box, pose, imageWidth, imageHeight, grouped);
 
     const overlays: Array<{ input: Buffer; left: number; top: number }> = [];
     for (const entry of layout) {
@@ -392,18 +348,151 @@ export class TryOnService {
         continue;
       }
 
-      const garmentBuffer = await this.prepareGarmentOverlay(
-        entry.item,
-        entry.region,
-      );
+      let garmentBuffer = await this.prepareGarmentOverlay(entry.item, entry.region);
+      const rotateDeg = entry.rotateDeg ?? 0;
+      if (Math.abs(rotateDeg) > 0.2) {
+        garmentBuffer = await sharp(garmentBuffer)
+          .rotate(rotateDeg, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .png()
+          .toBuffer();
+      }
+
+      const meta = await sharp(garmentBuffer).metadata();
+      const gw = meta.width ?? entry.region.width;
+      const gh = meta.height ?? entry.region.height;
+      let left = Math.round(entry.centerX - gw / 2);
+      let top = Math.round(entry.centerY - gh / 2);
+      ({ buffer: garmentBuffer, left, top } = await this.cropOverlayToBounds(
+        garmentBuffer,
+        left,
+        top,
+        imageWidth,
+        imageHeight,
+      ));
+
       overlays.push({
         input: garmentBuffer,
-        left: entry.region.left,
-        top: entry.region.top,
+        left,
+        top,
       });
     }
 
     return overlays;
+  }
+
+  private buildPoseAwareLayout(
+    box: PixelRegion,
+    pose: BodyPose | undefined,
+    imageWidth: number,
+    imageHeight: number,
+    grouped: {
+      top?: WardrobeItem;
+      bottom?: WardrobeItem;
+      outerwear?: WardrobeItem;
+      footwear?: WardrobeItem;
+      accessories: WardrobeItem[];
+    },
+  ): Array<{
+    item?: WardrobeItem;
+    region: PixelRegion;
+    centerX: number;
+    centerY: number;
+    rotateDeg: number;
+  }> {
+    // Convert pose (normalized) -> pixels. If pose is missing, fall back to box-based anchors.
+    const px = (p: { x: number; y: number }) => ({
+      x: Math.round(p.x * imageWidth),
+      y: Math.round(p.y * imageHeight),
+    });
+
+    const leftShoulder = pose ? px(pose.leftShoulder) : { x: box.left + box.width * 0.28, y: box.top + box.height * 0.20 };
+    const rightShoulder = pose ? px(pose.rightShoulder) : { x: box.left + box.width * 0.72, y: box.top + box.height * 0.20 };
+    const leftHip = pose ? px(pose.leftHip) : { x: box.left + box.width * 0.34, y: box.top + box.height * 0.54 };
+    const rightHip = pose ? px(pose.rightHip) : { x: box.left + box.width * 0.66, y: box.top + box.height * 0.54 };
+    const leftAnkle = pose ? px(pose.leftAnkle) : { x: box.left + box.width * 0.38, y: box.top + box.height * 0.93 };
+    const rightAnkle = pose ? px(pose.rightAnkle) : { x: box.left + box.width * 0.62, y: box.top + box.height * 0.93 };
+
+    const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+    const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+    const ankleMid = { x: (leftAnkle.x + rightAnkle.x) / 2, y: (leftAnkle.y + rightAnkle.y) / 2 };
+
+    const shoulderW = Math.max(1, Math.abs(rightShoulder.x - leftShoulder.x));
+    const hipW = Math.max(1, Math.abs(rightHip.x - leftHip.x));
+    const legH = Math.max(1, Math.abs(ankleMid.y - hipMid.y));
+    const torsoH = Math.max(1, Math.abs(hipMid.y - shoulderMid.y));
+
+    const rotateDeg = pose?.torsoAngleDeg ?? 0;
+
+    const makeRegionFromCenter = (cx: number, cy: number, w: number, h: number) => {
+      const width = Math.max(1, Math.round(w));
+      const height = Math.max(1, Math.round(h));
+      return {
+        left: Math.round(cx - width / 2),
+        top: Math.round(cy - height / 2),
+        width,
+        height,
+      };
+    };
+
+    // MVP sizing heuristics (kept intentionally simple).
+    const topCenter = { x: shoulderMid.x, y: shoulderMid.y + torsoH * 0.56 };
+    const bottomCenter = { x: hipMid.x, y: hipMid.y + legH * 0.54 };
+    const outerCenter = { x: shoulderMid.x, y: shoulderMid.y + torsoH * 0.58 };
+    const shoeCenter = { x: ankleMid.x, y: ankleMid.y + legH * 0.03 };
+
+    const topRegion = makeRegionFromCenter(topCenter.x, topCenter.y, shoulderW * 1.55, torsoH * 1.45);
+    const outerRegion = makeRegionFromCenter(outerCenter.x, outerCenter.y, shoulderW * 1.75, torsoH * 1.65);
+    const bottomRegion = makeRegionFromCenter(bottomCenter.x, bottomCenter.y, hipW * 1.35, legH * 1.12);
+    const footwearRegion = makeRegionFromCenter(shoeCenter.x, shoeCenter.y, Math.max(shoulderW * 0.70, hipW * 0.70), Math.max(legH * 0.20, 44));
+
+    const accSize = Math.max(28, Math.round(shoulderW * 0.35));
+    const accY = shoulderMid.y + torsoH * 0.12;
+    const leftAccRegion = makeRegionFromCenter(leftShoulder.x - shoulderW * 0.25, accY, accSize, accSize);
+    const rightAccRegion = makeRegionFromCenter(rightShoulder.x + shoulderW * 0.25, accY, accSize, accSize);
+
+    return [
+      { item: grouped.bottom, region: bottomRegion, centerX: bottomCenter.x, centerY: bottomCenter.y, rotateDeg },
+      { item: grouped.top, region: topRegion, centerX: topCenter.x, centerY: topCenter.y, rotateDeg },
+      { item: grouped.outerwear, region: outerRegion, centerX: outerCenter.x, centerY: outerCenter.y, rotateDeg },
+      { item: grouped.footwear, region: footwearRegion, centerX: shoeCenter.x, centerY: shoeCenter.y, rotateDeg: rotateDeg * 0.6 },
+      { item: grouped.accessories[0], region: leftAccRegion, centerX: leftAccRegion.left + leftAccRegion.width / 2, centerY: leftAccRegion.top + leftAccRegion.height / 2, rotateDeg },
+      { item: grouped.accessories[1], region: rightAccRegion, centerX: rightAccRegion.left + rightAccRegion.width / 2, centerY: rightAccRegion.top + rightAccRegion.height / 2, rotateDeg },
+    ];
+  }
+
+  private async cropOverlayToBounds(
+    buffer: Buffer,
+    left: number,
+    top: number,
+    imageWidth: number,
+    imageHeight: number,
+  ): Promise<{ buffer: Buffer; left: number; top: number }> {
+    const meta = await sharp(buffer).metadata();
+    const w = meta.width ?? 0;
+    const h = meta.height ?? 0;
+    if (!w || !h) {
+      return { buffer, left: Math.max(0, left), top: Math.max(0, top) };
+    }
+
+    const right = left + w;
+    const bottom = top + h;
+
+    const needCrop = left < 0 || top < 0 || right > imageWidth || bottom > imageHeight;
+    if (!needCrop) {
+      return { buffer, left, top };
+    }
+
+    const cropLeft = Math.max(0, -left);
+    const cropTop = Math.max(0, -top);
+    const cropWidth = Math.max(1, Math.min(w - cropLeft, imageWidth - Math.max(0, left)));
+    const cropHeight = Math.max(1, Math.min(h - cropTop, imageHeight - Math.max(0, top)));
+
+    const cropped = await sharp(buffer)
+      .extract({ left: cropLeft, top: cropTop, width: cropWidth, height: cropHeight })
+      .png()
+      .toBuffer();
+
+    return { buffer: cropped, left: Math.max(0, left), top: Math.max(0, top) };
   }
 
   private async prepareGarmentOverlay(

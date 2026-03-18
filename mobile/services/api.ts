@@ -83,6 +83,21 @@ export interface StyleProfilePayload {
     stylePreference?: 'Casual' | 'Streetwear' | 'Formal' | 'Minimal' | null;
 }
 
+export interface BodyPosePoint {
+    x: number;
+    y: number;
+}
+
+export interface BodyPose {
+    leftShoulder: BodyPosePoint;
+    rightShoulder: BodyPosePoint;
+    leftHip: BodyPosePoint;
+    rightHip: BodyPosePoint;
+    leftAnkle: BodyPosePoint;
+    rightAnkle: BodyPosePoint;
+    torsoAngleDeg: number;
+}
+
 export interface BodyPhotoUploadResult {
     id: string;
     originalFilename: string;
@@ -100,6 +115,7 @@ export interface BodyPhotoUploadResult {
         imageWidth: number;
         imageHeight: number;
     };
+    pose?: BodyPose;
 }
 
 export interface TryOnPreviewResult {
@@ -110,6 +126,7 @@ export interface TryOnPreviewResult {
     note: string;
     mode: 'local-compose';
     bodyBox?: BodyPhotoUploadResult['bodyBox'];
+    pose?: BodyPose;
 }
 
 class ApiService {
