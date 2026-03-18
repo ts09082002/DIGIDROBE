@@ -15,11 +15,10 @@ import {
     Pressable,
     Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import { Colors, Typography, Spacing, BorderRadius, Shadows, FontFamily } from '../../constants/theme';
 import {
     CANONICAL_TO_FILTER_PARAM,
     FILTER_TO_CANONICAL,
@@ -31,9 +30,11 @@ import * as wardrobeLocal from '../../services/wardrobe-local';
 import * as ootdLocal from '../../services/ootd-local';
 import { classifyClothing, canonicalToBackend } from '../../services/ml-classifier';
 import { processClothingImageOnDevice } from '../../services/image-processor';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme, useThemeColors } from '../../context/ThemeContext';
 import { Toast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import ScreenContainer from '../../components/ui/ScreenContainer';
+import { SkeletonGrid } from '../../components/ui/SkeletonLoader';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - Spacing.xl * 2 - Spacing.md) / 2;
@@ -95,6 +96,7 @@ const SECTION_SUGGESTIONS: Record<CanonicalCategory, SuggestionItem[]> = {
 
 export default function WardrobeScreen() {
     const { isDarkMode } = useTheme();
+    const tc = useThemeColors();
     const [items, setItems] = useState<WardrobeItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('All Items');
     const [searchQuery, setSearchQuery] = useState('');
@@ -247,15 +249,8 @@ export default function WardrobeScreen() {
         }
     };
 
-    const theme = useMemo(() => ({
-        background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
-        card: isDarkMode ? '#242424' : Colors.white,
-        text: isDarkMode ? '#FFFFFF' : Colors.charcoal,
-        textSecondary: isDarkMode ? '#A0A0A0' : Colors.darkGray,
-        border: isDarkMode ? '#333333' : Colors.lightGray,
-        iconBtnBg: isDarkMode ? '#333333' : Colors.white,
-        imageBg: isDarkMode ? '#111111' : Colors.warmGray,
-    }), [isDarkMode]);
+    // imageBg mapped to tc.surface for dark/light image backgrounds
+    const imageBg = tc.surface;
 
     const currentFilterCanonical = (FILTER_TO_CANONICAL[selectedCategory] ?? 'all') as CanonicalCategory | 'all';
     const suggestionPool = useMemo(() => {
@@ -620,7 +615,7 @@ export default function WardrobeScreen() {
         <TouchableOpacity
             style={[
                 styles.card,
-                { backgroundColor: theme.card },
+                { backgroundColor: tc.card },
                 selectionMode && selectedItemIds.includes(item.id) && styles.cardSelected,
             ]}
             onPress={() => {
@@ -635,18 +630,20 @@ export default function WardrobeScreen() {
         >
             <Image
                 source={{ uri: item.processedUrl || item.originalUrl }}
-                style={[styles.cardImage, { backgroundColor: theme.imageBg }]}
+                style={[styles.cardImage, { backgroundColor: imageBg }]}
                 resizeMode="contain"
             />
             {!selectionMode && (
                 <TouchableOpacity
                     style={[styles.favoriteBtn, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)' }]}
                     onPress={() => handleToggleFavorite(item.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                 >
                     <Ionicons
                         name={item.isFavorite ? 'heart' : 'heart-outline'}
                         size={18}
-                        color={item.isFavorite ? Colors.amber : theme.textSecondary}
+                        color={item.isFavorite ? Colors.amber : tc.textSecondary}
                     />
                 </TouchableOpacity>
             )}
@@ -660,10 +657,10 @@ export default function WardrobeScreen() {
                 </View>
             )}
             <View style={styles.cardInfo}>
-                <Text style={[styles.cardBrand, { color: theme.text }]} numberOfLines={1}>
+                <Text style={[styles.cardBrand, { color: tc.textPrimary }]} numberOfLines={1}>
                     {item.brand || item.subCategory || item.category}
                 </Text>
-                <Text style={[styles.cardName, { color: theme.textSecondary }]} numberOfLines={1}>
+                <Text style={[styles.cardName, { color: tc.textSecondary }]} numberOfLines={1}>
                     {item.name}
                 </Text>
             </View>
@@ -671,7 +668,7 @@ export default function WardrobeScreen() {
     );
 
     const renderSuggestion = ({ item }: { item: SuggestionItem }) => (
-        <View style={[styles.suggestionCard, { backgroundColor: theme.card }]}>
+        <View style={[styles.suggestionCard, { backgroundColor: tc.card }]}>
             <Image
                 source={{
                     uri: fallbackSuggestionIds.includes(item.id)
@@ -689,11 +686,11 @@ export default function WardrobeScreen() {
             />
             <View style={styles.suggestionInfo}>
                 {item.brand ? (
-                    <Text style={[styles.suggestionBrand, { color: theme.text }]} numberOfLines={1}>
+                    <Text style={[styles.suggestionBrand, { color: tc.textPrimary }]} numberOfLines={1}>
                         {item.brand}
                     </Text>
                 ) : null}
-                <Text style={[styles.suggestionName, { color: theme.textSecondary }]} numberOfLines={1}>
+                <Text style={[styles.suggestionName, { color: tc.textSecondary }]} numberOfLines={1}>
                     {item.name}
                 </Text>
                 <TouchableOpacity
@@ -712,10 +709,10 @@ export default function WardrobeScreen() {
         return (
             <View style={[styles.suggestionsSection, insideList && styles.suggestionsSectionInList]}>
                 <View style={styles.suggestionsHeaderRow}>
-                    <Text style={[styles.suggestionsTitle, { color: theme.text }]}>
+                    <Text style={[styles.suggestionsTitle, { color: tc.textPrimary }]}>
                         Suggested To Add
                     </Text>
-                    <Text style={[styles.suggestionsHint, { color: theme.textSecondary }]}>
+                    <Text style={[styles.suggestionsHint, { color: tc.textSecondary }]}>
                         PNG cutouts, ready to add
                     </Text>
                 </View>
@@ -731,22 +728,26 @@ export default function WardrobeScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+        <ScreenContainer>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={[styles.title, { color: theme.text }]}>My Wardrobe</Text>
-                <TouchableOpacity style={[styles.filterBtn, { backgroundColor: theme.iconBtnBg }]}>
-                    <Ionicons name="options-outline" size={22} color={theme.text} />
+                <Text style={[styles.title, { color: tc.textPrimary }]}>My Wardrobe</Text>
+                <TouchableOpacity
+                    style={[styles.filterBtn, { backgroundColor: tc.iconBtnBg }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Filter options"
+                >
+                    <Ionicons name="options-outline" size={22} color={tc.textPrimary} />
                 </TouchableOpacity>
             </View>
 
             {/* Search Bar */}
-            <View style={[styles.searchContainer, { backgroundColor: theme.iconBtnBg }]}>
-                <Ionicons name="search" size={18} color={theme.textSecondary} />
+            <View style={[styles.searchContainer, { backgroundColor: tc.iconBtnBg }]}>
+                <Ionicons name="search" size={18} color={tc.textSecondary} />
                 <TextInput
-                    style={[styles.searchInput, { color: theme.text }]}
+                    style={[styles.searchInput, { color: tc.textPrimary }]}
                     placeholder="Search your collection..."
-                    placeholderTextColor={theme.textSecondary}
+                    placeholderTextColor={tc.textSecondary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     onSubmitEditing={loadItems}
@@ -754,18 +755,18 @@ export default function WardrobeScreen() {
             </View>
 
             {/* Bulk move controls */}
-            <View style={[styles.bulkActionBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                <Text style={[styles.bulkActionText, { color: theme.textSecondary }]}>
+            <View style={[styles.bulkActionBar, { backgroundColor: tc.card, borderColor: tc.border }]}>
+                <Text style={[styles.bulkActionText, { color: tc.textSecondary }]}>
                     {selectionMode
                         ? `${selectedItemIds.length} selected`
                         : 'Select items to move between sections'}
                 </Text>
                 <View style={styles.bulkActionButtons}>
                     <TouchableOpacity
-                        style={[styles.bulkActionBtn, { borderColor: theme.border }]}
+                        style={[styles.bulkActionBtn, { borderColor: tc.border }]}
                         onPress={toggleSelectionMode}
                     >
-                        <Text style={[styles.bulkActionBtnText, { color: theme.text }]}>
+                        <Text style={[styles.bulkActionBtnText, { color: tc.textPrimary }]}>
                             {selectionMode ? 'Cancel' : 'Select'}
                         </Text>
                     </TouchableOpacity>
@@ -791,7 +792,7 @@ export default function WardrobeScreen() {
                     <TouchableOpacity
                         style={[
                             styles.categoryChip,
-                            { backgroundColor: theme.card, borderColor: theme.border },
+                            { backgroundColor: tc.card, borderColor: tc.border },
                             selectedCategory === item && styles.categoryChipActive,
                         ]}
                         onPress={() => setSelectedCategory(item)}
@@ -799,7 +800,7 @@ export default function WardrobeScreen() {
                         <Text
                             style={[
                                 styles.categoryChipText,
-                                { color: theme.textSecondary },
+                                { color: tc.textSecondary },
                                 selectedCategory === item && styles.categoryChipTextActive,
                             ]}
                         >
@@ -836,7 +837,7 @@ export default function WardrobeScreen() {
             {/* Items Grid */}
             {loading ? (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={Colors.gold} />
+                    <SkeletonGrid count={6} />
                 </View>
             ) : items.length === 0 ? (
                 <ScrollView
@@ -854,13 +855,13 @@ export default function WardrobeScreen() {
                     }
                 >
                     <View style={styles.uploadedSectionHeader}>
-                        <Text style={[styles.uploadedSectionTitle, { color: theme.text }]}>Uploaded Items</Text>
-                        <Text style={[styles.uploadedSectionCount, { color: theme.textSecondary }]}>0</Text>
+                        <Text style={[styles.uploadedSectionTitle, { color: tc.textPrimary }]}>Uploaded Items</Text>
+                        <Text style={[styles.uploadedSectionCount, { color: tc.textSecondary }]}>0</Text>
                     </View>
                     <View style={styles.emptyHeaderContainer}>
                         <Ionicons name="shirt-outline" size={50} color={Colors.lightGray} />
-                        <Text style={[styles.emptyTitle, { color: theme.text }]}>Your wardrobe is empty</Text>
-                        <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+                        <Text style={[styles.emptyTitle, { color: tc.textPrimary }]}>Your wardrobe is empty</Text>
+                        <Text style={[styles.emptySubtitle, { color: tc.textSecondary }]}>
                             Tap the + button to add your first clothing item, or get inspired by these staples!
                         </Text>
                     </View>
@@ -889,8 +890,8 @@ export default function WardrobeScreen() {
                     })}
                     ListHeaderComponent={
                         <View style={styles.uploadedSectionHeader}>
-                            <Text style={[styles.uploadedSectionTitle, { color: theme.text }]}>Uploaded Items</Text>
-                            <Text style={[styles.uploadedSectionCount, { color: theme.textSecondary }]}>{items.length}</Text>
+                            <Text style={[styles.uploadedSectionTitle, { color: tc.textPrimary }]}>Uploaded Items</Text>
+                            <Text style={[styles.uploadedSectionCount, { color: tc.textSecondary }]}>{items.length}</Text>
                         </View>
                     }
                     ListFooterComponent={
@@ -915,7 +916,12 @@ export default function WardrobeScreen() {
             )}
 
             {/* FAB */}
-            <TouchableOpacity style={styles.fab} onPress={showUploadOptions}>
+            <TouchableOpacity
+                style={styles.fab}
+                onPress={showUploadOptions}
+                accessibilityRole="button"
+                accessibilityLabel="Add clothing item"
+            >
                 <Ionicons name="add" size={28} color={Colors.white} />
             </TouchableOpacity>
 
@@ -930,10 +936,10 @@ export default function WardrobeScreen() {
                     style={styles.bottomSheetOverlay}
                     onPress={() => setUploadOptionsVisible(false)}
                 >
-                    <View style={[styles.bottomSheetContainer, { backgroundColor: theme.card }]}>
+                    <View style={[styles.bottomSheetContainer, { backgroundColor: tc.card }]}>
                         <View style={styles.bottomSheetHandle} />
-                        <Text style={[styles.bottomSheetTitle, { color: theme.text }]}>Add Clothing</Text>
-                        <Text style={[styles.bottomSheetSubtitle, { color: theme.textSecondary }]}>
+                        <Text style={[styles.bottomSheetTitle, { color: tc.textPrimary }]}>Add Clothing</Text>
+                        <Text style={[styles.bottomSheetSubtitle, { color: tc.textSecondary }]}>
                             {selectedCategory === 'All Items'
                                 ? 'Choose how to add your clothing item'
                                 : `Items will be added to ${selectedCategory}`}
@@ -994,17 +1000,19 @@ export default function WardrobeScreen() {
                     style={styles.modalOverlay}
                     onPress={() => setSelectedItem(null)}
                 >
-                    <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+                    <View style={[styles.modalContent, { backgroundColor: tc.card }]}>
                         <TouchableOpacity
                             style={styles.closeBtn}
                             onPress={() => setSelectedItem(null)}
+                            accessibilityRole="button"
+                            accessibilityLabel="Close item detail"
                         >
-                            <Ionicons name="close" size={24} color={theme.text} />
+                            <Ionicons name="close" size={24} color={tc.textPrimary} />
                         </TouchableOpacity>
 
                         {selectedItem && (
                             <>
-                                <View style={[styles.expandedImageContainer, { backgroundColor: theme.imageBg }]}>
+                                <View style={[styles.expandedImageContainer, { backgroundColor: imageBg }]}>
                                     <Image
                                         source={{ uri: selectedItem.processedUrl || selectedItem.originalUrl }}
                                         style={styles.expandedImage}
@@ -1013,7 +1021,7 @@ export default function WardrobeScreen() {
                                 </View>
 
                                 <View style={styles.modalInfo}>
-                                    <Text style={[styles.modalBrand, { color: theme.text }]}>
+                                    <Text style={[styles.modalBrand, { color: tc.textPrimary }]}>
                                         {selectedItem.brand || selectedItem.subCategory || selectedItem.category}
                                     </Text>
 
@@ -1021,15 +1029,17 @@ export default function WardrobeScreen() {
                                         {editingName ? (
                                             <>
                                                 <TextInput
-                                                    style={[styles.nameInput, { color: theme.text }]}
+                                                    style={[styles.nameInput, { color: tc.textPrimary }]}
                                                     value={nameInput}
                                                     onChangeText={setNameInput}
                                                     placeholder="Item name"
-                                                    placeholderTextColor={theme.textSecondary}
+                                                    placeholderTextColor={tc.textSecondary}
                                                 />
                                                 <TouchableOpacity
                                                     style={styles.nameIconBtn}
                                                     disabled={savingName || !nameInput.trim()}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel="Save name"
                                                     onPress={async () => {
                                                         if (!nameInput.trim()) return;
                                                         try {
@@ -1062,11 +1072,13 @@ export default function WardrobeScreen() {
                                             </>
                                         ) : (
                                             <>
-                                                <Text style={[styles.modalName, { color: theme.textSecondary }]} numberOfLines={1}>
+                                                <Text style={[styles.modalName, { color: tc.textSecondary }]} numberOfLines={1}>
                                                     {selectedItem.name || 'Untitled item'}
                                                 </Text>
                                                 <TouchableOpacity
                                                     style={styles.nameIconBtn}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel="Edit name"
                                                     onPress={() => {
                                                         setNameInput(selectedItem.name || '');
                                                         setEditingName(true);
@@ -1110,7 +1122,7 @@ export default function WardrobeScreen() {
                                         </TouchableOpacity>
 
                                         <TouchableOpacity
-                                            style={[styles.modalActionBtn, { backgroundColor: isDarkMode ? '#333' : '#F5F5F5' }]}
+                                            style={[styles.modalActionBtn, { backgroundColor: tc.surface }]}
                                             onPress={() => {
                                                 setDeleteDialogVisible(true);
                                             }}
@@ -1127,11 +1139,11 @@ export default function WardrobeScreen() {
                                             onPress={() => openTagPicker(selectedItem)}
                                             activeOpacity={0.85}
                                         >
-                                            <Ionicons name="help-circle-outline" size={16} color="#B45309" />
+                                            <Ionicons name="help-circle-outline" size={16} color={Colors.goldDark} />
                                             <Text style={styles.lowConfidenceText}>
                                                 We're not sure what this is – help us tag it?
                                             </Text>
-                                            <Ionicons name="chevron-forward" size={14} color="#B45309" />
+                                            <Ionicons name="chevron-forward" size={14} color={Colors.goldDark} />
                                         </TouchableOpacity>
                                     )}
                                 </View>
@@ -1149,16 +1161,16 @@ export default function WardrobeScreen() {
                 onRequestClose={closeTagPicker}
             >
                 <Pressable style={styles.bottomSheetOverlay} onPress={closeTagPicker}>
-                    <View style={[styles.bottomSheetContainer, { backgroundColor: theme.card }]}>
+                    <View style={[styles.bottomSheetContainer, { backgroundColor: tc.card }]}>
                         <View style={styles.bottomSheetHandle} />
-                        <Text style={[styles.bottomSheetTitle, { color: theme.text }]}>
+                        <Text style={[styles.bottomSheetTitle, { color: tc.textPrimary }]}>
                             {tagPickerMode === 'move'
                                 ? bulkMoveItemIds.length > 0
                                     ? 'Move selected items'
                                     : 'Move item'
                                 : 'Tag this item'}
                         </Text>
-                        <Text style={[styles.bottomSheetSubtitle, { color: theme.textSecondary }]}>
+                        <Text style={[styles.bottomSheetSubtitle, { color: tc.textSecondary }]}>
                             {tagPickerMode === 'move'
                                 ? bulkMoveItemIds.length > 0
                                     ? `Move ${bulkMoveItemIds.length} items to which section?`
@@ -1236,7 +1248,7 @@ export default function WardrobeScreen() {
                     }
                 }}
             />
-        </SafeAreaView>
+        </ScreenContainer>
     );
 }
 
@@ -1280,6 +1292,7 @@ const styles = StyleSheet.create({
         flex: 1,
         marginLeft: Spacing.sm,
         fontSize: 14,
+        fontFamily: FontFamily.body,
         color: Colors.charcoal,
     },
     categoriesContainer: {
@@ -1301,6 +1314,7 @@ const styles = StyleSheet.create({
     bulkActionText: {
         flex: 1,
         fontSize: 12,
+        fontFamily: FontFamily.bodyMedium,
         fontWeight: '500',
         marginRight: Spacing.md,
     },
@@ -1325,10 +1339,12 @@ const styles = StyleSheet.create({
     },
     bulkActionBtnText: {
         fontSize: 12,
+        fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
     },
     bulkActionBtnPrimaryText: {
         fontSize: 12,
+        fontFamily: FontFamily.bodyBold,
         fontWeight: '700',
         color: Colors.white,
     },
@@ -1349,11 +1365,13 @@ const styles = StyleSheet.create({
     },
     categoryChipText: {
         fontSize: 13,
+        fontFamily: FontFamily.bodyMedium,
         fontWeight: '500',
         color: Colors.charcoal,
     },
     categoryChipTextActive: {
         color: Colors.white,
+        fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
     },
     uploadBanner: {
@@ -1368,6 +1386,7 @@ const styles = StyleSheet.create({
     },
     uploadText: {
         fontSize: 13,
+        fontFamily: FontFamily.bodyMedium,
         color: Colors.goldDark,
         fontWeight: '500',
     },
@@ -1392,6 +1411,7 @@ const styles = StyleSheet.create({
     },
     processingTitle: {
         fontSize: 13,
+        fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
         color: Colors.white,
     },
@@ -1417,6 +1437,7 @@ const styles = StyleSheet.create({
     },
     uploadedSectionCount: {
         fontSize: 12,
+        fontFamily: FontFamily.bodyBold,
         fontWeight: '700',
     },
     gridRow: {
@@ -1466,18 +1487,20 @@ const styles = StyleSheet.create({
     },
     cardBrand: {
         fontSize: 14,
+        fontFamily: FontFamily.bodyBold,
         fontWeight: '700',
         color: Colors.charcoal,
     },
     cardName: {
         fontSize: 12,
+        fontFamily: FontFamily.body,
         color: Colors.darkGray,
         marginTop: 2,
     },
     loadingContainer: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: 'flex-start',
+        paddingTop: Spacing.xl,
     },
     emptyContainer: {
         flex: 1,
@@ -1553,6 +1576,7 @@ const styles = StyleSheet.create({
     },
     suggestionBrand: {
         fontSize: 13,
+        fontFamily: FontFamily.bodyBold,
         fontWeight: '700',
     },
     suggestionName: {
@@ -1573,6 +1597,7 @@ const styles = StyleSheet.create({
     suggestionAddBtnText: {
         color: Colors.white,
         fontSize: 12,
+        fontFamily: FontFamily.bodyBold,
         fontWeight: '700',
     },
     suggestionLoader: {
@@ -1653,11 +1678,13 @@ const styles = StyleSheet.create({
     },
     bottomSheetActionTitle: {
         fontSize: 15,
+        fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
         color: Colors.charcoal,
     },
     bottomSheetActionSubtitle: {
         fontSize: 12,
+        fontFamily: FontFamily.body,
         color: Colors.darkGray,
         marginTop: 2,
     },
@@ -1718,11 +1745,13 @@ const styles = StyleSheet.create({
     },
     modalBrand: {
         fontSize: 20,
+        fontFamily: FontFamily.heading,
         fontWeight: '700',
         marginBottom: 4,
     },
     modalName: {
         fontSize: 16,
+        fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
         marginBottom: Spacing.sm,
     },
@@ -1766,6 +1795,7 @@ const styles = StyleSheet.create({
     },
     modalActionText: {
         fontSize: 13,
+        fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
         color: Colors.white,
     },
@@ -1773,7 +1803,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: '#FEF3C7',
+        backgroundColor: Colors.goldLight,
         borderRadius: BorderRadius.md,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
@@ -1784,7 +1814,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 12,
         fontWeight: '500',
-        color: '#B45309',
+        color: Colors.goldDark,
     },
     tagPickerGrid: {
         flexDirection: 'row',
@@ -1807,6 +1837,7 @@ const styles = StyleSheet.create({
     },
     tagPickerChipText: {
         fontSize: 13,
+        fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
         color: Colors.charcoal,
     },
@@ -1822,6 +1853,7 @@ const styles = StyleSheet.create({
     },
     tagPickerSaveBtnText: {
         fontSize: 15,
+        fontFamily: FontFamily.bodyBold,
         fontWeight: '700',
         color: Colors.white,
     },
@@ -1833,16 +1865,16 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     labelChip: {
-        backgroundColor: '#F3F4F6',
+        backgroundColor: Colors.cream,
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 6,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
+        borderColor: Colors.lightGray,
     },
     labelChipText: {
         fontSize: 11,
-        color: '#4B5563',
+        color: Colors.darkGray,
         fontWeight: '500',
     },
 });

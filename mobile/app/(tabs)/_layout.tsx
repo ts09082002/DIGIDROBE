@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, StyleSheet, Platform } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeColors } from '../../context/ThemeContext';
+import { Colors, FontFamily } from '../../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
@@ -12,18 +13,9 @@ const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
     travel: { active: 'airplane', inactive: 'airplane-outline' },
 };
 
-// Standard Tab Layout
-
 export default function TabLayout() {
-    const { isDarkMode: isDark } = useTheme();
+    const tc = useThemeColors();
     const insets = useSafeAreaInsets();
-
-    const themeColors = {
-        background: isDark ? '#1A1A1A' : '#FFFFFF',
-        border: isDark ? '#333333' : '#F0F0F0',
-        activeTint: '#F2A900',
-        inactiveTint: isDark ? '#888888' : '#A0A0A0',
-    };
 
     return (
         <Tabs
@@ -34,14 +26,14 @@ export default function TabLayout() {
                 tabBarStyle: [
                     styles.tabBar,
                     {
-                        backgroundColor: themeColors.background,
-                        borderTopColor: themeColors.border,
+                        backgroundColor: tc.tabBar,
+                        borderTopColor: tc.tabBarBorder,
                         height: (Platform.OS === 'ios' ? 60 : 58) + insets.bottom,
                         paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12),
                     },
                 ],
-                tabBarActiveTintColor: themeColors.activeTint,
-                tabBarInactiveTintColor: themeColors.inactiveTint,
+                tabBarActiveTintColor: Colors.gold,
+                tabBarInactiveTintColor: tc.textMuted,
                 tabBarIcon: ({ focused, color, size }) => {
                     const icons = TAB_ICONS[route.name] || TAB_ICONS.index;
                     const iconName = focused ? icons.active : icons.inactive;
@@ -80,6 +72,7 @@ const styles = StyleSheet.create({
     tabBarLabel: {
         fontSize: 11,
         fontWeight: '500',
+        fontFamily: FontFamily.bodyMedium,
         marginTop: 2,
     },
     activeIconContainer: {

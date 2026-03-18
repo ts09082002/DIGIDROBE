@@ -99,7 +99,7 @@ export async function getAllItems(params?: {
 }): Promise<WardrobeItem[]> {
     const conditions: Q.Clause[] = [];
 
-    if (params?.category) {
+    if (params?.category && params.category !== 'all') {
         // Backend uses 'tops', 'bottoms' etc. — match both backend and canonical forms
         conditions.push(Q.where('category', params.category));
     }

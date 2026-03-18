@@ -6,7 +6,6 @@ import {
     ScrollView,
     TouchableOpacity,
     Image,
-    StatusBar,
     ActivityIndicator,
     RefreshControl,
     Modal,
@@ -14,12 +13,13 @@ import {
     Animated,
     PanResponder,
     Platform,
+    StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from '../../constants/theme';
-import { useTheme } from '../../context/ThemeContext';
+import { Colors, Typography, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import { useTheme, useThemeColors } from '../../context/ThemeContext';
 import { api, BodyPhotoUploadResult, StyleProfilePayload, StylistSuggestion, TryOnPreviewResult, WardrobeItem } from '../../services/api';
 import * as wardrobeLocal from '../../services/wardrobe-local';
 import { SavedLook, getSavedLooks, saveLook } from '../../services/saved-looks-local';
@@ -29,6 +29,9 @@ import { generateStyleOfDayForWardrobe } from '../../engine';
 import { EngineWardrobeItem, RecommendationContext, StyleOfTheDayResult, UserInteractionEvent } from '../../engine/types';
 import { appendUserEvent, invalidateProfileCache, loadOnlineWeights, saveOnlineWeights } from '../../engine/storage';
 import { applyOnlineUpdate } from '../../engine/personalization';
+import ScreenContainer from '../../components/ui/ScreenContainer';
+import { SkeletonGrid } from '../../components/ui/SkeletonLoader';
+import EmptyState from '../../components/ui/EmptyState';
 
 const TABS = ['My Looks', 'AI Stylist'];
 
@@ -226,6 +229,7 @@ function DraggableCanvasItem({
 
 export default function OutfitsScreen() {
     const { isDarkMode } = useTheme();
+    const tc = useThemeColors();
     const [activeTab, setActiveTab] = useState('AI Stylist');
     const [suggestion, setSuggestion] = useState<StylistSuggestion | null>(null);
     const [loading, setLoading] = useState(true);
@@ -260,17 +264,6 @@ export default function OutfitsScreen() {
         timeOfDay: 'morning',
     });
     const insets = useSafeAreaInsets();
-
-    const theme = {
-        background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
-        card: isDarkMode ? '#242424' : Colors.white,
-        text: isDarkMode ? '#FFFFFF' : Colors.charcoal,
-        textSecondary: isDarkMode ? '#A0A0A0' : Colors.darkGray,
-        iconBtnBg: isDarkMode ? '#333333' : Colors.white,
-        tabBg: isDarkMode ? '#333333' : Colors.lightGray,
-        border: isDarkMode ? '#333333' : Colors.lightGray,
-        gold: Colors.gold,
-    };
 
     const loadData = async (silent = false) => {
         try {
@@ -669,42 +662,41 @@ export default function OutfitsScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        <ScreenContainer>
 
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
                 <View style={styles.headerLeft}>
                     <Ionicons name="sparkles" size={20} color={Colors.gold} />
-                    <Text style={[styles.title, { color: theme.text }]}>My Outfits</Text>
+                    <Text style={[styles.title, { color: tc.textPrimary }]}>My Outfits</Text>
                 </View>
                 {stats && (
                     <View style={styles.statsRow}>
                         <View style={styles.statChip}>
-                            <Text style={[styles.statNum, { color: theme.text }]}>{stats.totalItems}</Text>
-                            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>items</Text>
+                            <Text style={[styles.statNum, { color: tc.textPrimary }]}>{stats.totalItems}</Text>
+                            <Text style={[styles.statLbl, { color: tc.textSecondary }]}>items</Text>
                         </View>
-                        <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+                        <View style={[styles.statDivider, { backgroundColor: tc.border }]} />
                         <View style={styles.statChip}>
-                            <Text style={[styles.statNum, { color: theme.gold }]}>{stats.totalFavorites}</Text>
-                            <Text style={[styles.statLbl, { color: theme.textSecondary }]}>faves</Text>
+                            <Text style={[styles.statNum, { color: tc.accent }]}>{stats.totalFavorites}</Text>
+                            <Text style={[styles.statLbl, { color: tc.textSecondary }]}>faves</Text>
                         </View>
                     </View>
                 )}
             </View>
 
             {/* Tabs */}
-            <View style={[styles.tabsContainer, { backgroundColor: theme.tabBg }]}>
+            <View style={[styles.tabsContainer, { backgroundColor: tc.surface }]}>
                 {TABS.map((tab) => (
                     <TouchableOpacity
                         key={tab}
-                        style={[styles.tab, activeTab === tab && [styles.tabActive, { backgroundColor: theme.card }]]}
+                        style={[styles.tab, activeTab === tab && [styles.tabActive, { backgroundColor: tc.card }]]}
                         onPress={() => setActiveTab(tab)}
                     >
                         <Text style={[
                             styles.tabText,
-                            { color: theme.textSecondary },
-                            activeTab === tab && [styles.tabTextActive, { color: theme.text }],
+                            { color: tc.textSecondary },
+                            activeTab === tab && [styles.tabTextActive, { color: tc.textPrimary }],
                         ]}>
                             {tab}
                         </Text>
@@ -714,28 +706,25 @@ export default function OutfitsScreen() {
 
             {loading ? (
                 <View style={styles.loadingCenter}>
-                    <ActivityIndicator size="large" color={theme.gold} />
-                    <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-                        Your stylist is thinking...
-                    </Text>
+                    <SkeletonGrid count={4} />
                 </View>
             ) : (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.gold} />}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tc.accent} />}
                     contentContainerStyle={styles.scrollContent}
                 >
                     {activeTab === 'AI Stylist' ? (
                         <>
                             {/* Style of the Day (offline) */}
-                            <View style={[styles.stylistBanner, { backgroundColor: theme.card, borderColor: theme.gold }]}>
+                            <View style={[styles.stylistBanner, { backgroundColor: tc.card, borderColor: tc.accent }]}>
                                 <View style={styles.bannerRow}>
                                     <View style={styles.bannerIcon}>
                                         <Ionicons name="sparkles" size={22} color={Colors.gold} />
                                     </View>
                                     <View style={styles.bannerText}>
-                                        <Text style={[styles.bannerTitle, { color: theme.text }]}>Style of the Day</Text>
-                                        <Text style={[styles.bannerSub, { color: theme.textSecondary }]}>
+                                        <Text style={[styles.bannerTitle, { color: tc.textPrimary }]}>Style of the Day</Text>
+                                        <Text style={[styles.bannerSub, { color: tc.textSecondary }]}>
                                             Shuffle to lock topwear and browse alternatives
                                         </Text>
                                     </View>
@@ -743,6 +732,8 @@ export default function OutfitsScreen() {
                                         style={[styles.regenBtn, { backgroundColor: Colors.gold }]}
                                         onPress={regenerateSuggestion}
                                         disabled={styleOfDayLoading}
+                                        accessibilityRole="button"
+                                        accessibilityLabel="Shuffle outfit"
                                     >
                                         {styleOfDayLoading ? (
                                             <ActivityIndicator size="small" color={Colors.white} />
@@ -761,7 +752,7 @@ export default function OutfitsScreen() {
                                                 key={occ}
                                                 style={[
                                                     styles.occasionChip,
-                                                    isActive ? styles.occasionChipActive : { backgroundColor: theme.card, borderColor: theme.border },
+                                                    isActive ? styles.occasionChipActive : { backgroundColor: tc.card, borderColor: tc.border },
                                                 ]}
                                                 onPress={() => {
                                                     const nextContext = { ...styleContext, occasion: occ };
@@ -769,7 +760,7 @@ export default function OutfitsScreen() {
                                                     generateOfflineStyleOfDay(wardrobeItems, nextContext);
                                                 }}
                                             >
-                                                <Text style={[styles.occasionChipText, isActive ? styles.occasionChipTextActive : { color: theme.textSecondary }]}>
+                                                <Text style={[styles.occasionChipText, isActive ? styles.occasionChipTextActive : { color: tc.textSecondary }]}>
                                                     {occ.charAt(0).toUpperCase() + occ.slice(1)}
                                                 </Text>
                                             </TouchableOpacity>
@@ -779,8 +770,8 @@ export default function OutfitsScreen() {
 
                                 {suggestedOutfit.length === 0 ? (
                                     <View style={styles.emptySuggestion}>
-                                        <Ionicons name="shirt-outline" size={36} color={theme.border} />
-                                        <Text style={[styles.emptySuggestionText, { color: theme.textSecondary }]}>
+                                        <Ionicons name="shirt-outline" size={36} color={tc.border} />
+                                        <Text style={[styles.emptySuggestionText, { color: tc.textSecondary }]}>
                                             Add at least a top and bottom to generate an outfit
                                         </Text>
                                     </View>
@@ -817,7 +808,7 @@ export default function OutfitsScreen() {
                                                         resizeMode="contain"
                                                     />
                                                     <View style={styles.swapItemMeta}>
-                                                        <Text style={[styles.swapItemCat, { color: theme.textSecondary }]} numberOfLines={1}>
+                                                        <Text style={[styles.swapItemCat, { color: tc.textSecondary }]} numberOfLines={1}>
                                                             {normalizeCategory(item.category).toUpperCase()}
                                                         </Text>
                                                         <TouchableOpacity
@@ -835,7 +826,7 @@ export default function OutfitsScreen() {
                                 )}
 
                                 {bestLook?.note ? (
-                                    <Text style={[styles.bestLookNote, { color: theme.textSecondary }]}>
+                                    <Text style={[styles.bestLookNote, { color: tc.textSecondary }]}>
                                         {bestLook.note}
                                     </Text>
                                 ) : null}
@@ -843,16 +834,18 @@ export default function OutfitsScreen() {
                                 {suggestedOutfit.length > 0 && (
                                     <View style={styles.bannerActionsRow}>
                                         <TouchableOpacity
-                                            style={[styles.saveLookBtn, { backgroundColor: theme.iconBtnBg }]}
+                                            style={[styles.saveLookBtn, { backgroundColor: tc.iconBtnBg }]}
                                             onPress={handleSaveCurrentLook}
                                             disabled={savingLook}
+                                            accessibilityRole="button"
+                                            accessibilityLabel="Save this look"
                                         >
                                             {savingLook ? (
-                                                <ActivityIndicator size="small" color={theme.text} />
+                                                <ActivityIndicator size="small" color={tc.textPrimary} />
                                             ) : (
                                                 <>
-                                                    <Ionicons name="bookmark" size={16} color={theme.text} />
-                                                    <Text style={[styles.saveLookText, { color: theme.text }]}>
+                                                    <Ionicons name="bookmark" size={16} color={tc.textPrimary} />
+                                                    <Text style={[styles.saveLookText, { color: tc.textPrimary }]}>
                                                         Save this look
                                                     </Text>
                                                 </>
@@ -865,10 +858,10 @@ export default function OutfitsScreen() {
                             {alternativeLooks.length > 0 && isProfileComplete && (
                                 <View style={styles.generatedSection}>
                                     <View style={styles.generatedSectionHeader}>
-                                        <Text style={[styles.generatedSectionTitle, { color: theme.text }]}>
+                                        <Text style={[styles.generatedSectionTitle, { color: tc.textPrimary }]}>
                                             You Can Also Try
                                         </Text>
-                                        <Text style={[styles.generatedSectionHint, { color: theme.textSecondary }]}>
+                                        <Text style={[styles.generatedSectionHint, { color: tc.textSecondary }]}>
                                             More looks ranked from your current answers
                                         </Text>
                                     </View>
@@ -876,10 +869,10 @@ export default function OutfitsScreen() {
                                     {alternativeLooks.map((look) => (
                                         <View
                                             key={look.id}
-                                            style={[styles.generatedLookCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+                                            style={[styles.generatedLookCard, { backgroundColor: tc.card, borderColor: tc.border }]}
                                         >
-                                            <Text style={[styles.generatedLookTitle, { color: theme.text }]}>{look.name}</Text>
-                                            <Text style={[styles.generatedLookNote, { color: theme.textSecondary }]}>{look.note}</Text>
+                                            <Text style={[styles.generatedLookTitle, { color: tc.textPrimary }]}>{look.name}</Text>
+                                            <Text style={[styles.generatedLookNote, { color: tc.textSecondary }]}>{look.note}</Text>
                                             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.generatedLookStrip}>
                                                 {look.items.map((item) => (
                                                     <View key={item.id} style={styles.generatedLookItem}>
@@ -889,7 +882,7 @@ export default function OutfitsScreen() {
                                                             resizeMode="contain"
                                                         />
                                                         <Text
-                                                            style={[styles.generatedLookLabel, { color: theme.textSecondary }]}
+                                                            style={[styles.generatedLookLabel, { color: tc.textSecondary }]}
                                                             numberOfLines={1}
                                                         >
                                                             {item.name}
@@ -905,14 +898,14 @@ export default function OutfitsScreen() {
                             {/* Wardrobe Breakdown */}
                             {stats && Object.keys(stats.categories).length > 0 && (
                                 <>
-                                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>YOUR WARDROBE</Text>
+                                    <Text style={[styles.sectionTitle, { color: tc.textSecondary }]}>YOUR WARDROBE</Text>
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
                                         {Object.entries(stats.categories)
                                             .sort(([, a], [, b]) => b - a)
                                             .map(([cat, count]) => (
-                                                <View key={cat} style={[styles.catChip, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                                                    <Text style={[styles.catNum, { color: theme.gold }]}>{count}</Text>
-                                                    <Text style={[styles.catLabel, { color: theme.textSecondary }]} numberOfLines={1}>
+                                                <View key={cat} style={[styles.catChip, { backgroundColor: tc.card, borderColor: tc.border }]}>
+                                                    <Text style={[styles.catNum, { color: tc.accent }]}>{count}</Text>
+                                                    <Text style={[styles.catLabel, { color: tc.textSecondary }]} numberOfLines={1}>
                                                         {cat}
                                                     </Text>
                                                 </View>
@@ -926,16 +919,14 @@ export default function OutfitsScreen() {
                         <>
                             {looksLoading ? (
                                 <View style={styles.loadingCenter}>
-                                    <ActivityIndicator size="large" color={theme.gold} />
+                                    <SkeletonGrid count={4} />
                                 </View>
                             ) : savedLooks.length === 0 ? (
-                                <View style={styles.emptyFavs}>
-                                    <Ionicons name="bookmark-outline" size={48} color={theme.border} />
-                                    <Text style={[styles.emptyFavsTitle, { color: theme.text }]}>No looks yet</Text>
-                                    <Text style={[styles.emptyFavsSub, { color: theme.textSecondary }]}>
-                                        Use the AI Stylist tab to generate an outfit and save it here as a look.
-                                    </Text>
-                                </View>
+                                <EmptyState
+                                    icon="bookmark-outline"
+                                    title="No looks yet"
+                                    subtitle="Use the AI Stylist tab to generate an outfit and save it here as a look."
+                                />
                             ) : (
                                 <View style={styles.looksList}>
                                     {savedLooks.map((look, index) => {
@@ -967,21 +958,21 @@ export default function OutfitsScreen() {
                                                 onPress={() =>
                                                     setExpandedLookId(expanded ? null : look.id)
                                                 }
-                                                style={[styles.lookCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+                                                style={[styles.lookCard, { backgroundColor: tc.card, borderColor: tc.border }]}
                                             >
                                                 <View style={styles.lookHeaderRow}>
                                                     <View>
-                                                        <Text style={[styles.lookTitle, { color: theme.text }]}>
+                                                        <Text style={[styles.lookTitle, { color: tc.textPrimary }]}>
                                                             {look.name || `Look ${index + 1}`}
                                                         </Text>
-                                                        <Text style={[styles.lookSubtitle, { color: theme.textSecondary }]}>
+                                                        <Text style={[styles.lookSubtitle, { color: tc.textSecondary }]}>
                                                             {items.length} pieces • Saved from {look.source === 'ai' ? 'AI Stylist' : 'your wardrobe'}
                                                         </Text>
                                                     </View>
                                                     <Ionicons
                                                         name={expanded ? 'chevron-up' : 'chevron-down'}
                                                         size={18}
-                                                        color={theme.textSecondary}
+                                                        color={tc.textSecondary}
                                                     />
                                                 </View>
 
@@ -1025,7 +1016,7 @@ export default function OutfitsScreen() {
                                                     <View style={styles.lookExpandedSection}>
                                                         {topItems.length > 0 && (
                                                             <View style={styles.lookCategorySection}>
-                                                                <Text style={[styles.lookCategoryTitle, { color: theme.text }]}>Topwear</Text>
+                                                                <Text style={[styles.lookCategoryTitle, { color: tc.textPrimary }]}>Topwear</Text>
                                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                                     {topItems.map((wItem) => (
                                                                         <Image
@@ -1040,7 +1031,7 @@ export default function OutfitsScreen() {
                                                         )}
                                                         {bottomItems.length > 0 && (
                                                             <View style={styles.lookCategorySection}>
-                                                                <Text style={[styles.lookCategoryTitle, { color: theme.text }]}>Bottomwear</Text>
+                                                                <Text style={[styles.lookCategoryTitle, { color: tc.textPrimary }]}>Bottomwear</Text>
                                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                                     {bottomItems.map((wItem) => (
                                                                         <Image
@@ -1055,7 +1046,7 @@ export default function OutfitsScreen() {
                                                         )}
                                                         {footwearItems.length > 0 && (
                                                             <View style={styles.lookCategorySection}>
-                                                                <Text style={[styles.lookCategoryTitle, { color: theme.text }]}>Footwear</Text>
+                                                                <Text style={[styles.lookCategoryTitle, { color: tc.textPrimary }]}>Footwear</Text>
                                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                                     {footwearItems.map((wItem) => (
                                                                         <Image
@@ -1070,7 +1061,7 @@ export default function OutfitsScreen() {
                                                         )}
                                                         {accessoryItems.length > 0 && (
                                                             <View style={styles.lookCategorySection}>
-                                                                <Text style={[styles.lookCategoryTitle, { color: theme.text }]}>Accessories</Text>
+                                                                <Text style={[styles.lookCategoryTitle, { color: tc.textPrimary }]}>Accessories</Text>
                                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                                                     {accessoryItems.map((wItem) => (
                                                                         <Image
@@ -1105,7 +1096,7 @@ export default function OutfitsScreen() {
             >
                 <View style={styles.quizModalScreen}>
                     <View style={styles.quizModalHeader}>
-                        <TouchableOpacity style={styles.quizCloseBtn} onPress={closeQuiz}>
+                        <TouchableOpacity style={styles.quizCloseBtn} onPress={closeQuiz} accessibilityRole="button" accessibilityLabel="Close style quiz">
                             <Ionicons name="close" size={28} color={Colors.charcoal} />
                         </TouchableOpacity>
                         <Text style={styles.quizModalTitle}>Style Quiz</Text>
@@ -1166,12 +1157,12 @@ export default function OutfitsScreen() {
             </Modal>
 
             <Modal visible={selectorModalVisible} animationType="slide" transparent={false}>
-                <SafeAreaView style={[styles.selectorModal, { backgroundColor: theme.background }]}>
-                    <View style={[styles.selectorHeader, { borderBottomColor: theme.border }]}>
-                        <TouchableOpacity onPress={() => setSelectorModalVisible(false)} style={styles.selectorCloseBtn}>
-                            <Ionicons name="close" size={24} color={theme.text} />
+                <SafeAreaView style={[styles.selectorModal, { backgroundColor: tc.background }]}>
+                    <View style={[styles.selectorHeader, { borderBottomColor: tc.border }]}>
+                        <TouchableOpacity onPress={() => setSelectorModalVisible(false)} style={styles.selectorCloseBtn} accessibilityRole="button" accessibilityLabel="Close item selector">
+                            <Ionicons name="close" size={24} color={tc.textPrimary} />
                         </TouchableOpacity>
-                        <Text style={[styles.selectorTitle, { color: theme.text }]}>
+                        <Text style={[styles.selectorTitle, { color: tc.textPrimary }]}>
                             Select {swappingCategory}
                         </Text>
                         <View style={{ width: 40 }} />
@@ -1182,7 +1173,7 @@ export default function OutfitsScreen() {
                             .map(item => (
                                 <TouchableOpacity
                                     key={item.id}
-                                    style={[styles.selectorCard, { backgroundColor: theme.card }]}
+                                    style={[styles.selectorCard, { backgroundColor: tc.card }]}
                                     onPress={() => handleSelectManualItem(item)}
                                 >
                                     <Image
@@ -1190,20 +1181,20 @@ export default function OutfitsScreen() {
                                         style={styles.selectorImg}
                                         resizeMode="contain"
                                     />
-                                    <Text style={[styles.selectorName, { color: theme.text }]} numberOfLines={1}>
+                                    <Text style={[styles.selectorName, { color: tc.textPrimary }]} numberOfLines={1}>
                                         {item.name}
                                     </Text>
                                 </TouchableOpacity>
                             ))}
                         {wardrobeItems.filter(it => normalizeCategory(it.category) === swappingCategory).length === 0 && (
                             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 100 }}>
-                                <Text style={{ color: theme.textSecondary }}>No items found in this category</Text>
+                                <Text style={{ color: tc.textSecondary }}>No items found in this category</Text>
                             </View>
                         )}
                     </ScrollView>
                 </SafeAreaView>
             </Modal>
-        </SafeAreaView>
+        </ScreenContainer>
     );
 }
 
@@ -1225,8 +1216,8 @@ const styles = StyleSheet.create({
     title: { ...Typography.heading1 },
     statsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     statChip: { alignItems: 'center' },
-    statNum: { fontSize: 18, fontWeight: '700' },
-    statLbl: { fontSize: 11 },
+    statNum: { fontSize: 18, fontWeight: '700', fontFamily: FontFamily.bodyBold },
+    statLbl: { fontSize: 11, fontFamily: FontFamily.body },
     statDivider: { width: 1, height: 28 },
     tabsContainer: {
         flexDirection: 'row',
@@ -1237,10 +1228,10 @@ const styles = StyleSheet.create({
     },
     tab: { flex: 1, paddingVertical: Spacing.md, borderRadius: BorderRadius.round, alignItems: 'center' },
     tabActive: { ...Shadows.sm },
-    tabText: { fontSize: 13, fontWeight: '500' },
-    tabTextActive: { fontWeight: '700' },
+    tabText: { fontSize: 13, fontWeight: '500', fontFamily: FontFamily.bodyMedium },
+    tabTextActive: { fontWeight: '700', fontFamily: FontFamily.bodyBold },
     loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-    loadingText: { fontSize: 14 },
+    loadingText: { fontSize: 14, fontFamily: FontFamily.body },
     scrollContent: { paddingBottom: 100 },
     bodyUploadCard: {
         marginHorizontal: Spacing.xl,
@@ -1282,7 +1273,7 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 260,
         borderRadius: BorderRadius.lg,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: Colors.cream,
     },
     bodyPhotoStatus: {
         fontSize: 12,
@@ -1363,6 +1354,7 @@ const styles = StyleSheet.create({
     quizModalTitle: {
         fontSize: 18,
         fontWeight: '700',
+        fontFamily: FontFamily.bodyBold,
         color: Colors.charcoal,
     },
     quizCloseBtn: {
@@ -1417,6 +1409,7 @@ const styles = StyleSheet.create({
         fontSize: 26,
         lineHeight: 34,
         fontWeight: '700',
+        fontFamily: FontFamily.heading,
         color: '#111827',
         marginBottom: Spacing.lg,
     },
@@ -1583,6 +1576,7 @@ const styles = StyleSheet.create({
     quizPrimaryBtnText: {
         fontSize: 16,
         fontWeight: '700',
+        fontFamily: FontFamily.bodySemiBold,
         color: Colors.white,
     },
     profileNavBtnDisabled: {
@@ -1608,8 +1602,8 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     bannerText: { flex: 1 },
-    bannerTitle: { fontSize: 16, fontWeight: '700' },
-    bannerSub: { fontSize: 12, marginTop: 2 },
+    bannerTitle: { fontSize: 16, fontWeight: '700', fontFamily: FontFamily.bodyBold },
+    bannerSub: { fontSize: 12, marginTop: 2, fontFamily: FontFamily.body },
     regenBtn: {
         width: 36,
         height: 36,
@@ -1618,19 +1612,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     emptySuggestion: { alignItems: 'center', paddingVertical: 20, gap: 10 },
-    emptySuggestionText: { fontSize: 13, textAlign: 'center', fontStyle: 'italic' },
+    emptySuggestionText: { fontSize: 13, textAlign: 'center', fontStyle: 'italic', fontFamily: FontFamily.body },
     outfitStrip: { marginTop: 4 },
     styledPreviewCard: {
         borderRadius: BorderRadius.lg,
         overflow: 'hidden',
-        backgroundColor: '#F9F8F4',
+        backgroundColor: Colors.warmGray,
         marginBottom: Spacing.md,
     },
     styledPreviewStage: {
         position: 'relative',
         width: '100%',
         height: 380,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: Colors.cream,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -1824,7 +1818,7 @@ const styles = StyleSheet.create({
         width: 80,
         height: 96,
         borderRadius: 12,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: Colors.cream,
     },
     outfitItemCat: { fontSize: 10, fontWeight: '600', marginTop: 4, textTransform: 'capitalize' },
     bestLookNote: {
@@ -1849,10 +1843,10 @@ const styles = StyleSheet.create({
     swapItemCard: {
         width: '47%',
         borderRadius: BorderRadius.md,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: Colors.cream,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: '#EEE',
+        borderColor: Colors.lightGray,
     },
     swapItemImg: {
         width: '100%',
@@ -1903,6 +1897,7 @@ const styles = StyleSheet.create({
     selectorTitle: {
         fontSize: 18,
         fontWeight: '700',
+        fontFamily: FontFamily.bodyBold,
         textTransform: 'capitalize',
     },
     selectorGrid: {
@@ -1934,7 +1929,7 @@ const styles = StyleSheet.create({
     lookPieceLabel: {
         fontSize: 10,
         fontWeight: '600',
-        color: '#666',
+        color: Colors.darkGray,
         marginTop: 4,
         textTransform: 'capitalize',
     },
@@ -1962,6 +1957,7 @@ const styles = StyleSheet.create({
     generatedLookTitle: {
         fontSize: 15,
         fontWeight: '700',
+        fontFamily: FontFamily.bodyBold,
     },
     generatedLookNote: {
         fontSize: 12,
@@ -1981,7 +1977,7 @@ const styles = StyleSheet.create({
         width: 88,
         height: 106,
         borderRadius: BorderRadius.md,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: Colors.cream,
     },
     generatedLookLabel: {
         fontSize: 10,
@@ -2000,11 +1996,13 @@ const styles = StyleSheet.create({
     saveLookText: {
         fontSize: 12,
         fontWeight: '600',
+        fontFamily: FontFamily.bodySemiBold,
     },
     // Category pills
     sectionTitle: {
         fontSize: 11,
         fontWeight: '700',
+        fontFamily: FontFamily.bodyBold,
         letterSpacing: 1.5,
         marginHorizontal: Spacing.xl,
         marginBottom: 10,
@@ -2029,8 +2027,8 @@ const styles = StyleSheet.create({
         gap: 12,
         paddingHorizontal: 40,
     },
-    emptyFavsTitle: { fontSize: 18, fontWeight: '700' },
-    emptyFavsSub: { fontSize: 14, textAlign: 'center' },
+    emptyFavsTitle: { fontSize: 18, fontWeight: '700', fontFamily: FontFamily.bodySemiBold },
+    emptyFavsSub: { fontSize: 14, textAlign: 'center', fontFamily: FontFamily.body },
     looksList: {
         paddingHorizontal: Spacing.xl,
         paddingBottom: 100,
@@ -2052,10 +2050,12 @@ const styles = StyleSheet.create({
     lookTitle: {
         fontSize: 15,
         fontWeight: '700',
+        fontFamily: FontFamily.bodyBold,
     },
     lookSubtitle: {
         fontSize: 11,
         marginTop: 2,
+        fontFamily: FontFamily.body,
     },
     lookThumbRow: {
         flexDirection: 'row',
@@ -2066,7 +2066,7 @@ const styles = StyleSheet.create({
         width: 96,
         height: 112,
         borderRadius: BorderRadius.md,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: Colors.cream,
     },
     lookCategoryChips: {
         flex: 1,
@@ -2111,7 +2111,7 @@ const styles = StyleSheet.create({
         width: 80,
         height: 96,
         borderRadius: BorderRadius.md,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: Colors.cream,
         marginRight: Spacing.sm,
     },
     // Occasion chips and Score Pills
@@ -2134,6 +2134,7 @@ const styles = StyleSheet.create({
     occasionChipText: {
         fontSize: 13,
         fontWeight: '600',
+        fontFamily: FontFamily.bodySemiBold,
     },
     occasionChipTextActive: {
         color: Colors.white,

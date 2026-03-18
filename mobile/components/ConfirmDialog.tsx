@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../constants/theme';
+import { Colors, Spacing, BorderRadius, Shadows, FontFamily } from '../constants/theme';
+import { useThemeColors } from '../context/ThemeContext';
 
 interface ConfirmDialogProps {
     visible: boolean;
@@ -23,6 +24,8 @@ export function ConfirmDialog({
     onConfirm,
     onCancel,
 }: ConfirmDialogProps) {
+    const tc = useThemeColors();
+
     return (
         <Modal
             visible={visible}
@@ -31,18 +34,18 @@ export function ConfirmDialog({
             onRequestClose={onCancel}
         >
             <Pressable style={styles.overlay} onPress={onCancel}>
-                <View style={styles.card}>
-                    <Text style={styles.title}>{title}</Text>
-                    {description ? <Text style={styles.description}>{description}</Text> : null}
+                <View style={[styles.card, { backgroundColor: tc.card }]}>
+                    <Text style={[styles.title, { color: tc.textPrimary }]}>{title}</Text>
+                    {description ? <Text style={[styles.description, { color: tc.textSecondary }]}>{description}</Text> : null}
 
                     <View style={styles.actions}>
-                        <TouchableOpacity style={styles.secondaryBtn} onPress={onCancel}>
-                            <Text style={styles.secondaryText}>{cancelLabel}</Text>
+                        <TouchableOpacity style={[styles.secondaryBtn, { backgroundColor: tc.surface }]} onPress={onCancel}>
+                            <Text style={[styles.secondaryText, { color: tc.textPrimary }]}>{cancelLabel}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[
                                 styles.primaryBtn,
-                                destructive && { backgroundColor: Colors.error || '#DC2626' },
+                                { backgroundColor: destructive ? Colors.error : tc.accent },
                             ]}
                             onPress={onConfirm}
                         >
@@ -65,18 +68,19 @@ const styles = StyleSheet.create({
     },
     card: {
         width: '100%',
-        backgroundColor: Colors.white,
         borderRadius: BorderRadius.xl,
         padding: Spacing.lg,
         ...Shadows.md,
     },
     title: {
-        ...Typography.heading3,
+        fontSize: 18,
+        fontWeight: '600',
+        fontFamily: FontFamily.headingMedium,
         marginBottom: Spacing.xs,
     },
     description: {
-        ...Typography.bodySmall,
-        color: Colors.darkGray,
+        fontSize: 14,
+        fontFamily: FontFamily.body,
         marginBottom: Spacing.lg,
     },
     actions: {
@@ -88,23 +92,21 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         paddingVertical: Spacing.sm,
         borderRadius: BorderRadius.lg,
-        backgroundColor: Colors.warmGray,
     },
     secondaryText: {
         fontSize: 14,
         fontWeight: '500',
-        color: Colors.charcoal,
+        fontFamily: FontFamily.bodyMedium,
     },
     primaryBtn: {
         paddingHorizontal: Spacing.lg,
         paddingVertical: Spacing.sm,
         borderRadius: BorderRadius.lg,
-        backgroundColor: Colors.gold,
     },
     primaryText: {
         fontSize: 14,
         fontWeight: '600',
-        color: Colors.white,
+        fontFamily: FontFamily.bodySemiBold,
+        color: '#FFFFFF',
     },
 });
-

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../constants/theme';
+import { Colors, Spacing, BorderRadius, Shadows, FontFamily } from '../constants/theme';
+import { useThemeColors } from '../context/ThemeContext';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -21,6 +22,7 @@ export function Toast({
     onHide,
     autoHideDuration = 2200,
 }: ToastProps) {
+    const tc = useThemeColors();
     const translateY = useRef(new Animated.Value(80)).current;
     const opacity = useRef(new Animated.Value(0)).current;
 
@@ -64,10 +66,10 @@ export function Toast({
 
     const palette =
         type === 'success'
-            ? { bg: '#DCFCE7', text: Colors.success || '#166534' }
+            ? { bg: '#DCFCE7', text: '#166534' }
             : type === 'error'
-                ? { bg: '#FEE2E2', text: Colors.error || '#B91C1C' }
-                : { bg: Colors.charcoal, text: Colors.white };
+                ? { bg: '#FEE2E2', text: '#B91C1C' }
+                : { bg: tc.backgroundElevated, text: tc.textPrimary };
 
     return (
         <View pointerEvents="none" style={styles.container}>
@@ -108,17 +110,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         paddingVertical: Spacing.md,
         borderRadius: BorderRadius.lg,
-        ...Shadows.sm,
+        ...Shadows.md,
     },
     message: {
-        ...Typography.body,
-        fontWeight: '600',
         fontSize: 13,
-    } as any,
+        fontWeight: '600',
+        fontFamily: FontFamily.bodySemiBold,
+    },
     description: {
-        ...Typography.bodySmall,
+        fontSize: 12,
+        fontFamily: FontFamily.body,
         marginTop: 2,
-        fontSize: 11,
-    } as any,
+    },
 });
-

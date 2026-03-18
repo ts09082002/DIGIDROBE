@@ -5,7 +5,6 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    StatusBar,
     TextInput,
     ActivityIndicator,
     Share,
@@ -13,17 +12,18 @@ import {
     Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
-import { useTheme } from '../../context/ThemeContext';
+import { Colors, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import { useThemeColors } from '../../context/ThemeContext';
 import { api, WardrobeItem } from '../../services/api';
 import { Toast } from '../../components/Toast';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScreenContainer from '../../components/ui/ScreenContainer';
+import EmptyState from '../../components/ui/EmptyState';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
 
 export default function TravelScreen() {
-    const { isDarkMode } = useTheme();
+    const tc = useThemeColors();
     const [destination, setDestination] = useState('');
     const [days, setDays] = useState('3');
     const [loading, setLoading] = useState(false);
@@ -31,16 +31,6 @@ export default function TravelScreen() {
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
-    const insets = useSafeAreaInsets();
-
-    const theme = {
-        background: isDarkMode ? '#1A1A1A' : Colors.warmGray,
-        card: isDarkMode ? '#242424' : Colors.white,
-        text: isDarkMode ? '#FFFFFF' : Colors.charcoal,
-        textSecondary: isDarkMode ? '#A0A0A0' : Colors.darkGray,
-        border: isDarkMode ? '#333333' : Colors.lightGray,
-        gold: Colors.gold,
-    };
 
     const handleGenerate = async () => {
         if (!destination.trim()) {
@@ -63,7 +53,7 @@ export default function TravelScreen() {
             setPackingList(list);
         } catch (e) {
             setToastType('error');
-            setToastMessage('Failed to generate packing list');
+            setToastMessage('Failed to generate packing list. Make sure you have items in your wardrobe.');
             setToastVisible(true);
         } finally {
             setLoading(false);
@@ -73,7 +63,7 @@ export default function TravelScreen() {
     const handleShare = async () => {
         if (!packingList?.length) return;
 
-        const intro = `My packing list for ${destination} (${days} days) made with Digidrobe:\n`;
+        const intro = `My packing list for ${destination} (${days} days) made with Drobeo:\n`;
         const items = packingList.map(i => `- ${i.name || i.category}`).join('\n');
 
         try {
@@ -88,40 +78,37 @@ export default function TravelScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-
+        <ScreenContainer>
             {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>Travel Pack</Text>
+            <View style={styles.header}>
+                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Travel Pack</Text>
             </View>
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
-
                 {/* Form Section */}
-                <View style={[styles.formCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                    <Text style={[styles.label, { color: theme.textSecondary }]}>DESTINATION</Text>
-                    <View style={[styles.inputContainer, { borderColor: theme.border, backgroundColor: theme.background }]}>
-                        <Ionicons name="location" size={20} color={theme.textSecondary} />
+                <View style={[styles.formCard, { backgroundColor: tc.card, borderColor: tc.border }]}>
+                    <Text style={[styles.label, { color: tc.textSecondary }]}>DESTINATION</Text>
+                    <View style={[styles.inputContainer, { borderColor: tc.border, backgroundColor: tc.surface }]}>
+                        <Ionicons name="location" size={20} color={tc.textSecondary} />
                         <TextInput
-                            style={[styles.input, { color: theme.text }]}
+                            style={[styles.input, { color: tc.textPrimary }]}
                             placeholder="Where to?"
-                            placeholderTextColor={theme.textSecondary}
+                            placeholderTextColor={tc.textMuted}
                             value={destination}
                             onChangeText={setDestination}
                         />
                     </View>
 
-                    <Text style={[styles.label, { color: theme.textSecondary, marginTop: 15 }]}>DURATION (DAYS)</Text>
-                    <View style={[styles.inputContainer, { borderColor: theme.border, backgroundColor: theme.background }]}>
-                        <Ionicons name="calendar-clear" size={20} color={theme.textSecondary} />
+                    <Text style={[styles.label, { color: tc.textSecondary, marginTop: 15 }]}>DURATION (DAYS)</Text>
+                    <View style={[styles.inputContainer, { borderColor: tc.border, backgroundColor: tc.surface }]}>
+                        <Ionicons name="calendar-clear" size={20} color={tc.textSecondary} />
                         <TextInput
-                            style={[styles.input, { color: theme.text }]}
+                            style={[styles.input, { color: tc.textPrimary }]}
                             placeholder="e.g. 3"
-                            placeholderTextColor={theme.textSecondary}
+                            placeholderTextColor={tc.textMuted}
                             keyboardType="numeric"
                             value={days}
                             onChangeText={setDays}
@@ -129,15 +116,17 @@ export default function TravelScreen() {
                     </View>
 
                     <TouchableOpacity
-                        style={[styles.generateBtn, { backgroundColor: theme.gold }]}
+                        style={[styles.generateBtn, { backgroundColor: tc.accent }]}
                         onPress={handleGenerate}
                         disabled={loading}
+                        accessibilityRole="button"
+                        accessibilityLabel="Generate packing list"
                     >
                         {loading ? (
-                            <ActivityIndicator color={Colors.white} />
+                            <ActivityIndicator color="#FFF" />
                         ) : (
                             <>
-                                <Ionicons name="flash" size={18} color={Colors.white} />
+                                <Ionicons name="flash" size={18} color="#FFF" />
                                 <Text style={styles.generateBtnText}>Generate Packing List</Text>
                             </>
                         )}
@@ -148,28 +137,35 @@ export default function TravelScreen() {
                 {packingList !== null && (
                     <View style={styles.resultsContainer}>
                         <View style={styles.resultsHeader}>
-                            <Text style={[styles.resultsTitle, { color: theme.text }]}>Your List</Text>
-                            <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
-                                <Ionicons name="share-outline" size={20} color={theme.gold} />
-                                <Text style={[styles.shareText, { color: theme.gold }]}>Share</Text>
+                            <Text style={[styles.resultsTitle, { color: tc.textPrimary }]}>Your List</Text>
+                            <TouchableOpacity
+                                onPress={handleShare}
+                                style={styles.shareBtn}
+                                accessibilityRole="button"
+                                accessibilityLabel="Share packing list"
+                            >
+                                <Ionicons name="share-outline" size={20} color={tc.accent} />
+                                <Text style={[styles.shareText, { color: tc.accent }]}>Share</Text>
                             </TouchableOpacity>
                         </View>
 
                         {packingList.length === 0 ? (
-                            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                                Add items to your wardrobe first to get suggestions!
-                            </Text>
+                            <EmptyState
+                                icon="shirt-outline"
+                                title="No items to pack"
+                                subtitle="Add items to your wardrobe first to get suggestions!"
+                            />
                         ) : (
                             <View style={styles.grid}>
                                 {packingList.map((item, index) => (
-                                    <View key={index} style={[styles.itemCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                                    <View key={index} style={[styles.itemCard, { backgroundColor: tc.card, borderColor: tc.border }]}>
                                         <Image
                                             source={{ uri: item.processedUrl }}
-                                            style={styles.itemImage}
+                                            style={[styles.itemImage, { backgroundColor: tc.surface }]}
                                             resizeMode="contain"
                                         />
                                         <View style={styles.itemInfo}>
-                                            <Text style={[styles.itemCategory, { color: theme.textSecondary }]} numberOfLines={1}>
+                                            <Text style={[styles.itemCategory, { color: tc.textSecondary }]} numberOfLines={1}>
                                                 {item.name || item.category}
                                             </Text>
                                         </View>
@@ -186,24 +182,23 @@ export default function TravelScreen() {
                 message={toastMessage}
                 onHide={() => setToastVisible(false)}
             />
-        </SafeAreaView>
+        </ScreenContainer>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Spacing.xl,
-        paddingTop: 0,
+        paddingTop: Spacing.sm,
         paddingBottom: Spacing.sm,
     },
     headerTitle: {
-        ...Typography.heading1,
+        fontSize: 28,
+        fontWeight: '700',
+        fontFamily: FontFamily.heading,
     },
     scrollContent: {
         flexGrow: 1,
@@ -211,28 +206,31 @@ const styles = StyleSheet.create({
     },
     formCard: {
         marginHorizontal: Spacing.xl,
-        padding: 20,
-        borderRadius: 20,
+        padding: Spacing.xl,
+        borderRadius: BorderRadius.xl,
         borderWidth: 1,
+        ...Shadows.sm,
     },
     label: {
         fontSize: 12,
         fontWeight: '700',
+        fontFamily: FontFamily.bodySemiBold,
         letterSpacing: 1.2,
-        marginBottom: 8,
+        marginBottom: Spacing.sm,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderRadius: 12,
-        paddingHorizontal: 12,
+        borderRadius: BorderRadius.md,
+        paddingHorizontal: Spacing.md,
         height: 50,
-        gap: 10,
+        gap: Spacing.md,
     },
     input: {
         flex: 1,
         fontSize: 16,
+        fontFamily: FontFamily.body,
         height: '100%',
     },
     generateBtn: {
@@ -240,71 +238,67 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         height: 54,
-        borderRadius: 14,
-        marginTop: 25,
-        gap: 8,
+        borderRadius: BorderRadius.md,
+        marginTop: Spacing.xxl,
+        gap: Spacing.sm,
+        ...Shadows.sm,
     },
     generateBtnText: {
-        color: Colors.white,
+        color: '#FFF',
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: FontFamily.bodySemiBold,
     },
     resultsContainer: {
-        marginTop: 30,
+        marginTop: Spacing.xxxl,
         paddingHorizontal: Spacing.xl,
     },
     resultsHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 15,
+        marginBottom: Spacing.lg,
     },
     resultsTitle: {
         fontSize: 20,
         fontWeight: '700',
+        fontFamily: FontFamily.heading,
     },
     shareBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
+        gap: Spacing.xs,
     },
     shareText: {
         fontSize: 15,
         fontWeight: '600',
-    },
-    emptyText: {
-        fontSize: 15,
-        fontStyle: 'italic',
-        marginTop: 10,
+        fontFamily: FontFamily.bodySemiBold,
     },
     grid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
-        rowGap: 15,
+        rowGap: Spacing.lg,
     },
     itemCard: {
         width: CARD_WIDTH,
-        borderRadius: 16,
+        borderRadius: BorderRadius.lg,
         borderWidth: 1,
         overflow: 'hidden',
     },
     itemImage: {
         width: '100%',
         height: CARD_WIDTH * 1.2,
-        backgroundColor: '#F0F0F0',
         resizeMode: 'cover',
     },
     itemInfo: {
-        padding: 10,
+        padding: Spacing.md,
         alignItems: 'center',
     },
     itemCategory: {
         fontSize: 12,
         fontWeight: '600',
+        fontFamily: FontFamily.bodySemiBold,
         textTransform: 'capitalize',
     },
 });
-
-
-
