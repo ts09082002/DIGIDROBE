@@ -83,6 +83,10 @@ const SECTION_SUGGESTIONS: Record<CanonicalCategory, SuggestionItem[]> = {
         { id: 's3', name: 'Ankle Boots', brand: 'Stride', imageUrl: 'https://pngimg.com/d/boots_PNG37.png', backendCategory: 'footwear' },
         { id: 's4', name: 'Flat Sandals', brand: 'Coast', imageUrl: 'https://pngimg.com/d/sandals_PNG26.png', backendCategory: 'footwear' },
     ],
+    dresses: [
+        { id: 'd1', name: 'Summer Dress', brand: 'Bloom', imageUrl: 'https://pngimg.com/d/dress_PNG8614.png', backendCategory: 'dresses' },
+        { id: 'd2', name: 'Evening Gown', brand: 'Atelier', imageUrl: 'https://pngimg.com/d/dress_PNG8597.png', backendCategory: 'dresses' },
+    ],
     bags: [
         { id: 'bg1', name: 'Leather Handbag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6394.png', backendCategory: 'bags' },
         { id: 'bg2', name: 'Mini Shoulder Bag', brand: 'Muse', imageUrl: 'https://pngimg.com/d/handbag_PNG6388.png', backendCategory: 'bags' },
@@ -750,7 +754,7 @@ export default function WardrobeScreen() {
                     placeholderTextColor={tc.textSecondary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    onSubmitEditing={loadItems}
+                    onSubmitEditing={() => loadItems()}
                 />
             </View>
 

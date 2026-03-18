@@ -93,7 +93,7 @@ export const DarkColors = {
     statusBar: 'light' as const,
 };
 
-export type SemanticColors = typeof LightColors;
+export type SemanticColors = Omit<typeof LightColors, 'statusBar'> & { statusBar: 'dark' | 'light' };
 
 // ── Font Families ────────────────────────────────────────────────────────────
 
@@ -190,6 +190,7 @@ export const BorderRadius = {
     md: 12,
     lg: 16,
     xl: 20,
+    xxl: 24,
     round: 50,
 };
 

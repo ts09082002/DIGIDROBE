@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Animated, DimensionValue, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useThemeColors } from '../../context/ThemeContext';
 import { BorderRadius, Spacing } from '../../constants/theme';
 
@@ -7,8 +7,8 @@ type Variant = 'card' | 'text' | 'circle' | 'rect';
 
 type Props = {
     variant?: Variant;
-    width?: number | string;
-    height?: number | string;
+    width?: DimensionValue;
+    height?: DimensionValue;
     borderRadius?: number;
     style?: ViewStyle;
     count?: number;
@@ -53,7 +53,7 @@ export default function SkeletonLoader({ count = 1, ...props }: Props) {
     return (
         <View style={styles.container}>
             {Array.from({ length: count }).map((_, i) => (
-                <SkeletonItem key={i} {...props} style={[props.style, i > 0 && { marginTop: Spacing.sm }]} />
+                <SkeletonItem key={i} {...props} style={{ ...props.style, ...(i > 0 ? { marginTop: Spacing.sm } : {}) }} />
             ))}
         </View>
     );

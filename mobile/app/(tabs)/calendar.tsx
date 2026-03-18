@@ -1,16 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
     ActivityIndicator,
-    Modal,
-    FlatList,
-    Image,
-    Dimensions,
-    TextInput,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
@@ -18,345 +13,363 @@ import { useTheme, useThemeColors } from '../../context/ThemeContext';
 import { OOTD, WardrobeItem } from '../../services/api';
 import * as wardrobeLocal from '../../services/wardrobe-local';
 import * as ootdLocal from '../../services/ootd-local';
+import { generateStyleOfDayForWardrobe } from '../../engine';
 import { Toast } from '../../components/Toast';
 import ScreenContainer from '../../components/ui/ScreenContainer';
-import EmptyState from '../../components/ui/EmptyState';
 import SkeletonLoader from '../../components/ui/SkeletonLoader';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import MonthGrid from '../../components/calendar/MonthGrid';
+import TodayLookCard from '../../components/calendar/TodayLookCard';
+import DayDetailSheet from '../../components/calendar/DayDetailSheet';
+import MonthStats from '../../components/calendar/MonthStats';
 
-const { width } = Dimensions.get('window');
-const ITEM_SIZE = (width - 60) / 3;
+const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+];
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function getTodayStr(): string {
+    return new Date().toISOString().split('T')[0];
+}
+
+function getWeekDates(dateStr: string): string[] {
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay(); // 0=Sun
+    const dates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+        const wd = new Date(d);
+        wd.setDate(d.getDate() - dow + i);
+        dates.push(wd.toISOString().split('T')[0]);
+    }
+    return dates;
+}
 
 export default function CalendarScreen() {
     const { isDarkMode } = useTheme();
     const tc = useThemeColors();
-    const [loading, setLoading] = useState(false);
+
+    // Calendar state
+    const today = getTodayStr();
+    const [year, setYear] = useState(() => new Date().getFullYear());
+    const [month, setMonth] = useState(() => new Date().getMonth() + 1); // 1-12
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+    // Data state
     const [ootds, setOotds] = useState<OOTD[]>([]);
-    const [wardrobe, setWardrobe] = useState<WardrobeItem[]>([]);
-    const [selectedDay, setSelectedDay] = useState<string | null>(null);
-    const [pickerVisible, setPickerVisible] = useState(false);
-    const [selectedItems, setSelectedItems] = useState<string[]>([]);
-    const [notes, setNotes] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [statsItems, setStatsItems] = useState<{ item: WardrobeItem; count: number }[]>([]);
+    const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [autoFilling, setAutoFilling] = useState(false);
+
+    // Sheet state
+    const [sheetVisible, setSheetVisible] = useState(false);
+    const [sheetDate, setSheetDate] = useState<string>(today);
+
+    // Toast state
     const [toastVisible, setToastVisible] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
 
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    // Derived data
+    const ootdDates = useMemo(
+        () => new Set(ootds.map((o) => o.date)),
+        [ootds]
+    );
 
-    const weekDays: { date: Date; dateStr: string; dayName: string }[] = [];
-    for (let i = -3; i <= 3; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + i);
-        weekDays.push({
-            date: d,
-            dateStr: d.toISOString().split('T')[0],
-            dayName: DAY_NAMES[d.getDay()],
-        });
-    }
+    const todayOOTD = useMemo(
+        () => ootds.find((o) => o.date === today),
+        [ootds, today]
+    );
 
-    const loadData = useCallback(async () => {
+    const todayItems = useMemo(() => {
+        if (!todayOOTD) return [];
+        return todayOOTD.itemIds
+            .map((id) => wardrobeItems.find((i) => i.id === id))
+            .filter((i): i is WardrobeItem => i != null);
+    }, [todayOOTD, wardrobeItems]);
+
+    const sheetOOTD = useMemo(
+        () => ootds.find((o) => o.date === sheetDate) ?? null,
+        [ootds, sheetDate]
+    );
+
+    // ---------- Data loading ----------
+
+    const loadData = useCallback(async (y: number, m: number) => {
         try {
             setLoading(true);
-            const year = today.getFullYear();
-            const month = today.getMonth() + 1;
             const [ootdRes, wardrobeRes] = await Promise.all([
-                ootdLocal.getOOTDByMonth(year, month),
+                ootdLocal.getOOTDByMonth(y, m),
                 wardrobeLocal.getAllItems(),
             ]);
             setOotds(ootdRes);
-            const ready = wardrobeRes.filter(i => i.status === 'done' && i.processedUrl);
-            setWardrobe(ready);
-
-            const itemCountMap: Record<string, number> = {};
-            ootdRes.forEach(o => {
-                o.itemIds.forEach(id => {
-                    itemCountMap[id] = (itemCountMap[id] || 0) + 1;
-                });
-            });
-            const sorted = Object.entries(itemCountMap)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 5);
-            const statsWithItems = sorted.map(([id, count]) => {
-                const item = ready.find(i => i.id === id);
-                return item ? { item, count } : null;
-            }).filter((x): x is { item: WardrobeItem; count: number } => x !== null);
-            setStatsItems(statsWithItems);
+            setWardrobeItems(wardrobeRes.filter((i) => i.status === 'done' && i.processedUrl));
         } catch (e) {
-            console.error(e);
+            console.error('Calendar loadData error:', e);
+            showToast('error', 'Could not load calendar data');
         } finally {
             setLoading(false);
         }
     }, []);
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => {
+        loadData(year, month);
+    }, [year, month, loadData]);
 
-    const openPicker = (dateStr: string) => {
-        const existing = ootds.find(o => o.date === dateStr);
-        setSelectedDay(dateStr);
-        setSelectedItems(existing?.itemIds ?? []);
-        setNotes(existing?.notes ?? '');
-        setPickerVisible(true);
-    };
+    // ---------- Helpers ----------
 
-    const toggleItem = (id: string) => {
-        setSelectedItems(prev =>
-            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-        );
-    };
+    const showToast = useCallback((type: 'success' | 'error' | 'info', message: string) => {
+        setToastType(type);
+        setToastMessage(message);
+        setToastVisible(true);
+    }, []);
 
-    const saveOutfit = async () => {
-        if (!selectedDay) return;
-        try {
-            setSaving(true);
-            await ootdLocal.saveOOTD(selectedDay, selectedItems, notes);
-            setPickerVisible(false);
-            await loadData();
-            setToastType('success');
-            setToastMessage('Your outfit has been planned');
-            setToastVisible(true);
-        } catch (e) {
-            setToastType('error');
-            setToastMessage('Could not save outfit');
-            setToastVisible(true);
-        } finally {
-            setSaving(false);
+    const navigateMonth = useCallback((delta: number) => {
+        setMonth((prev) => {
+            let newMonth = prev + delta;
+            let newYear = year;
+            if (newMonth < 1) {
+                newMonth = 12;
+                newYear = year - 1;
+            } else if (newMonth > 12) {
+                newMonth = 1;
+                newYear = year + 1;
+            }
+            setYear(newYear);
+            return newMonth;
+        });
+    }, [year]);
+
+    // ---------- AI suggestion ----------
+
+    const suggestOutfit = useCallback(
+        async (dateStr: string): Promise<string[]> => {
+            if (wardrobeItems.length === 0) {
+                showToast('info', 'Add items to your wardrobe first');
+                return [];
+            }
+            const d = new Date(dateStr + 'T00:00:00');
+            const hour = new Date().getHours();
+            const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+
+            const result = await generateStyleOfDayForWardrobe(
+                wardrobeItems as any, // WardrobeItem -> EngineWardrobeItem mapping handled internally
+                {
+                    temperatureC: 22,
+                    weather: 'sunny',
+                    occasion: 'casual',
+                    dayOfWeek: d.getDay(),
+                    timeOfDay,
+                },
+                dateStr
+            );
+
+            if (!result || !result.outfit.items.length) {
+                showToast('info', 'Could not generate a suggestion');
+                return [];
+            }
+
+            return result.outfit.items.map((item) => item.id);
+        },
+        [wardrobeItems, showToast]
+    );
+
+    // ---------- Day tap -> open sheet ----------
+
+    const handleSelectDate = useCallback((dateStr: string) => {
+        setSelectedDate(dateStr);
+        setSheetDate(dateStr);
+        setSheetVisible(true);
+    }, []);
+
+    // ---------- Save OOTD ----------
+
+    const handleSaveOOTD = useCallback(
+        async (itemIds: string[], notes: string) => {
+            try {
+                await ootdLocal.saveOOTD(sheetDate, itemIds, notes);
+                setSheetVisible(false);
+                setSelectedDate(null);
+                await loadData(year, month);
+                showToast('success', 'Outfit saved');
+            } catch (e) {
+                console.error('Save OOTD error:', e);
+                showToast('error', 'Could not save outfit');
+            }
+        },
+        [sheetDate, year, month, loadData, showToast]
+    );
+
+    // ---------- Today card actions ----------
+
+    const handleTodaySuggest = useCallback(async () => {
+        const ids = await suggestOutfit(today);
+        if (ids.length > 0) {
+            try {
+                await ootdLocal.saveOOTD(today, ids);
+                await loadData(year, month);
+                showToast('success', 'AI outfit planned for today');
+            } catch {
+                showToast('error', 'Could not save suggestion');
+            }
         }
-    };
+    }, [today, suggestOutfit, year, month, loadData, showToast]);
 
-    const ootdForDay = (ds: string) => ootds.find(o => o.date === ds);
-    const itemsForOOTD = (ootd: OOTD) => ootd.itemIds.slice(0, 3).map(id => wardrobe.find(i => i.id === id)).filter(Boolean) as WardrobeItem[];
+    const handleTodayWoreIt = useCallback(async () => {
+        // Mark today's outfit as confirmed (already saved, just show feedback)
+        showToast('success', 'Outfit logged');
+    }, [showToast]);
+
+    const handleTodayPlanManually = useCallback(() => {
+        setSheetDate(today);
+        setSelectedDate(today);
+        setSheetVisible(true);
+    }, [today]);
+
+    // ---------- Auto-fill week ----------
+
+    const handleAutoFillWeek = useCallback(async () => {
+        if (wardrobeItems.length === 0) {
+            showToast('info', 'Add items to your wardrobe first');
+            return;
+        }
+        try {
+            setAutoFilling(true);
+            const weekDates = getWeekDates(today);
+            let filled = 0;
+
+            for (const dateStr of weekDates) {
+                if (ootdDates.has(dateStr)) continue; // skip already planned days
+                const ids = await suggestOutfit(dateStr);
+                if (ids.length > 0) {
+                    await ootdLocal.saveOOTD(dateStr, ids);
+                    filled++;
+                }
+            }
+
+            await loadData(year, month);
+            if (filled > 0) {
+                showToast('success', `Planned ${filled} day${filled > 1 ? 's' : ''} this week`);
+            } else {
+                showToast('info', 'All days already planned');
+            }
+        } catch (e) {
+            console.error('Auto-fill error:', e);
+            showToast('error', 'Could not auto-fill week');
+        } finally {
+            setAutoFilling(false);
+        }
+    }, [wardrobeItems, today, ootdDates, suggestOutfit, year, month, loadData, showToast]);
+
+    // ---------- Sheet AI suggest handler ----------
+
+    const handleSheetAISuggest = useCallback(async (): Promise<string[]> => {
+        return suggestOutfit(sheetDate);
+    }, [sheetDate, suggestOutfit]);
+
+    // ---------- Render ----------
 
     return (
         <ScreenContainer>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Planning</Text>
+                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Calendar</Text>
                 <TouchableOpacity
-                    onPress={loadData}
-                    style={[styles.refreshBtn, { backgroundColor: tc.surface }]}
+                    onPress={handleAutoFillWeek}
+                    disabled={autoFilling}
+                    style={[styles.autoFillBtn, { backgroundColor: tc.surface }]}
                     accessibilityRole="button"
-                    accessibilityLabel="Refresh calendar"
+                    accessibilityLabel="Auto-fill week with AI suggestions"
                 >
-                    <Ionicons name="refresh" size={20} color={tc.textPrimary} />
+                    {autoFilling ? (
+                        <ActivityIndicator size="small" color={tc.accent} />
+                    ) : (
+                        <Ionicons name="sparkles" size={20} color={tc.accent} />
+                    )}
                 </TouchableOpacity>
             </View>
 
             {loading ? (
                 <View style={styles.skeletonContainer}>
-                    <SkeletonLoader variant="rect" height={110} style={{ marginHorizontal: Spacing.xl, marginBottom: Spacing.lg }} />
-                    <SkeletonLoader variant="card" height={160} style={{ marginHorizontal: Spacing.xl }} />
+                    <SkeletonLoader variant="card" height={120} style={{ marginHorizontal: Spacing.xl, marginBottom: Spacing.lg }} />
+                    <SkeletonLoader variant="rect" height={40} style={{ marginHorizontal: Spacing.xl, marginBottom: Spacing.md }} />
+                    <SkeletonLoader variant="card" height={260} style={{ marginHorizontal: Spacing.xl, marginBottom: Spacing.lg }} />
+                    <SkeletonLoader variant="rect" height={80} style={{ marginHorizontal: Spacing.xl }} />
                 </View>
             ) : (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scroll}
                 >
-                    {/* Month + Week Strip */}
-                    <Text style={[styles.monthLabel, { color: tc.textSecondary }]}>
-                        {MONTH_NAMES[today.getMonth()].toUpperCase()} {today.getFullYear()}
-                    </Text>
+                    {/* Today's Look Card */}
+                    <TodayLookCard
+                        items={todayItems}
+                        date={today}
+                        onSuggest={handleTodaySuggest}
+                        onWoreIt={handleTodayWoreIt}
+                        onPlanManually={handleTodayPlanManually}
+                    />
 
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekStrip}>
-                        {weekDays.map((day, idx) => {
-                            const isToday = day.dateStr === todayStr;
-                            const ootd = ootdForDay(day.dateStr);
-                            const hasOutfit = !!ootd;
-                            const previewItems = hasOutfit ? itemsForOOTD(ootd) : [];
+                    {/* Month navigation */}
+                    <View style={styles.monthNav}>
+                        <TouchableOpacity
+                            onPress={() => navigateMonth(-1)}
+                            style={[styles.monthNavBtn, { backgroundColor: tc.surface }]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Previous month"
+                        >
+                            <Ionicons name="chevron-back" size={20} color={tc.textPrimary} />
+                        </TouchableOpacity>
 
-                            return (
-                                <TouchableOpacity
-                                    key={idx}
-                                    style={[
-                                        styles.dayCard,
-                                        { backgroundColor: tc.card, borderColor: isToday ? tc.accent : tc.border },
-                                        isToday && styles.todayCard,
-                                    ]}
-                                    onPress={() => openPicker(day.dateStr)}
-                                    activeOpacity={0.75}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`${day.dayName} ${day.date.getDate()}, ${hasOutfit ? 'outfit planned' : 'no outfit'}`}
-                                >
-                                    <Text style={[styles.dayName, { color: isToday ? tc.accent : tc.textSecondary }]}>
-                                        {day.dayName}
-                                    </Text>
-                                    <Text style={[styles.dayDate, { color: isToday ? tc.accent : tc.textPrimary }]}>
-                                        {day.date.getDate()}
-                                    </Text>
+                        <Text style={[styles.monthLabel, { color: tc.textPrimary }]}>
+                            {MONTH_NAMES[month - 1]} {year}
+                        </Text>
 
-                                    {hasOutfit && previewItems.length > 0 ? (
-                                        <View style={styles.previewStack}>
-                                            {previewItems.slice(0, 2).map((item, i) => (
-                                                <Image
-                                                    key={i}
-                                                    source={{ uri: item.processedUrl }}
-                                                    style={[styles.previewImg, { marginTop: i > 0 ? -8 : 0 }]}
-                                                />
-                                            ))}
-                                        </View>
-                                    ) : (
-                                        <View style={[styles.addDot, { backgroundColor: hasOutfit ? tc.accent : tc.border }]}>
-                                            <Ionicons name={hasOutfit ? 'shirt' : 'add'} size={10} color={hasOutfit ? '#FFF' : tc.textSecondary} />
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </ScrollView>
-
-                    {/* Today's Outfit Preview */}
-                    {ootdForDay(todayStr) && (
-                        <View style={[styles.todaySection, { backgroundColor: tc.card, borderColor: tc.border }]}>
-                            <View style={styles.todayHeader}>
-                                <Ionicons name="today" size={18} color={tc.accent} />
-                                <Text style={[styles.todaySectionTitle, { color: tc.textPrimary }]}>Today's Planned Look</Text>
-                                <TouchableOpacity onPress={() => openPicker(todayStr)}>
-                                    <Text style={[styles.editLink, { color: tc.accent }]}>Edit</Text>
-                                </TouchableOpacity>
-                            </View>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                {itemsForOOTD(ootdForDay(todayStr)!).map((item, i) => (
-                                    <Image
-                                        key={i}
-                                        source={{ uri: item.processedUrl }}
-                                        style={styles.todayItemImg}
-                                        resizeMode="contain"
-                                    />
-                                ))}
-                            </ScrollView>
-                            {ootdForDay(todayStr)!.notes ? (
-                                <Text style={[styles.todayNotes, { color: tc.textSecondary }]}>
-                                    {ootdForDay(todayStr)!.notes}
-                                </Text>
-                            ) : null}
-                        </View>
-                    )}
-
-                    {/* Most Worn Stats */}
-                    <Text style={[styles.sectionTitle, { color: tc.textSecondary }]}>MOST WORN THIS MONTH</Text>
-                    <View style={[styles.statsCard, { backgroundColor: tc.card, borderColor: tc.border }]}>
-                        {statsItems.length === 0 ? (
-                            <EmptyState
-                                icon="shirt-outline"
-                                title="No stats yet"
-                                subtitle="Plan outfits to see your most worn items"
-                            />
-                        ) : (
-                            statsItems.map(({ item, count }, i) => (
-                                <View key={i} style={[styles.statRow, { borderBottomColor: tc.border }]}>
-                                    <Image
-                                        source={{ uri: item.processedUrl }}
-                                        style={styles.statImg}
-                                        resizeMode="contain"
-                                    />
-                                    <View style={styles.statInfo}>
-                                        <Text style={[styles.statName, { color: tc.textPrimary }]} numberOfLines={1}>
-                                            {item.name || item.category}
-                                        </Text>
-                                        <Text style={[styles.statCat, { color: tc.textSecondary }]}>
-                                            {item.category}
-                                        </Text>
-                                    </View>
-                                    <View style={[styles.statBadge, { backgroundColor: tc.accent }]}>
-                                        <Text style={styles.statBadgeText}>{count}x</Text>
-                                    </View>
-                                </View>
-                            ))
-                        )}
+                        <TouchableOpacity
+                            onPress={() => navigateMonth(1)}
+                            style={[styles.monthNavBtn, { backgroundColor: tc.surface }]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Next month"
+                        >
+                            <Ionicons name="chevron-forward" size={20} color={tc.textPrimary} />
+                        </TouchableOpacity>
                     </View>
 
+                    {/* Month Grid */}
+                    <MonthGrid
+                        year={year}
+                        month={month}
+                        ootdDates={ootdDates}
+                        today={today}
+                        selectedDate={selectedDate}
+                        onSelectDate={handleSelectDate}
+                    />
+
+                    {/* Month Stats */}
+                    <View style={{ marginTop: Spacing.xl }}>
+                        <MonthStats
+                            ootds={ootds}
+                            items={wardrobeItems}
+                            totalItems={wardrobeItems.length}
+                        />
+                    </View>
+
+                    {/* Bottom padding for tab bar */}
                     <View style={{ height: 100 }} />
                 </ScrollView>
             )}
 
-            {/* Outfit Picker Modal */}
-            <Modal visible={pickerVisible} animationType="slide" onRequestClose={() => setPickerVisible(false)}>
-                <SafeAreaView style={[styles.modalContainer, { backgroundColor: tc.background }]}>
-                    <View style={[styles.modalHeader, { borderBottomColor: tc.border }]}>
-                        <TouchableOpacity onPress={() => setPickerVisible(false)} accessibilityLabel="Close">
-                            <Ionicons name="close" size={24} color={tc.textPrimary} />
-                        </TouchableOpacity>
-                        <Text style={[styles.modalTitle, { color: tc.textPrimary }]}>Plan Outfit</Text>
-                        <TouchableOpacity onPress={saveOutfit} disabled={saving} accessibilityLabel="Save outfit">
-                            {saving ? (
-                                <ActivityIndicator size="small" color={tc.accent} />
-                            ) : (
-                                <Text style={[styles.saveBtn, { color: tc.accent }]}>Save</Text>
-                            )}
-                        </TouchableOpacity>
-                    </View>
-
-                    {selectedDay && (
-                        <Text style={[styles.modalDate, { color: tc.textSecondary }]}>
-                            {new Date(selectedDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                        </Text>
-                    )}
-
-                    <View style={[styles.notesContainer, { backgroundColor: tc.surface, borderColor: tc.border }]}>
-                        <Ionicons name="pencil-outline" size={16} color={tc.textSecondary} />
-                        <TextInput
-                            style={[styles.notesInput, { color: tc.textPrimary }]}
-                            placeholder="Add a note (optional)..."
-                            placeholderTextColor={tc.textMuted}
-                            value={notes}
-                            onChangeText={setNotes}
-                        />
-                    </View>
-
-                    <Text style={[styles.pickerLabel, { color: tc.textSecondary }]}>
-                        TAP ITEMS TO SELECT  •  {selectedItems.length} selected
-                    </Text>
-
-                    {wardrobe.length === 0 ? (
-                        <EmptyState
-                            icon="shirt-outline"
-                            title="No wardrobe items"
-                            subtitle="Add items to your wardrobe first"
-                        />
-                    ) : (
-                        <FlatList
-                            data={wardrobe}
-                            numColumns={3}
-                            keyExtractor={i => i.id}
-                            contentContainerStyle={styles.pickerGrid}
-                            renderItem={({ item }) => {
-                                const isSelected = selectedItems.includes(item.id);
-                                return (
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.pickerItem,
-                                            { borderColor: isSelected ? tc.accent : 'transparent' },
-                                            isSelected && styles.pickerItemSelected,
-                                        ]}
-                                        onPress={() => toggleItem(item.id)}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Image
-                                            source={{ uri: item.processedUrl }}
-                                            style={styles.pickerImg}
-                                            resizeMode="cover"
-                                        />
-                                        {isSelected && (
-                                            <View style={styles.checkOverlay}>
-                                                <Ionicons name="checkmark-circle" size={24} color={tc.accent} />
-                                            </View>
-                                        )}
-                                        <Text style={[styles.pickerCat, { color: tc.textSecondary }]} numberOfLines={1}>
-                                            {item.category}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            }}
-                        />
-                    )}
-                </SafeAreaView>
-            </Modal>
+            {/* Day Detail Sheet */}
+            <DayDetailSheet
+                visible={sheetVisible}
+                date={sheetDate}
+                ootd={sheetOOTD}
+                allItems={wardrobeItems}
+                onSave={handleSaveOOTD}
+                onClose={() => {
+                    setSheetVisible(false);
+                    setSelectedDate(null);
+                }}
+                onAISuggest={handleSheetAISuggest}
+            />
 
             <Toast
                 visible={toastVisible}
@@ -382,159 +395,37 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         fontFamily: FontFamily.heading,
     },
-    refreshBtn: {
+    autoFillBtn: {
         width: 40,
         height: 40,
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    skeletonContainer: { paddingTop: Spacing.xl },
-    scroll: { flexGrow: 1, paddingBottom: 100 },
-    monthLabel: {
-        fontSize: 12,
-        fontWeight: '700',
-        fontFamily: FontFamily.bodySemiBold,
-        letterSpacing: 1.5,
-        marginHorizontal: Spacing.xl,
-        marginTop: Spacing.sm,
-        marginBottom: Spacing.md,
+    skeletonContainer: {
+        paddingTop: Spacing.xl,
     },
-    weekStrip: { paddingHorizontal: Spacing.md, marginBottom: Spacing.xl },
-    dayCard: {
-        width: 68,
-        minHeight: 110,
-        borderRadius: BorderRadius.lg,
-        borderWidth: 1.5,
-        marginHorizontal: 4,
-        alignItems: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 4,
-        gap: 6,
-        ...Shadows.sm,
+    scroll: {
+        flexGrow: 1,
+        paddingBottom: 100,
     },
-    todayCard: { borderWidth: 2 },
-    dayName: { fontSize: 11, fontWeight: '600', fontFamily: FontFamily.bodySemiBold },
-    dayDate: { fontSize: 20, fontWeight: '700', fontFamily: FontFamily.heading },
-    previewStack: { alignItems: 'center', gap: 2 },
-    previewImg: { width: 36, height: 36, borderRadius: 6 },
-    addDot: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    todaySection: {
-        marginHorizontal: Spacing.xl,
-        borderRadius: BorderRadius.lg,
-        borderWidth: 1,
-        padding: Spacing.lg,
-        marginBottom: Spacing.xl,
-    },
-    todayHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.sm,
-        marginBottom: Spacing.md,
-    },
-    todaySectionTitle: { flex: 1, fontSize: 15, fontWeight: '600', fontFamily: FontFamily.bodySemiBold },
-    editLink: { fontSize: 14, fontWeight: '600', fontFamily: FontFamily.bodySemiBold },
-    todayItemImg: { width: 80, height: 100, borderRadius: 10, marginRight: Spacing.sm },
-    todayNotes: { marginTop: 10, fontSize: 13, fontFamily: FontFamily.body, fontStyle: 'italic' },
-    sectionTitle: {
-        fontSize: 12,
-        fontWeight: '700',
-        fontFamily: FontFamily.bodySemiBold,
-        letterSpacing: 1.5,
-        marginHorizontal: Spacing.xl,
-        marginBottom: Spacing.md,
-    },
-    statsCard: {
-        marginHorizontal: Spacing.xl,
-        borderRadius: BorderRadius.lg,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    statRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.md,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        gap: Spacing.md,
-    },
-    statImg: { width: 48, height: 54, borderRadius: BorderRadius.sm },
-    statInfo: { flex: 1 },
-    statName: { fontSize: 14, fontWeight: '600', fontFamily: FontFamily.bodySemiBold },
-    statCat: { fontSize: 12, fontFamily: FontFamily.body, textTransform: 'capitalize', marginTop: 2 },
-    statBadge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: BorderRadius.md,
-    },
-    statBadgeText: { color: '#FFF', fontSize: 13, fontWeight: '700', fontFamily: FontFamily.bodyBold },
-    // Modal
-    modalContainer: { flex: 1 },
-    modalHeader: {
+    monthNav: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: Spacing.xl,
-        paddingVertical: Spacing.md,
-        borderBottomWidth: 1,
+        marginBottom: Spacing.lg,
     },
-    modalTitle: { fontSize: 17, fontWeight: '700', fontFamily: FontFamily.heading },
-    saveBtn: { fontSize: 16, fontWeight: '700', fontFamily: FontFamily.bodyBold },
-    modalDate: {
-        fontSize: 14,
-        fontFamily: FontFamily.body,
-        marginHorizontal: Spacing.xl,
-        marginTop: Spacing.md,
-        marginBottom: Spacing.sm,
-    },
-    notesContainer: {
-        flexDirection: 'row',
+    monthNavBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
-        marginHorizontal: Spacing.xl,
-        borderRadius: BorderRadius.md,
-        borderWidth: 1,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
-        gap: Spacing.sm,
-        marginBottom: Spacing.md,
+        justifyContent: 'center',
     },
-    notesInput: { flex: 1, fontSize: 14, fontFamily: FontFamily.body },
-    pickerLabel: {
-        fontSize: 11,
+    monthLabel: {
+        fontSize: 18,
+        fontFamily: FontFamily.heading,
         fontWeight: '700',
-        fontFamily: FontFamily.bodySemiBold,
-        letterSpacing: 1.2,
-        marginHorizontal: Spacing.xl,
-        marginBottom: Spacing.md,
-    },
-    pickerGrid: { paddingHorizontal: Spacing.lg, paddingBottom: 40 },
-    pickerItem: {
-        width: ITEM_SIZE,
-        margin: 4,
-        borderRadius: BorderRadius.md,
-        overflow: 'hidden',
-        borderWidth: 2,
-        position: 'relative',
-    },
-    pickerItemSelected: { opacity: 0.95 },
-    pickerImg: { width: '100%', height: ITEM_SIZE * 1.1 },
-    checkOverlay: {
-        position: 'absolute',
-        top: 4,
-        right: 4,
-    },
-    pickerCat: {
-        fontSize: 10,
-        fontWeight: '600',
-        fontFamily: FontFamily.bodySemiBold,
-        textAlign: 'center',
-        paddingVertical: 4,
-        textTransform: 'capitalize',
     },
 });
