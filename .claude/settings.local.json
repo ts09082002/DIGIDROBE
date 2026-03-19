@@ -38,7 +38,15 @@
       "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"mobile app react-native\" --stack react-native)",
       "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py \"fashion wardrobe closet luxury premium mobile app\" --design-system -p \"DIGIDROBE\")",
       "Bash(wc -l C:/Users/hp/digidrobe/DIGIDROBE/mobile/app/\\\\\\(tabs\\\\\\)/wardrobe.tsx C:/Users/hp/digidrobe/DIGIDROBE/mobile/app/\\\\\\(tabs\\\\\\)/outfits.tsx C:/Users/hp/digidrobe/DIGIDROBE/mobile/app/\\\\\\(tabs\\\\\\)/calendar.tsx C:/Users/hp/digidrobe/DIGIDROBE/mobile/app/\\\\\\(tabs\\\\\\)/travel.tsx C:/Users/hp/digidrobe/DIGIDROBE/mobile/app/\\\\\\(tabs\\\\\\)/styling.tsx C:/Users/hp/digidrobe/DIGIDROBE/mobile/app/\\\\\\(tabs\\\\\\)/index.tsx)",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(grep -r \"firebase\\\\|FIREBASE\\\\|google-services\\\\|GoogleService\" /c/Users/hp/digidrobe/DIGIDROBE/mobile --include=*.ts --include=*.tsx --include=*.json)",
+      "Bash(grep -r \"AsyncStorage\\\\|@drobeo_\\\\|stylist_\\\\|@react-native-async-storage\" /c/Users/hp/digidrobe/DIGIDROBE/mobile --include=*.ts --include=*.tsx)",
+      "Bash(grep -r \"firebase\\\\|expo-auth\\\\|google-signin\\\\|apple-auth\" /c/Users/hp/digidrobe/DIGIDROBE --include=*.json --include=*.ts --include=*.tsx)",
+      "Bash(grep -r \"auth\\\\|Auth\\\\|login\\\\|Login\" /c/Users/hp/digidrobe/DIGIDROBE/backend/src --include=*.ts)",
+      "Bash(find /c/Users/hp/digidrobe/DIGIDROBE/mobile/components -name *Screen* -o -name *Container*)",
+      "Bash(find /c/Users/hp/digidrobe/DIGIDROBE/backend/src -name *.controller.ts -o -name *.service.ts)",
+      "Bash(grep -r \"Controller\\\\|@Post\\\\|@Get\\\\|@Put\\\\|@Delete\" /c/Users/hp/digidrobe/DIGIDROBE/backend/src --include=*.ts)",
+      "Bash(find /Users/hp/digidrobe/DIGIDROBE/mobile -type f \\\\\\(-name .env* -o -name *.env \\\\\\))"
     ]
   }
 }

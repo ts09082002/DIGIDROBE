@@ -1,13 +1,37 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '../constants/theme';
 import { ThemeProvider } from '../context/ThemeContext';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { DatabaseProvider } from '../db/DatabaseProvider';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
 import { useFonts, Cormorant_600SemiBold, Cormorant_700Bold } from '@expo-google-fonts/cormorant';
 import { Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
+
+/** Auth gate — redirects based on auth state using Expo Router segments. */
+function AuthGate({ children }: { children: React.ReactNode }) {
+    const { isAuthenticated, isLoading } = useAuth();
+    const segments = useSegments();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (isLoading) return; // Wait for auth check to finish
+
+        const inAuthGroup = segments[0] === '(auth)';
+
+        if (!isAuthenticated && !inAuthGroup) {
+            // Not signed in and not on login → redirect to login
+            router.replace('/(auth)/login' as any);
+        } else if (isAuthenticated && inAuthGroup) {
+            // Signed in but on login → redirect to tabs
+            router.replace('/(tabs)' as any);
+        }
+    }, [isAuthenticated, isLoading, segments, router]);
+
+    return <>{children}</>;
+}
 
 export default function RootLayout() {
     const [showStartupSplash, setShowStartupSplash] = useState(true);
@@ -53,17 +77,21 @@ export default function RootLayout() {
         <ErrorBoundary>
         <DatabaseProvider>
         <ThemeProvider>
+        <AuthProvider>
             <StatusBar style="auto" />
             <View style={styles.root}>
-                <Stack
-                    screenOptions={{
-                        headerShown: false,
-                        contentStyle: { backgroundColor: Colors.warmGray },
-                        animation: 'slide_from_right',
-                    }}
-                >
-                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                </Stack>
+                <AuthGate>
+                    <Stack
+                        screenOptions={{
+                            headerShown: false,
+                            contentStyle: { backgroundColor: Colors.warmGray },
+                            animation: 'slide_from_right',
+                        }}
+                    >
+                        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    </Stack>
+                </AuthGate>
 
                 {(!fontsLoaded || showStartupSplash) && (
                     <Animated.View style={[styles.splashContainer, fontsLoaded ? { opacity } : undefined]}>
@@ -76,6 +104,7 @@ export default function RootLayout() {
                     </Animated.View>
                 )}
             </View>
+        </AuthProvider>
         </ThemeProvider>
         </DatabaseProvider>
         </ErrorBoundary>

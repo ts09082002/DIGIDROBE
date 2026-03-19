@@ -46,7 +46,7 @@ let UploadController = class UploadController {
     constructor(uploadService) {
         this.uploadService = uploadService;
     }
-    async uploadClothing(files, category, subCategory, mlLabelsJson, colorPaletteJson, processedOnDevice) {
+    async uploadClothing(files, category, subCategory, mlLabelsJson, colorPaletteJson) {
         const imageFile = files?.image?.[0];
         if (!imageFile) {
             throw new common_1.BadRequestException('No image file provided');
@@ -60,29 +60,8 @@ let UploadController = class UploadController {
                 mlLabels = undefined;
             }
         }
-        if (processedOnDevice === 'true') {
-            const result = await this.uploadService.storeProcessedClothingImage(imageFile, files?.original?.[0], category, subCategory, mlLabels, colorPaletteJson);
-            return { success: true, data: result };
-        }
-        const result = await this.uploadService.processClothingImage(imageFile, category, subCategory, mlLabels);
-        return {
-            success: true,
-            data: result,
-        };
-    }
-    async uploadBodyPhoto(file) {
-        if (!file) {
-            throw new common_1.BadRequestException('No image file provided');
-        }
-        const result = await this.uploadService.processBodyPhoto(file);
-        return {
-            success: true,
-            data: result,
-        };
-    }
-    async getProcessedImage(filename, res) {
-        const filePath = (0, path_1.join)(__dirname, '..', '..', 'uploads', 'processed', filename);
-        res.sendFile(filePath);
+        const result = await this.uploadService.storeProcessedClothingImage(imageFile, files?.original?.[0], category, subCategory, mlLabels, colorPaletteJson);
+        return { success: true, data: result };
     }
 };
 exports.UploadController = UploadController;
@@ -101,43 +80,10 @@ __decorate([
     __param(2, (0, common_1.Body)('subCategory')),
     __param(3, (0, common_1.Body)('mlLabels')),
     __param(4, (0, common_1.Body)('colorPalette')),
-    __param(5, (0, common_1.Body)('processedOnDevice')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], UploadController.prototype, "uploadClothing", null);
-__decorate([
-    (0, common_1.Post)('body-photo'),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('image', {
-        storage: (0, multer_1.diskStorage)({
-            destination: (0, path_1.join)(__dirname, '..', '..', 'uploads', 'body', 'originals'),
-            filename: (_req, file, cb) => {
-                const uniqueName = `${(0, uuid_1.v4)()}${(0, path_1.extname)(file.originalname)}`;
-                cb(null, uniqueName);
-            },
-        }),
-        limits: { fileSize: MAX_SIZE },
-        fileFilter: (_req, file, cb) => {
-            if (!ALLOWED_TYPES.includes(file.mimetype)) {
-                cb(new common_1.BadRequestException('Only JPEG, PNG, WebP, and HEIC images are allowed'), false);
-                return;
-            }
-            cb(null, true);
-        },
-    })),
-    __param(0, (0, common_1.UploadedFile)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], UploadController.prototype, "uploadBodyPhoto", null);
-__decorate([
-    (0, common_1.Get)('processed/:filename'),
-    __param(0, (0, common_1.Param)('filename')),
-    __param(1, (0, common_1.Res)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", Promise)
-], UploadController.prototype, "getProcessedImage", null);
 exports.UploadController = UploadController = __decorate([
     (0, common_1.Controller)('api/upload'),
     __metadata("design:paramtypes", [upload_service_1.UploadService])

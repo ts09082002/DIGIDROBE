@@ -10,7 +10,6 @@ exports.UploadModule = void 0;
 const common_1 = require("@nestjs/common");
 const upload_controller_1 = require("./upload.controller");
 const upload_service_1 = require("./upload.service");
-const background_removal_service_1 = require("./background-removal.service");
 const wardrobe_module_1 = require("../wardrobe/wardrobe.module");
 let UploadModule = class UploadModule {
 };
@@ -19,7 +18,7 @@ exports.UploadModule = UploadModule = __decorate([
     (0, common_1.Module)({
         imports: [wardrobe_module_1.WardrobeModule],
         controllers: [upload_controller_1.UploadController],
-        providers: [upload_service_1.UploadService, background_removal_service_1.BackgroundRemovalService],
+        providers: [upload_service_1.UploadService],
         exports: [upload_service_1.UploadService],
     })
 ], UploadModule);

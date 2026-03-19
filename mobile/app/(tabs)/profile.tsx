@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { isSyncEnabled, setSyncEnabled, getLastSyncTime, performSync } from '../../db/sync';
 import * as wardrobeLocal from '../../services/wardrobe-local';
 import { getSavedLooks } from '../../services/saved-looks-local';
@@ -35,6 +36,7 @@ const MENU_ITEMS = [
 export default function ProfileScreen() {
     const { isDarkMode, toggleTheme } = useTheme();
     const tc = useThemeColors();
+    const { isGuest, signOut } = useAuth();
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
@@ -237,14 +239,34 @@ export default function ProfileScreen() {
                     )}
                 </View>
 
-                {/* Logout Button */}
+                {/* Logout / Sign In Button */}
                 <TouchableOpacity
                     style={[styles.logoutBtn, { backgroundColor: tc.card }]}
+                    onPress={() => {
+                        if (isGuest) {
+                            signOut(); // Clears guest flag → auth gate redirects to login
+                        } else {
+                            Alert.alert(
+                                'Sign Out',
+                                'Are you sure you want to sign out?',
+                                [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    { text: 'Sign Out', style: 'destructive', onPress: signOut },
+                                ],
+                            );
+                        }
+                    }}
                     accessibilityRole="button"
-                    accessibilityLabel="Log out"
+                    accessibilityLabel={isGuest ? 'Sign in' : 'Sign out'}
                 >
-                    <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-                    <Text style={styles.logoutText}>Log Out</Text>
+                    <Ionicons
+                        name={isGuest ? 'log-in-outline' : 'log-out-outline'}
+                        size={20}
+                        color={isGuest ? Colors.gold : Colors.error}
+                    />
+                    <Text style={[styles.logoutText, isGuest && { color: Colors.gold }]}>
+                        {isGuest ? 'Sign In' : 'Sign Out'}
+                    </Text>
                 </TouchableOpacity>
 
                 <Text style={[styles.version, { color: tc.textMuted }]}>Drobeo v1.0.0</Text>

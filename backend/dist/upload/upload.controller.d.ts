@@ -5,13 +5,8 @@ export declare class UploadController {
     uploadClothing(files: {
         image?: any[];
         original?: any[];
-    }, category?: string, subCategory?: string, mlLabelsJson?: string, colorPaletteJson?: string, processedOnDevice?: string): Promise<{
+    }, category?: string, subCategory?: string, mlLabelsJson?: string, colorPaletteJson?: string): Promise<{
         success: boolean;
         data: import("../wardrobe/wardrobe.service").WardrobeItem;
     }>;
-    uploadBodyPhoto(file: any): Promise<{
-        success: boolean;
-        data: import("./upload.service").BodyPhotoResult;
-    }>;
-    getProcessedImage(filename: string, res: any): Promise<void>;
 }

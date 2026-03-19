@@ -20,7 +20,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dgdorde.app"
+      "bundleIdentifier": "com.dgdorde.app",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -28,6 +29,7 @@
         "backgroundColor": "#F5F0E8"
       },
       "package": "com.dgdorde.app",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ]
@@ -39,6 +41,9 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "@react-native-firebase/app",
+      "@react-native-google-signin/google-signin",
+      "expo-apple-authentication",
       [
         "expo-image-picker",
         {
