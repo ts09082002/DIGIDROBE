@@ -4,6 +4,7 @@
  * Replaces backend API calls with WatermelonDB operations.
  * Every method returns the same WardrobeItem interface from api.ts
  * so existing UI code and the recommendation engine work unchanged.
+ * add
  */
 
 import { Q } from '@nozbe/watermelondb';
