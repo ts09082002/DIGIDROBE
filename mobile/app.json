@@ -21,7 +21,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dgdorde.app",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -45,10 +50,16 @@
       "@react-native-google-signin/google-signin",
       "expo-apple-authentication",
       [
-        "expo-image-picker",
+        "expo-build-properties",
         {
-          "photosPermission": "Drobeo needs access to your photos to upload clothing items.",
-          "cameraPermission": "Drobeo needs camera access to photograph clothing items."
+          "android": {
+            "usesCleartextTraffic": true,
+            "newArchEnabled": true
+          },
+          "ios": {
+            "usesCleartextTraffic": true,
+            "newArchEnabled": true
+          }
         }
       ]
     ],
