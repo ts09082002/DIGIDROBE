@@ -15,7 +15,8 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 // Go to: Firebase Console → Authentication → Sign-in method → Google → Web SDK configuration → Web client ID
 // Replace the placeholder below with your actual web client ID.
 GoogleSignin.configure({
-    webClientId: '838322575800-au1a31ko5ntkpb9gtkdb09oabqaqhe1s.apps.googleusercontent.com',
+    webClientId: '838322575800-lluotvoiimbfrftp44bphkrtmge8i2ii.apps.googleusercontent.com', // ✅ Ye asli Web Client ID hai
+    offlineAccess: true,
 });
 
 export { auth };
