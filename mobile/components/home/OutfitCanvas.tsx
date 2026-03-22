@@ -3,12 +3,14 @@ import { Image, StyleSheet, View } from 'react-native';
 import type { WardrobeItem } from '../../services/api';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useTheme } from '../../context/ThemeContext';
 
 type OutfitCanvasProps = {
     topItem?: WardrobeItem | null;
     bottomItem?: WardrobeItem | null;
     shoeItem?: WardrobeItem | null;
     outerItem?: WardrobeItem | null;
+    accessoryItems?: WardrobeItem[];
     onOpenDetails: () => void;
 };
 
@@ -75,8 +77,11 @@ export default function OutfitCanvas({
     bottomItem,
     shoeItem,
     outerItem,
+    accessoryItems,
     onOpenDetails,
 }: OutfitCanvasProps) {
+    const { isDarkMode } = useTheme();
+    
     const topImg = getItemImageSource(topItem);
     const bottomImg = getItemImageSource(bottomItem);
     const shoeImg = getItemImageSource(shoeItem);
@@ -90,8 +95,10 @@ export default function OutfitCanvas({
         });
     }, [onOpenDetails]);
 
+    const canvasBg = isDarkMode ? '#2A2A2A' : '#EDE7DE';
+
     return (
-        <View style={styles.canvasOuter}>
+        <View style={[styles.canvasOuter, { backgroundColor: canvasBg }]}>
             <GestureDetector gesture={tapGesture}>
                 <View style={styles.stack}>
                     {!!outerImg && (
@@ -99,6 +106,18 @@ export default function OutfitCanvas({
                             <Image source={{ uri: outerImg }} style={styles.pieceImage} resizeMode="contain" />
                         </DraggablePiece>
                     )}
+
+                    {(accessoryItems || []).map((acc, index) => {
+                        const accImg = getItemImageSource(acc);
+                        if (!accImg) return null;
+                        // Slightly offset each additional accessory so they don't exactly stack
+                        const dynamicOffset = { top: 60 + index * 10, right: 10 + index * 10 };
+                        return (
+                            <DraggablePiece key={`acc-${acc.id}`} style={[styles.piece, styles.accessoryPiece, dynamicOffset]} zIndex={5 + index}>
+                                <Image source={{ uri: accImg }} style={styles.pieceImage} resizeMode="contain" />
+                            </DraggablePiece>
+                        );
+                    })}
 
                     <DraggablePiece style={[styles.piece, styles.topPiece, { opacity: topImg ? 1 : 0.9 }]} zIndex={3}>
                         {topImg ? (
@@ -125,22 +144,22 @@ export default function OutfitCanvas({
 
 const styles = StyleSheet.create({
     canvasOuter: {
+        width: '100%',
         height: 380,
         borderRadius: 24,
         overflow: 'hidden',
         justifyContent: 'center',
         alignItems: 'center',
         paddingVertical: 10,
-        backgroundColor: '#F5EFE6', // Light beige matching the mockup
     },
     stack: {
-        width: 260,
+        width: 280,
         height: 360,
         position: 'relative',
     },
     piece: {
         position: 'absolute',
-        width: 260,
+        width: 280,
         height: 120,
         justifyContent: 'center',
         alignItems: 'center',
@@ -153,7 +172,7 @@ const styles = StyleSheet.create({
     outerPiece: {
         top: 0,
         height: 140,
-        width: 260,
+        width: 280,
     },
     topPiece: {
         top: 20,
@@ -164,7 +183,12 @@ const styles = StyleSheet.create({
         height: 180,
     },
     shoePiece: {
-        top: 300,
-        height: 60,
+        top: 260,
+        height: 90,
+    },
+    accessoryPiece: {
+        position: 'absolute',
+        height: 100,
+        width: 100,
     },
 });

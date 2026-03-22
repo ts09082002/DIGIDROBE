@@ -34,11 +34,16 @@ export default function TabLayout() {
                     },
                 ],
                 tabBarBackground: () => (
-                    <BlurView
-                        tint={isDark ? 'dark' : 'light'}
-                        intensity={85}
-                        style={StyleSheet.absoluteFill}
-                    />
+                    <View style={StyleSheet.absoluteFill}>
+                        <BlurView
+                            tint={isDark ? 'dark' : 'light'}
+                            intensity={100}
+                            experimentalBlurMethod="dimezisBlurView" // Advanced Android blur
+                            style={StyleSheet.absoluteFill}
+                        />
+                        {/* Smoky tint overlay */}
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(250,246,242,0.6)' }]} />
+                    </View>
                 ),
                 tabBarActiveTintColor: tc.accent,
                 tabBarInactiveTintColor: tc.iconDefault,

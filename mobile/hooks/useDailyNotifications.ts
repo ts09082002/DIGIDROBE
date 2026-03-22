@@ -96,15 +96,15 @@ export function useDailyNotifications() {
                 });
             }
 
-            const { status: existingStatus } = await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
+            const settings = await Notifications.getPermissionsAsync() as any;
+            let finalStatus = settings.granted || settings.status === 'granted';
             
-            if (existingStatus !== 'granted') {
-                const { status } = await Notifications.requestPermissionsAsync();
-                finalStatus = status;
+            if (!finalStatus) {
+                const asked = await Notifications.requestPermissionsAsync() as any;
+                finalStatus = asked.granted || asked.status === 'granted';
             }
 
-            if (finalStatus !== 'granted') {
+            if (!finalStatus) {
                 // Cannot schedule without permissions
                 return;
             }
@@ -112,16 +112,31 @@ export function useDailyNotifications() {
             if (isMounted) {
                 await scheduleDailyNotifications();
 
-                // TEST: Trigger one notification immediately for testing
+                // TEST: Trigger contextual greeting notification for testing
                 setTimeout(async () => {
+                    const hour = new Date().getHours();
+                    let title = '';
+                    let body = '';
+
+                    if (hour >= 5 && hour < 12) {
+                        title = 'Good Morning! ☀️';
+                        body = 'Open Drobeo to put together your perfect outfit for the day!';
+                    } else if (hour >= 12 && hour < 17) {
+                        title = 'Good Afternoon! 🌤️';
+                        body = 'How is your outfit looking? Need a quick style refresh?';
+                    } else if (hour >= 17 && hour < 21) {
+                        title = 'Good Evening! 🌆';
+                        body = 'Ready for dinner or a night out? Let’s plan your evening look!';
+                    } else {
+                        title = 'Good Night! 🌙';
+                        body = 'Drift off to sleep and let AI dream up your wardrobe for tomorrow!';
+                    }
+
                     await Notifications.scheduleNotificationAsync({
-                        content: {
-                            title: 'Good Evening! 🌆',
-                            body: 'Ready for dinner or a night out? Let’s plan your evening look!',
-                        },
-                        trigger: null, // trigger immediately
+                        content: { title, body },
+                        trigger: null,
                     });
-                }, 3000);
+                }, 2000);
             }
         }
 

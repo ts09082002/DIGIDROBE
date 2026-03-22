@@ -16,6 +16,7 @@ type OutfitDetailsModalProps = {
     bottomItem?: WardrobeItem | null;
     outerItem?: WardrobeItem | null;
     shoeItem?: WardrobeItem | null;
+    accessoryItems?: WardrobeItem[];
 };
 
 function getItemImageSource(item?: WardrobeItem | null) {
@@ -60,6 +61,7 @@ export default function OutfitDetailsModal({
     bottomItem,
     outerItem,
     shoeItem,
+    accessoryItems,
 }: OutfitDetailsModalProps) {
     const tc = useThemeColors();
 
@@ -104,6 +106,10 @@ export default function OutfitDetailsModal({
                         <PieceRow title="Topwear" item={topItem} />
                         <PieceRow title="Bottomwear" item={bottomItem} />
                         <PieceRow title="Footwear" item={shoeItem} />
+                        
+                        {(accessoryItems || []).map((acc, index) => (
+                            <PieceRow key={acc.id} title={`Accessory ${index + 1}`} item={acc} />
+                        ))}
 
                         <View style={styles.footerSpacer} />
                     </ScrollView>

@@ -44,6 +44,7 @@ export default function HomeScreen() {
     const [selectedTop, setSelectedTop] = useState<WardrobeItem | null>(null);
     const [selectedBottom, setSelectedBottom] = useState<WardrobeItem | null>(null);
     const [selectedShoe, setSelectedShoe] = useState<WardrobeItem | null>(null);
+    const [selectedAccessories, setSelectedAccessories] = useState<WardrobeItem[]>([]);
 
     // Header Dropdown
     const [headerDropdownVis, setHeaderDropdownVis] = useState(false);
@@ -177,6 +178,11 @@ export default function HomeScreen() {
 
     const shoes = useMemo(() => allWardrobeItems.filter((i) => normalizeCategory(i.category) === 'footwear'), [allWardrobeItems]);
 
+    const accessories = useMemo(() => allWardrobeItems.filter((i) => {
+        const c = normalizeCategory(i.category);
+        return c === 'accessories' || c === 'bags';
+    }), [allWardrobeItems]);
+
     const nowForGreeting = getTimeOfDayForGreeting(new Date());
     const greetingText = (() => {
         switch (nowForGreeting) {
@@ -205,6 +211,7 @@ export default function HomeScreen() {
         setSelectedTop(null);
         setSelectedBottom(null);
         setSelectedShoe(null);
+        setSelectedAccessories([]);
     };
 
     const handleSuggestAI = () => {
@@ -224,6 +231,34 @@ export default function HomeScreen() {
         setSelectedShoe(shoe || null);
     };
 
+    const handleShuffle = () => {
+        if (!allWardrobeItems.length) {
+            Alert.alert("Empty Wardrobe", "Add some clothes first!");
+            return;
+        }
+
+        if (tops.length) setSelectedTop(tops[Math.floor(Math.random() * tops.length)]);
+        else setSelectedTop(null);
+        
+        if (bottoms.length) setSelectedBottom(bottoms[Math.floor(Math.random() * bottoms.length)]);
+        else setSelectedBottom(null);
+        
+        if (shoes.length) setSelectedShoe(shoes[Math.floor(Math.random() * shoes.length)]);
+        else setSelectedShoe(null);
+        
+        if (accessories.length) {
+            const numAccessories = Math.floor(Math.random() * 3); // 0, 1, or 2
+            if (numAccessories > 0) {
+                const shuffled = [...accessories].sort(() => 0.5 - Math.random());
+                setSelectedAccessories(shuffled.slice(0, numAccessories));
+            } else {
+                setSelectedAccessories([]);
+            }
+        } else {
+            setSelectedAccessories([]);
+        }
+    };
+
     // Helper component for horizontal list
     const CategoryListRow = ({
         categoryName,
@@ -231,13 +266,15 @@ export default function HomeScreen() {
         subtitle,
         items,
         selectedItem,
+        selectedItemsArray,
         onSelect
     }: {
         categoryName: string,
         iconName: keyof typeof Ionicons.glyphMap,
         subtitle: string,
         items: WardrobeItem[],
-        selectedItem: WardrobeItem | null,
+        selectedItem?: WardrobeItem | null,
+        selectedItemsArray?: WardrobeItem[],
         onSelect: (item: WardrobeItem) => void
     }) => {
         return (
@@ -249,7 +286,9 @@ export default function HomeScreen() {
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mixListScroll}>
                     {items.map((item) => {
-                        const isSelected = selectedItem?.id === item.id;
+                        const isSelected = selectedItemsArray 
+                            ? selectedItemsArray.some(i => i.id === item.id)
+                            : selectedItem?.id === item.id;
                         const imageUrl = item.processedUrl || item.originalUrl;
                         return (
                             <TouchableOpacity
@@ -259,7 +298,7 @@ export default function HomeScreen() {
                                 style={[
                                     styles.mixItemBox,
                                     { backgroundColor: tc.surface },
-                                    isSelected && { borderColor: '#d4aa3b', borderWidth: 2 }
+                                    isSelected && { borderColor: tc.accent, borderWidth: 2 }
                                 ]}
                             >
                                 {imageUrl ? (
@@ -290,15 +329,15 @@ export default function HomeScreen() {
             {/* Minimalist Top Header matched to screenshot */}
             <View style={styles.header}>
                 <View style={styles.logoContainer}>
-                    <View style={styles.logoIconBg}>
-                        <Ionicons name="diamond" size={12} color="#000" />
+                    <View style={[styles.logoIconBg, { backgroundColor: tc.accent }]}>
+                        <Ionicons name="diamond" size={12} color="#fff" />
                     </View>
                     <Text style={[styles.logoText, { color: tc.textPrimary }]}>Drobeo</Text>
                 </View>
                 <View style={styles.headerRight}>
                     <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/notifications')}>
                         <Ionicons name="notifications-outline" size={20} color={tc.textPrimary} />
-                        <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
+                        <View style={[styles.badge, { backgroundColor: tc.accent, borderColor: tc.background }]}><Text style={styles.badgeText}>2</Text></View>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(tabs)/profile')}>
                         <Ionicons name="person-outline" size={20} color={tc.textPrimary} />
@@ -308,7 +347,7 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                 </View>
                 {headerDropdownVis && (
-                    <View style={[styles.headerDropdown, { backgroundColor: tc.card, borderColor: tc.border }]}>
+                    <View style={[styles.headerDropdown, { backgroundColor: tc.backgroundElevated, borderColor: tc.border }]}>
                         <TouchableOpacity 
                             style={styles.dropdownItem} 
                             onPress={() => { setHeaderDropdownVis(false); router.push('/about'); }}
@@ -372,16 +411,23 @@ export default function HomeScreen() {
                         topItem={selectedTop}
                         bottomItem={selectedBottom}
                         shoeItem={selectedShoe}
+                        accessoryItems={selectedAccessories}
                         onOpenDetails={() => setOutfitDetailsOpen(true)}
                     />
+                    <TouchableOpacity 
+                        style={[styles.shuffleBtn, { backgroundColor: tc.backgroundElevated }]} 
+                        onPress={handleShuffle}
+                    >
+                        <Ionicons name="shuffle" size={24} color={tc.textPrimary} />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Mix & Match Bottom Sheet Container */}
                 <View style={[styles.mixMatchSheet, { backgroundColor: tc.card }]}>
                     <View style={styles.mixMatchHeaderRow}>
                         <Text style={[styles.mixMatchMainTitle, { color: tc.textPrimary }]}>Mix & match</Text>
-                        <TouchableOpacity style={styles.clearBtn} onPress={handleClear}>
-                            <Text style={styles.clearBtnText}>Clear</Text>
+                        <TouchableOpacity style={[styles.clearBtn, { backgroundColor: tc.surfacePressed }]} onPress={handleClear}>
+                            <Text style={[styles.clearBtnText, { color: tc.textSecondary }]}>Clear</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -412,6 +458,23 @@ export default function HomeScreen() {
                         onSelect={setSelectedShoe}
                     />
 
+                    <CategoryListRow
+                        categoryName="Accessories"
+                        iconName="watch-outline"
+                        subtitle="Bags & Jewelry"
+                        items={accessories}
+                        selectedItemsArray={selectedAccessories}
+                        onSelect={(item) => {
+                            setSelectedAccessories(prev => {
+                                if (prev.some(i => i.id === item.id)) {
+                                    return prev.filter(i => i.id !== item.id);
+                                } else {
+                                    return [...prev, item];
+                                }
+                            });
+                        }}
+                    />
+
                     <TouchableOpacity style={[styles.aiButton, { backgroundColor: tc.accent }]} onPress={handleSuggestAI} activeOpacity={0.8}>
                         <Text style={styles.aiButtonText}>✨ See AI Outfit Suggestions</Text>
                     </TouchableOpacity>
@@ -428,6 +491,7 @@ export default function HomeScreen() {
                 topItem={selectedTop}
                 bottomItem={selectedBottom}
                 shoeItem={selectedShoe}
+                accessoryItems={selectedAccessories}
             />
         </ScreenContainer>
     );
@@ -452,7 +516,6 @@ const styles = StyleSheet.create({
         width: 24,
         height: 24,
         borderRadius: 8,
-        backgroundColor: Colors.gold,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -475,19 +538,17 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 0,
         right: 0,
-        backgroundColor: Colors.gold,
         width: 14,
         height: 14,
         borderRadius: 7,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#fff',
     },
     badgeText: {
         fontSize: 8,
         fontWeight: 'bold',
-        color: '#000',
+        color: '#fff',
     },
     arToggle: {
         flexDirection: 'row',
@@ -608,19 +669,39 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     canvasContainer: {
-        marginHorizontal: Spacing.lg,
+        marginHorizontal: Spacing.md,
         marginBottom: Spacing.lg,
         overflow: 'hidden',
-        borderRadius: 16,
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 24,
+        ...Shadows.md,
+    },
+    shuffleBtn: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        zIndex: 10,
     },
 
     /* Mix & Match Sheet */
     mixMatchSheet: {
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
+        borderRadius: 24,
+        marginHorizontal: Spacing.md,
         paddingTop: Spacing.xl,
         paddingHorizontal: Spacing.lg,
-        paddingBottom: 100, // accommodate bottom tabs
+        paddingBottom: 100,
         minHeight: 400,
         ...Shadows.md,
     },
@@ -636,7 +717,6 @@ const styles = StyleSheet.create({
         fontFamily: FontFamily.heading,
     },
     clearBtn: {
-        backgroundColor: '#F3F4F6',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
@@ -644,7 +724,6 @@ const styles = StyleSheet.create({
     clearBtnText: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#4B5563',
     },
 
     /* Category List Row */

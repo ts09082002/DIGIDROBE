@@ -14,6 +14,8 @@ import {
     Modal,
     Pressable,
     Alert,
+    Animated,
+    Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -47,6 +49,10 @@ const TARGET_WIDTH = 800;
 const TARGET_ASPECT_RATIO = 4 / 5;
 
 const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Dresses', 'Outerwear', 'Footwear', 'Bags', 'Accessories'];
+
+const FILTER_COLORS = ['Black', 'White', 'Blue', 'Red', 'Green', 'Pink', 'Brown', 'Gray', 'Navy', 'Beige', 'Yellow', 'Orange', 'Purple'];
+const FILTER_SEASONS = ['Summer', 'Winter', 'Spring', 'Fall'];
+const FILTER_OCCASIONS = ['Casual', 'Formal', 'Party', 'Work', 'Sports', 'Date Night'];
 
 type SuggestionItem = {
     id: string;
@@ -104,7 +110,6 @@ export default function WardrobeScreen() {
     const tc = useThemeColors();
     const [items, setItems] = useState<WardrobeItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('All Items');
-    const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -130,17 +135,71 @@ export default function WardrobeScreen() {
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
     const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+    // Filter states (replaces search)
+    const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+    const [filterColors, setFilterColors] = useState<string[]>([]);
+    const [filterSeasons, setFilterSeasons] = useState<string[]>([]);
+    const [filterOccasions, setFilterOccasions] = useState<string[]>([]);
+    const [filterFavoritesOnly, setFilterFavoritesOnly] = useState(false);
+    // Applied filters (only applied when user taps "Apply")
+    const [appliedFilters, setAppliedFilters] = useState<{
+        colors: string[];
+        seasons: string[];
+        occasions: string[];
+        favoritesOnly: boolean;
+    }>({ colors: [], seasons: [], occasions: [], favoritesOnly: false });
+
+    const activeFilterCount = appliedFilters.colors.length + appliedFilters.seasons.length + appliedFilters.occasions.length + (appliedFilters.favoritesOnly ? 1 : 0);
+
+    // Floating selection bar animation
+    const selectionBarAnim = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        Animated.spring(selectionBarAnim, {
+            toValue: selectionMode && selectedItemIds.length > 0 ? 1 : 0,
+            useNativeDriver: true,
+            tension: 80,
+            friction: 12,
+        }).start();
+    }, [selectionMode, selectedItemIds.length]);
 
     // In-memory cache for wardrobe items (30s TTL)
     const itemsCache = useRef<Map<string, { data: WardrobeItem[]; time: number }>>(new Map());
     const CACHE_TTL = 30_000;
 
-    // Debounce search input (400ms)
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 400);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
+    const toggleFilterChip = (value: string, list: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+        setter(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+    };
+
+    const applyFilters = () => {
+        setAppliedFilters({
+            colors: filterColors,
+            seasons: filterSeasons,
+            occasions: filterOccasions,
+            favoritesOnly: filterFavoritesOnly,
+        });
+        setFilterSheetVisible(false);
+        invalidateCache();
+    };
+
+    const resetFilters = () => {
+        setFilterColors([]);
+        setFilterSeasons([]);
+        setFilterOccasions([]);
+        setFilterFavoritesOnly(false);
+        setAppliedFilters({ colors: [], seasons: [], occasions: [], favoritesOnly: false });
+        setFilterSheetVisible(false);
+        invalidateCache();
+    };
+
+    const openFilterSheet = () => {
+        // Sync temp filter states with applied
+        setFilterColors([...appliedFilters.colors]);
+        setFilterSeasons([...appliedFilters.seasons]);
+        setFilterOccasions([...appliedFilters.occasions]);
+        setFilterFavoritesOnly(appliedFilters.favoritesOnly);
+        setFilterSheetVisible(true);
+    };
 
     const AI_CATEGORIES = [
         { label: 'Topwear', value: 'topwear' },
@@ -291,7 +350,8 @@ export default function WardrobeScreen() {
     const loadItems = useCallback(async (bypassCache = false) => {
         try {
             const selectedCanonical = FILTER_TO_CANONICAL[selectedCategory] ?? 'all';
-            const cacheKey = `${selectedCanonical}|${debouncedSearchQuery}`;
+            const filterKey = `${appliedFilters.colors.join(',')}|${appliedFilters.seasons.join(',')}|${appliedFilters.occasions.join(',')}|${appliedFilters.favoritesOnly}`;
+            const cacheKey = `${selectedCanonical}|${filterKey}`;
 
             // Check cache first (unless bypassed)
             if (!bypassCache) {
@@ -305,12 +365,33 @@ export default function WardrobeScreen() {
             setLoading(true);
             const data = await wardrobeLocal.getAllItems({
                 category: CANONICAL_TO_FILTER_PARAM[selectedCanonical],
-                search: debouncedSearchQuery || undefined,
+                favorite: appliedFilters.favoritesOnly ? 'true' : undefined,
             });
-            const normalized = data.map((item) => ({
+            let normalized = data.map((item) => ({
                 ...item,
                 category: normalizeCategory(item.category),
             }));
+
+            // Client-side filtering for color, season, occasion
+            if (appliedFilters.colors.length > 0) {
+                normalized = normalized.filter(item => {
+                    const itemColor = (item.color || '').toLowerCase();
+                    return appliedFilters.colors.some(c => itemColor.includes(c.toLowerCase()));
+                });
+            }
+            if (appliedFilters.seasons.length > 0) {
+                normalized = normalized.filter(item => {
+                    const itemSeasons = (item.season || []).map((s: string) => s.toLowerCase());
+                    return appliedFilters.seasons.some(s => itemSeasons.includes(s.toLowerCase()));
+                });
+            }
+            if (appliedFilters.occasions.length > 0) {
+                normalized = normalized.filter(item => {
+                    const itemOccasions = (item.occasion || []).map((o: string) => o.toLowerCase());
+                    return appliedFilters.occasions.some(o => itemOccasions.includes(o.toLowerCase()));
+                });
+            }
+
             setItems(normalized);
 
             // Store in cache
@@ -327,7 +408,7 @@ export default function WardrobeScreen() {
         } finally {
             setLoading(false);
         }
-    }, [selectedCategory, debouncedSearchQuery]);
+    }, [selectedCategory, appliedFilters]);
 
     useEffect(() => {
         loadItems();
@@ -621,8 +702,7 @@ export default function WardrobeScreen() {
         <TouchableOpacity
             style={[
                 styles.card,
-                { backgroundColor: tc.card },
-                selectionMode && selectedItemIds.includes(item.id) && styles.cardSelected,
+                { backgroundColor: 'transparent', padding: 0, borderWidth: 0, shadowOpacity: 0, elevation: 0 },
             ]}
             onPress={() => {
                 if (selectionMode) {
@@ -634,40 +714,40 @@ export default function WardrobeScreen() {
             onLongPress={() => beginMultiSelectFromItem(item.id)}
             activeOpacity={0.9}
         >
-            <Image
-                source={{ uri: item.processedUrl || item.originalUrl }}
-                style={[styles.cardImage, { backgroundColor: imageBg }]}
-                resizeMode="contain"
-            />
-            {!selectionMode && (
-                <TouchableOpacity
-                    style={[styles.favoriteBtn, { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)' }]}
-                    onPress={() => handleToggleFavorite(item.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={item.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                >
-                    <Ionicons
-                        name={item.isFavorite ? 'heart' : 'heart-outline'}
-                        size={18}
-                        color={item.isFavorite ? Colors.amber : tc.textSecondary}
-                    />
-                </TouchableOpacity>
-            )}
-            {selectionMode && (
-                <View style={styles.selectedBadge}>
-                    <Ionicons
-                        name={selectedItemIds.includes(item.id) ? 'checkmark-circle' : 'ellipse-outline'}
-                        size={22}
-                        color={selectedItemIds.includes(item.id) ? Colors.gold : Colors.mediumGray}
-                    />
-                </View>
-            )}
-            <View style={styles.cardInfo}>
-                <Text style={[styles.cardBrand, { color: tc.textPrimary }]} numberOfLines={1}>
-                    {item.brand || item.subCategory || item.category}
+            <View style={{ width: '100%', aspectRatio: item.brand === 'AURA STUDIO' || item.category === 'bottomwear' || item.category === 'dresses' || item.category === 'outerwear' ? 0.75 : 0.9, backgroundColor: tc.surface, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+                <Image
+                    source={{ uri: item.processedUrl || item.originalUrl }}
+                    style={{ width: '90%', height: '90%' }}
+                    resizeMode="contain"
+                />
+                {!selectionMode && (
+                    <TouchableOpacity
+                        style={{ position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 16, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => handleToggleFavorite(item.id)}
+                    >
+                        <Ionicons
+                            name={item.isFavorite ? 'heart' : 'heart'}
+                            size={16}
+                            color={item.isFavorite ? tc.accent : Colors.white}
+                        />
+                    </TouchableOpacity>
+                )}
+                {selectionMode && (
+                    <View style={styles.selectedBadge}>
+                        <Ionicons
+                            name={selectedItemIds.includes(item.id) ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={22}
+                            color={selectedItemIds.includes(item.id) ? tc.accent : Colors.mediumGray}
+                        />
+                    </View>
+                )}
+            </View>
+            <View style={{ marginTop: 12, paddingHorizontal: 4 }}>
+                <Text style={{ fontSize: 9, color: tc.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '700', marginBottom: 2 }} numberOfLines={1}>
+                    {item.brand || item.subCategory || 'AURA STUDIO'}
                 </Text>
-                <Text style={[styles.cardName, { color: tc.textSecondary }]} numberOfLines={1}>
-                    {item.name}
+                <Text style={{ fontSize: 13, color: tc.textPrimary, fontWeight: '500' }} numberOfLines={1}>
+                    {item.name || 'Untitled Item'}
                 </Text>
             </View>
         </TouchableOpacity>
@@ -711,7 +791,7 @@ export default function WardrobeScreen() {
     );
 
     const renderSuggestionsSection = (insideList: boolean = false) => {
-        if (visibleSuggestions.length === 0) return null;
+        return null;
         return (
             <View style={[styles.suggestionsSection, insideList && styles.suggestionsSectionInList]}>
                 <View style={styles.suggestionsHeaderRow}>
@@ -735,57 +815,28 @@ export default function WardrobeScreen() {
 
     return (
         <ScreenContainer>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={[styles.title, { color: tc.textPrimary }]}>My Wardrobe</Text>
-                <TouchableOpacity
-                    style={[styles.filterBtn, { backgroundColor: tc.iconBtnBg }]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Filter options"
-                >
-                    <Ionicons name="options-outline" size={22} color={tc.textPrimary} />
-                </TouchableOpacity>
-            </View>
-
-            {/* Search Bar */}
-            <View style={[styles.searchContainer, { backgroundColor: tc.iconBtnBg }]}>
-                <Ionicons name="search" size={18} color={tc.textSecondary} />
-                <TextInput
-                    style={[styles.searchInput, { color: tc.textPrimary }]}
-                    placeholder="Search your collection..."
-                    placeholderTextColor={tc.textSecondary}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    onSubmitEditing={() => loadItems()}
-                />
-            </View>
-
-            {/* Bulk move controls */}
-            <View style={[styles.bulkActionBar, { backgroundColor: tc.card, borderColor: tc.border }]}>
-                <Text style={[styles.bulkActionText, { color: tc.textSecondary }]}>
-                    {selectionMode
-                        ? `${selectedItemIds.length} selected`
-                        : 'Select items to move between sections'}
-                </Text>
-                <View style={styles.bulkActionButtons}>
+            {/* Header with Edit + Filter */}
+            <View style={styles.headerRow}>
+                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Wardrobe</Text>
+                <View style={styles.headerActions}>
                     <TouchableOpacity
-                        style={[styles.bulkActionBtn, { borderColor: tc.border }]}
                         onPress={toggleSelectionMode}
+                        style={styles.headerTextBtn}
                     >
-                        <Text style={[styles.bulkActionBtnText, { color: tc.textPrimary }]}>
-                            {selectionMode ? 'Cancel' : 'Select'}
+                        <Text style={[styles.headerTextBtnLabel, { color: tc.accent }]}>
+                            {selectionMode ? 'Done' : 'Edit'}
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={[
-                            styles.bulkActionBtn,
-                            styles.bulkActionBtnPrimary,
-                            selectedItemIds.length === 0 && styles.bulkActionBtnDisabled,
-                        ]}
-                        onPress={openBulkMovePicker}
-                        disabled={selectedItemIds.length === 0}
+                        onPress={openFilterSheet}
+                        style={[styles.filterIconBtn, { backgroundColor: tc.iconBtnBg }]}
                     >
-                        <Text style={styles.bulkActionBtnPrimaryText}>Move</Text>
+                        <Ionicons name="options-outline" size={20} color={activeFilterCount > 0 ? tc.accent : tc.textSecondary} />
+                        {activeFilterCount > 0 && (
+                            <View style={[styles.filterBadge, { backgroundColor: tc.accent }]}>
+                                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                            </View>
+                        )}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -798,26 +849,102 @@ export default function WardrobeScreen() {
                     <TouchableOpacity
                         style={[
                             styles.categoryChip,
-                            { backgroundColor: tc.card, borderColor: tc.border },
-                            selectedCategory === item && styles.categoryChipActive,
+                            { 
+                                backgroundColor: selectedCategory === item ? tc.accent : tc.card, 
+                                borderWidth: 0,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                paddingHorizontal: 16,
+                                paddingVertical: 10,
+                                borderRadius: 20
+                            },
                         ]}
                         onPress={() => setSelectedCategory(item)}
                     >
+                        {item === 'All Items' && <Ionicons name="grid" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
+                        {item === 'Topwear' && <Ionicons name="body-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
+                        {item === 'Bottoms' && <Ionicons name="shirt-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
+                        {item === 'Outerwear' && <Ionicons name="snow-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
+                        {item === 'Dresses' && <Ionicons name="woman-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
+                        {item === 'Footwear' && <Ionicons name="footsteps-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
+                        {item === 'Bags' && <Ionicons name="bag-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
+                        {item === 'Accessories' && <Ionicons name="watch-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
                         <Text
                             style={[
                                 styles.categoryChipText,
-                                { color: tc.textSecondary },
-                                selectedCategory === item && styles.categoryChipTextActive,
+                                { 
+                                    color: selectedCategory === item ? Colors.white : tc.textSecondary,
+                                    fontWeight: selectedCategory === item ? '700' : '500',
+                                    fontSize: 12
+                                },
                             ]}
                         >
-                            {item}
+                            {item === 'All Items' ? 'All' : item}
                         </Text>
                     </TouchableOpacity>
                 )}
                 keyExtractor={(item) => item}
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoriesContainer}
+                contentContainerStyle={[styles.categoriesContainer, { marginTop: 0, paddingBottom: Spacing.md }]}
             />
+
+            {/* Active filter tags (dismissible) */}
+            {activeFilterCount > 0 && (
+                <View style={styles.activeFiltersRow}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: Spacing.xl, gap: 6 }}>
+                        {appliedFilters.favoritesOnly && (
+                            <TouchableOpacity
+                                style={[styles.activeFilterTag, { backgroundColor: tc.accentLight, borderColor: tc.accent }]}
+                                onPress={() => setAppliedFilters(prev => ({ ...prev, favoritesOnly: false }))}
+                            >
+                                <Ionicons name="heart" size={12} color={tc.accent} />
+                                <Text style={[styles.activeFilterTagText, { color: tc.accent }]}>Favorites</Text>
+                                <Ionicons name="close-circle" size={14} color={tc.accent} />
+                            </TouchableOpacity>
+                        )}
+                        {appliedFilters.colors.map(c => (
+                            <TouchableOpacity
+                                key={c}
+                                style={[styles.activeFilterTag, { backgroundColor: tc.accentLight, borderColor: tc.accent }]}
+                                onPress={() => {
+                                    setAppliedFilters(prev => ({ ...prev, colors: prev.colors.filter(x => x !== c) }));
+                                    invalidateCache();
+                                }}
+                            >
+                                <View style={[styles.filterColorDot, { width: 10, height: 10, borderRadius: 5, backgroundColor: c.toLowerCase() === 'beige' ? '#F5DEB3' : c.toLowerCase() === 'navy' ? '#000080' : c.toLowerCase() }]} />
+                                <Text style={[styles.activeFilterTagText, { color: tc.accent }]}>{c}</Text>
+                                <Ionicons name="close-circle" size={14} color={tc.accent} />
+                            </TouchableOpacity>
+                        ))}
+                        {appliedFilters.seasons.map(s => (
+                            <TouchableOpacity
+                                key={s}
+                                style={[styles.activeFilterTag, { backgroundColor: tc.accentLight, borderColor: tc.accent }]}
+                                onPress={() => {
+                                    setAppliedFilters(prev => ({ ...prev, seasons: prev.seasons.filter(x => x !== s) }));
+                                    invalidateCache();
+                                }}
+                            >
+                                <Text style={[styles.activeFilterTagText, { color: tc.accent }]}>{s}</Text>
+                                <Ionicons name="close-circle" size={14} color={tc.accent} />
+                            </TouchableOpacity>
+                        ))}
+                        {appliedFilters.occasions.map(o => (
+                            <TouchableOpacity
+                                key={o}
+                                style={[styles.activeFilterTag, { backgroundColor: tc.accentLight, borderColor: tc.accent }]}
+                                onPress={() => {
+                                    setAppliedFilters(prev => ({ ...prev, occasions: prev.occasions.filter(x => x !== o) }));
+                                    invalidateCache();
+                                }}
+                            >
+                                <Text style={[styles.activeFilterTagText, { color: tc.accent }]}>{o}</Text>
+                                <Ionicons name="close-circle" size={14} color={tc.accent} />
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
 
             <FullScreenLoader visible={uploading} message="Uploading to wardrobe..." />
             <FullScreenLoader visible={isDeleting} message="Deleting item..." />
@@ -889,12 +1016,7 @@ export default function WardrobeScreen() {
                         offset: (CARD_WIDTH * TARGET_ASPECT_RATIO + Spacing.md) * Math.floor(index / 2),
                         index,
                     })}
-                    ListHeaderComponent={
-                        <View style={styles.uploadedSectionHeader}>
-                            <Text style={[styles.uploadedSectionTitle, { color: tc.textPrimary }]}>Uploaded Items</Text>
-                            <Text style={[styles.uploadedSectionCount, { color: tc.textSecondary }]}>{items.length}</Text>
-                        </View>
-                    }
+                    ListHeaderComponent={<View style={{ height: Spacing.md }} />}
                     ListFooterComponent={
                         <View>
                             {renderSuggestionsSection(true)}
@@ -918,7 +1040,7 @@ export default function WardrobeScreen() {
 
             {/* FAB */}
             <TouchableOpacity
-                style={styles.fab}
+                style={[styles.fab, { backgroundColor: tc.accent }]}
                 onPress={showUploadOptions}
                 accessibilityRole="button"
                 accessibilityLabel="Add clothing item"
@@ -1252,6 +1374,196 @@ export default function WardrobeScreen() {
                     }
                 }}
             />
+
+            {/* ── Floating Selection Action Bar ── */}
+            <Animated.View
+                pointerEvents={selectionMode && selectedItemIds.length > 0 ? 'auto' : 'none'}
+                style={[
+                    styles.floatingSelectionBar,
+                    {
+                        backgroundColor: tc.card,
+                        borderColor: tc.border,
+                        opacity: selectionBarAnim,
+                        transform: [{
+                            translateY: selectionBarAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [80, 0],
+                            }),
+                        }],
+                    },
+                ]}
+            >
+                <TouchableOpacity onPress={toggleSelectionMode} style={styles.floatingCloseBtn}>
+                    <Ionicons name="close" size={20} color={tc.textSecondary} />
+                </TouchableOpacity>
+
+                <View style={[styles.floatingCountPill, { backgroundColor: tc.accentLight }]}>
+                    <Text style={[styles.floatingCountText, { color: tc.accent }]}>
+                        {selectedItemIds.length} selected
+                    </Text>
+                </View>
+
+                <View style={styles.floatingActions}>
+                    <TouchableOpacity
+                        style={[styles.floatingActionBtn, { backgroundColor: tc.accent }]}
+                        onPress={openBulkMovePicker}
+                    >
+                        <Ionicons name="swap-horizontal" size={16} color={Colors.white} />
+                        <Text style={styles.floatingActionBtnText}>Move</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.floatingActionBtn, { backgroundColor: Colors.error + '15' }]}
+                        onPress={() => {
+                            // delete all selected
+                            Alert.alert(
+                                'Delete Selected',
+                                `Delete ${selectedItemIds.length} item(s)?`,
+                                [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    {
+                                        text: 'Delete',
+                                        style: 'destructive',
+                                        onPress: async () => {
+                                            try {
+                                                setIsDeleting(true);
+                                                await Promise.all(selectedItemIds.map(id => wardrobeLocal.deleteItem(id)));
+                                                setSelectionMode(false);
+                                                setSelectedItemIds([]);
+                                                invalidateCache();
+                                                await loadItems(true);
+                                                setToastType('success');
+                                                setToastMessage(`${selectedItemIds.length} items deleted`);
+                                                setToastVisible(true);
+                                            } catch (err) {
+                                                setToastType('error');
+                                                setToastMessage('Could not delete items');
+                                                setToastVisible(true);
+                                            } finally {
+                                                setIsDeleting(false);
+                                            }
+                                        },
+                                    },
+                                ],
+                            );
+                        }}
+                    >
+                        <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                        <Text style={[styles.floatingActionBtnText, { color: Colors.error }]}>Delete</Text>
+                    </TouchableOpacity>
+                </View>
+            </Animated.View>
+
+            {/* ── Filter Bottom Sheet ── */}
+            <Modal
+                visible={filterSheetVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setFilterSheetVisible(false)}
+            >
+                <Pressable style={styles.bottomSheetOverlay} onPress={() => setFilterSheetVisible(false)}>
+                    <Pressable style={[styles.filterSheetContainer, { backgroundColor: tc.card }]} onPress={e => e.stopPropagation()}>
+                        <View style={styles.bottomSheetHandle} />
+                        <View style={styles.filterSheetHeader}>
+                            <Text style={[styles.filterSheetTitle, { color: tc.textPrimary }]}>Filters</Text>
+                            {activeFilterCount > 0 && (
+                                <TouchableOpacity onPress={resetFilters}>
+                                    <Text style={[styles.filterResetText, { color: Colors.error }]}>Reset All</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+                            {/* Favorites Toggle */}
+                            <View style={styles.filterSectionRow}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <Ionicons name="heart" size={18} color={Colors.error} />
+                                    <Text style={[styles.filterSectionTitle, { color: tc.textPrimary, marginBottom: 0 }]}>Favorites Only</Text>
+                                </View>
+                                <Switch
+                                    value={filterFavoritesOnly}
+                                    onValueChange={setFilterFavoritesOnly}
+                                    trackColor={{ false: tc.border, true: tc.accent + '80' }}
+                                    thumbColor={filterFavoritesOnly ? tc.accent : tc.textMuted}
+                                />
+                            </View>
+
+                            {/* Color */}
+                            <Text style={[styles.filterSectionTitle, { color: tc.textPrimary }]}>Color</Text>
+                            <View style={styles.filterChipWrap}>
+                                {FILTER_COLORS.map(color => {
+                                    const active = filterColors.includes(color);
+                                    return (
+                                        <TouchableOpacity
+                                            key={color}
+                                            style={[
+                                                styles.filterChip,
+                                                { borderColor: active ? tc.accent : tc.border, backgroundColor: active ? tc.accentLight : 'transparent' },
+                                            ]}
+                                            onPress={() => toggleFilterChip(color, filterColors, setFilterColors)}
+                                        >
+                                            <View style={[styles.filterColorDot, { backgroundColor: color.toLowerCase() === 'beige' ? '#F5DEB3' : color.toLowerCase() === 'navy' ? '#000080' : color.toLowerCase() }]} />
+                                            <Text style={[styles.filterChipText, { color: active ? tc.accent : tc.textSecondary }]}>{color}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+
+                            {/* Season */}
+                            <Text style={[styles.filterSectionTitle, { color: tc.textPrimary }]}>Season</Text>
+                            <View style={styles.filterChipWrap}>
+                                {FILTER_SEASONS.map(season => {
+                                    const active = filterSeasons.includes(season);
+                                    const icons: Record<string, string> = { Summer: 'sunny-outline', Winter: 'snow-outline', Spring: 'flower-outline', Fall: 'leaf-outline' };
+                                    return (
+                                        <TouchableOpacity
+                                            key={season}
+                                            style={[
+                                                styles.filterChip,
+                                                { borderColor: active ? tc.accent : tc.border, backgroundColor: active ? tc.accentLight : 'transparent' },
+                                            ]}
+                                            onPress={() => toggleFilterChip(season, filterSeasons, setFilterSeasons)}
+                                        >
+                                            <Ionicons name={icons[season] as any} size={14} color={active ? tc.accent : tc.textSecondary} />
+                                            <Text style={[styles.filterChipText, { color: active ? tc.accent : tc.textSecondary }]}>{season}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+
+                            {/* Occasion */}
+                            <Text style={[styles.filterSectionTitle, { color: tc.textPrimary }]}>Occasion</Text>
+                            <View style={styles.filterChipWrap}>
+                                {FILTER_OCCASIONS.map(occasion => {
+                                    const active = filterOccasions.includes(occasion);
+                                    return (
+                                        <TouchableOpacity
+                                            key={occasion}
+                                            style={[
+                                                styles.filterChip,
+                                                { borderColor: active ? tc.accent : tc.border, backgroundColor: active ? tc.accentLight : 'transparent' },
+                                            ]}
+                                            onPress={() => toggleFilterChip(occasion, filterOccasions, setFilterOccasions)}
+                                        >
+                                            <Text style={[styles.filterChipText, { color: active ? tc.accent : tc.textSecondary }]}>{occasion}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </ScrollView>
+
+                        {/* Apply / Close buttons */}
+                        <View style={styles.filterSheetFooter}>
+                            <TouchableOpacity
+                                style={[styles.filterApplyBtn, { backgroundColor: tc.accent }]}
+                                onPress={applyFilters}
+                            >
+                                <Ionicons name="checkmark" size={18} color={Colors.white} />
+                                <Text style={styles.filterApplyBtnText}>Apply Filters</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Pressable>
+                </Pressable>
+            </Modal>
         </ScreenContainer>
     );
 }
@@ -1261,96 +1573,220 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.warmGray,
     },
-    header: {
+
+    /* ── New Header ── */
+    headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.md,
+        paddingTop: Spacing.xxl,
         paddingBottom: Spacing.sm,
     },
-    title: {
-        ...Typography.heading1,
+    headerTitle: {
+        fontSize: 36,
+        fontWeight: '700',
+        fontFamily: FontFamily.heading,
     },
-    filterBtn: {
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    headerTextBtn: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+    },
+    headerTextBtnLabel: {
+        fontSize: 15,
+        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '600',
+    },
+    filterIconBtn: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: Colors.white,
         justifyContent: 'center',
         alignItems: 'center',
-        ...Shadows.sm,
+        position: 'relative',
     },
-    searchContainer: {
-        flexDirection: 'row',
+    filterBadge: {
+        position: 'absolute',
+        top: 2,
+        right: 2,
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: Colors.white,
-        borderRadius: BorderRadius.xl,
-        marginHorizontal: Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.md,
-        marginBottom: Spacing.lg,
-        ...Shadows.sm,
     },
-    searchInput: {
-        flex: 1,
-        marginLeft: Spacing.sm,
-        fontSize: 14,
-        fontFamily: FontFamily.body,
-        color: Colors.charcoal,
+    filterBadgeText: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: Colors.white,
     },
+
     categoriesContainer: {
         paddingHorizontal: Spacing.xl,
         paddingBottom: Spacing.lg,
         gap: Spacing.sm,
     },
-    bulkActionBar: {
-        marginHorizontal: Spacing.xl,
-        marginBottom: Spacing.sm,
-        padding: Spacing.md,
-        borderRadius: BorderRadius.lg,
-        borderWidth: 1,
+
+    /* ── Floating Selection Bar ── */
+    floatingSelectionBar: {
+        position: 'absolute',
+        bottom: 100,
+        left: Spacing.lg,
+        right: Spacing.lg,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        ...Shadows.sm,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        gap: 10,
+        zIndex: 200,
+        ...Shadows.lg,
     },
-    bulkActionText: {
-        flex: 1,
-        fontSize: 12,
-        fontFamily: FontFamily.bodyMedium,
-        fontWeight: '500',
-        marginRight: Spacing.md,
-    },
-    bulkActionButtons: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
+    floatingCloseBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
         alignItems: 'center',
     },
-    bulkActionBtn: {
-        borderRadius: BorderRadius.md,
-        borderWidth: 1,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        backgroundColor: Colors.white,
+    floatingCountPill: {
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        borderRadius: 12,
     },
-    bulkActionBtnPrimary: {
-        backgroundColor: Colors.gold,
-        borderColor: Colors.gold,
-    },
-    bulkActionBtnDisabled: {
-        opacity: 0.45,
-    },
-    bulkActionBtnText: {
-        fontSize: 12,
+    floatingCountText: {
+        fontSize: 13,
         fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
     },
-    bulkActionBtnPrimaryText: {
-        fontSize: 12,
+    floatingActions: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+    },
+    floatingActionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 12,
+    },
+    floatingActionBtnText: {
+        fontSize: 13,
+        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '600',
+        color: Colors.white,
+    },
+
+    /* ── Filter Bottom Sheet ── */
+    filterSheetContainer: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.lg,
+        paddingBottom: Spacing.xxl,
+        ...Shadows.lg,
+    },
+    filterSheetHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Spacing.lg,
+    },
+    filterSheetTitle: {
+        fontSize: 22,
+        fontFamily: FontFamily.heading,
+        fontWeight: '700',
+    },
+    filterResetText: {
+        fontSize: 14,
+        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '600',
+    },
+    filterSectionRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Spacing.lg,
+        paddingVertical: 4,
+    },
+    filterSectionTitle: {
+        fontSize: 15,
+        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '600',
+        marginBottom: Spacing.sm,
+        marginTop: Spacing.md,
+    },
+    filterChipWrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: Spacing.sm,
+    },
+    filterChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1.5,
+    },
+    filterColorDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        borderWidth: 0.5,
+        borderColor: 'rgba(0,0,0,0.1)',
+    },
+    filterChipText: {
+        fontSize: 13,
+        fontFamily: FontFamily.bodyMedium,
+        fontWeight: '500',
+    },
+    filterSheetFooter: {
+        marginTop: Spacing.lg,
+    },
+    filterApplyBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 14,
+        borderRadius: 16,
+    },
+    filterApplyBtnText: {
+        fontSize: 16,
         fontFamily: FontFamily.bodyBold,
         fontWeight: '700',
         color: Colors.white,
+    },
+
+    /* Active filter tags row */
+    activeFiltersRow: {
+        marginBottom: Spacing.sm,
+    },
+    activeFilterTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    activeFilterTagText: {
+        fontSize: 12,
+        fontFamily: FontFamily.bodyMedium,
+        fontWeight: '500',
     },
     categoryChip: {
         paddingHorizontal: Spacing.lg,
@@ -1618,7 +2054,7 @@ const styles = StyleSheet.create({
     },
     fab: {
         position: 'absolute',
-        bottom: 20,
+        bottom: 110,
         right: Spacing.xl,
         width: 56,
         height: 56,
@@ -1626,6 +2062,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.gold,
         justifyContent: 'center',
         alignItems: 'center',
+        zIndex: 100,
         ...Shadows.lg,
     },
     bottomSheetOverlay: {

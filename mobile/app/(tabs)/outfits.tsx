@@ -14,6 +14,7 @@ import {
     PanResponder,
     Platform,
     StatusBar,
+    Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -931,7 +932,7 @@ export default function OutfitsScreen() {
                                     subtitle="Use the AI Stylist tab to generate an outfit and save it here as a look."
                                 />
                             ) : (
-                                <View style={styles.looksList}>
+                                <View style={[styles.looksList, { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }]}>
                                     {savedLooks.map((look, index) => {
                                         const items = look.itemIds
                                             .map((id) => wardrobeById[id])
@@ -946,157 +947,65 @@ export default function OutfitsScreen() {
 
                                         const topItems = byCategory['topwear'] || [];
                                         const bottomItems = byCategory['bottomwear'] || [];
+                                        const outerwearItems = byCategory['outerwear'] || [];
                                         const footwearItems = byCategory['footwear'] || [];
-                                        const accessoryItems = byCategory['accessories'] || [];
-
-                                        const primaryThumb =
-                                            topItems[0] || bottomItems[0] || footwearItems[0] || items[0];
 
                                         const expanded = expandedLookId === look.id;
+                                        
+                                        // Extracted individual items for the collage overlay
+                                        const top = topItems[0];
+                                        const bottom = bottomItems[0];
+                                        const shoe = footwearItems[0];
+                                        const out = outerwearItems[0];
+
+                                        // Formatted Date
+                                        const dateObj = new Date(look.createdAt || Date.now());
+                                        const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')} ${dateObj.toLocaleString('default', { month: 'short' }).toUpperCase()}`;
 
                                         return (
                                             <TouchableOpacity
                                                 key={look.id}
                                                 activeOpacity={0.9}
-                                                onPress={() =>
-                                                    setExpandedLookId(expanded ? null : look.id)
-                                                }
-                                                style={[styles.lookCard, { backgroundColor: tc.card, borderColor: tc.border }]}
+                                                onPress={() => setExpandedLookId(look.id)}
+                                                style={[
+                                                    styles.lookCard,
+                                                    { 
+                                                        width: '48%',
+                                                        backgroundColor: 'transparent',
+                                                        borderWidth: 0,
+                                                        borderColor: tc.border,
+                                                        padding: 0,
+                                                        marginBottom: Spacing.xl,
+                                                        shadowOpacity: 0,
+                                                        elevation: 0
+                                                    }
+                                                ]}
                                             >
-                                                <View style={styles.lookHeaderRow}>
-                                                    <View>
-                                                        <Text style={[styles.lookTitle, { color: tc.textPrimary }]}>
-                                                            {look.name || `Look ${index + 1}`}
-                                                        </Text>
-                                                        <Text style={[styles.lookSubtitle, { color: tc.textSecondary }]}>
-                                                            {items.length} pieces • Saved from {look.source === 'ai' ? 'AI Stylist' : 'your wardrobe'}
-                                                        </Text>
+                                                <View>
+                                                    {/* Collage Frame */}
+                                                    <View style={{ width: '100%', aspectRatio: 0.85, backgroundColor: tc.surface, borderRadius: 20, overflow: 'hidden', padding: 8 }}>
+                                                        {out && (
+                                                            <Image source={{ uri: out.processedUrl }} style={{ position: 'absolute', top: '5%', right: '5%', width: '90%', height: '85%', zIndex: 0 }} resizeMode="contain" />
+                                                        )}
+                                                        {top && (
+                                                            <Image source={{ uri: top.processedUrl }} style={{ position: 'absolute', top: '15%', right: '15%', width: '70%', height: '50%', zIndex: 1 }} resizeMode="contain" />
+                                                        )}
+                                                        {bottom && (
+                                                            <Image source={{ uri: bottom.processedUrl }} style={{ position: 'absolute', bottom: '10%', left: '15%', width: '70%', height: '50%', zIndex: 2 }} resizeMode="contain" />
+                                                        )}
+                                                        {shoe && (
+                                                            <Image source={{ uri: shoe.processedUrl }} style={{ position: 'absolute', bottom: '15%', left: '10%', width: '35%', height: '25%', zIndex: 3 }} resizeMode="contain" />
+                                                        )}
                                                     </View>
-                                                    <Ionicons
-                                                        name={expanded ? 'chevron-up' : 'chevron-down'}
-                                                        size={18}
-                                                        color={tc.textSecondary}
-                                                    />
+                                                    
+                                                    {/* Details block matching screenshot typography */}
+                                                    <Text style={[styles.lookTitle, { color: tc.textPrimary, fontStyle: 'italic', fontSize: 16, marginTop: 12 }]} numberOfLines={1}>
+                                                        {look.name || `Look ${index + 1}`}
+                                                    </Text>
+                                                    <Text style={[styles.lookSubtitle, { color: tc.textSecondary, fontSize: 10, textTransform: 'uppercase', marginTop: 4, letterSpacing: 0.5 }]}>
+                                                        {items.length} ITEMS • {formattedDate}
+                                                    </Text>
                                                 </View>
-
-                                                {primaryThumb && (
-                                                    <View style={styles.lookThumbRow}>
-                                                        <Image
-                                                            source={{ uri: primaryThumb.processedUrl }}
-                                                            style={styles.lookThumb}
-                                                            resizeMode="contain"
-                                                        />
-                                                        <View style={styles.lookCategoryChips}>
-                                                            {topItems.length > 0 && (
-                                                                <View style={styles.lookChip}>
-                                                                    <Text style={styles.lookChipLabel}>Topwear</Text>
-                                                                    <Text style={styles.lookChipCount}>{topItems.length}</Text>
-                                                                </View>
-                                                            )}
-                                                            {bottomItems.length > 0 && (
-                                                                <View style={styles.lookChip}>
-                                                                    <Text style={styles.lookChipLabel}>Bottomwear</Text>
-                                                                    <Text style={styles.lookChipCount}>{bottomItems.length}</Text>
-                                                                </View>
-                                                            )}
-                                                            {footwearItems.length > 0 && (
-                                                                <View style={styles.lookChip}>
-                                                                    <Text style={styles.lookChipLabel}>Footwear</Text>
-                                                                    <Text style={styles.lookChipCount}>{footwearItems.length}</Text>
-                                                                </View>
-                                                            )}
-                                                            {accessoryItems.length > 0 && (
-                                                                <View style={styles.lookChip}>
-                                                                    <Text style={styles.lookChipLabel}>Accessories</Text>
-                                                                    <Text style={styles.lookChipCount}>{accessoryItems.length}</Text>
-                                                                </View>
-                                                            )}
-                                                        </View>
-                                                    </View>
-                                                )}
-
-                                                {expanded && (
-                                                    <View style={styles.lookExpandedSection}>
-                                                        {topItems.length > 0 && (
-                                                            <View style={styles.lookCategorySection}>
-                                                                <Text style={[styles.lookCategoryTitle, { color: tc.textPrimary }]}>Topwear</Text>
-                                                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                                                    {topItems.map((wItem) => (
-                                                                        <Image
-                                                                            key={wItem.id}
-                                                                            source={{ uri: wItem.processedUrl }}
-                                                                            style={styles.lookPieceImg}
-                                                                            resizeMode="contain"
-                                                                        />
-                                                                    ))}
-                                                                </ScrollView>
-                                                            </View>
-                                                        )}
-                                                        {bottomItems.length > 0 && (
-                                                            <View style={styles.lookCategorySection}>
-                                                                <Text style={[styles.lookCategoryTitle, { color: tc.textPrimary }]}>Bottomwear</Text>
-                                                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                                                    {bottomItems.map((wItem) => (
-                                                                        <Image
-                                                                            key={wItem.id}
-                                                                            source={{ uri: wItem.processedUrl }}
-                                                                            style={styles.lookPieceImg}
-                                                                            resizeMode="contain"
-                                                                        />
-                                                                    ))}
-                                                                </ScrollView>
-                                                            </View>
-                                                        )}
-                                                        {footwearItems.length > 0 && (
-                                                            <View style={styles.lookCategorySection}>
-                                                                <Text style={[styles.lookCategoryTitle, { color: tc.textPrimary }]}>Footwear</Text>
-                                                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                                                    {footwearItems.map((wItem) => (
-                                                                        <Image
-                                                                            key={wItem.id}
-                                                                            source={{ uri: wItem.processedUrl }}
-                                                                            style={styles.lookPieceImg}
-                                                                            resizeMode="contain"
-                                                                        />
-                                                                    ))}
-                                                                </ScrollView>
-                                                            </View>
-                                                        )}
-                                                        {accessoryItems.length > 0 && (
-                                                            <View style={styles.lookCategorySection}>
-                                                                <Text style={[styles.lookCategoryTitle, { color: tc.textPrimary }]}>Accessories</Text>
-                                                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                                                    {accessoryItems.map((wItem) => (
-                                                                        <Image
-                                                                            key={wItem.id}
-                                                                            source={{ uri: wItem.processedUrl }}
-                                                                            style={styles.lookPieceImg}
-                                                                            resizeMode="contain"
-                                                                        />
-                                                                    ))}
-                                                                </ScrollView>
-                                                            </View>
-                                                        )}
-                                                        
-                                                        <TouchableOpacity
-                                                            style={styles.seeOnCanvasBtn}
-                                                            onPress={() => {
-                                                                router.replace({
-                                                                    pathname: '/(tabs)/',
-                                                                    params: {
-                                                                        viewOutfit: 'true',
-                                                                        topId: topItems[0]?.id || '',
-                                                                        bottomId: bottomItems[0]?.id || '',
-                                                                        shoeId: footwearItems[0]?.id || ''
-                                                                    }
-                                                                });
-                                                            }}
-                                                        >
-                                                            <Ionicons name="eye-outline" size={18} color={Colors.white} />
-                                                            <Text style={styles.seeOnCanvasBtnText}>See on Canvas</Text>
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                )}
                                             </TouchableOpacity>
                                         );
                                     })}
@@ -1108,6 +1017,79 @@ export default function OutfitsScreen() {
                     <View style={{ height: 100 }} />
                 </ScrollView>
             )}
+
+            <Modal
+                visible={!!expandedLookId}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setExpandedLookId(null)}
+            >
+                <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }} onPress={() => setExpandedLookId(null)}>
+                    <Pressable style={{ width: '100%', backgroundColor: tc.card, borderRadius: 24, padding: 24, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 }} onPress={(e: any) => e.stopPropagation()}>
+                        {(() => {
+                            if (!expandedLookId) return null;
+                            const look = savedLooks.find(l => l.id === expandedLookId);
+                            if (!look) return null;
+                            const items = look.itemIds
+                                .map((id) => wardrobeById[id])
+                                .filter(Boolean) as WardrobeItem[];
+                            const byCategory: Record<string, WardrobeItem[]> = {};
+                            items.forEach((wItem) => {
+                                const key = normalizeCategory(wItem.category);
+                                if (!byCategory[key]) byCategory[key] = [];
+                                byCategory[key].push(wItem);
+                            });
+                            const topItems = byCategory['topwear'] || [];
+                            const bottomItems = byCategory['bottomwear'] || [];
+                            const footwearItems = byCategory['footwear'] || [];
+                            return (
+                                <>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ fontSize: 20, fontWeight: '700', fontStyle: 'italic', color: tc.textPrimary }} numberOfLines={1}>
+                                                {look.name || 'Saved Look'}
+                                            </Text>
+                                            <Text style={{ fontSize: 10, fontWeight: '600', color: tc.textSecondary, marginTop: 4, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                                                {items.length} PIECES • SAVED FROM {look.source === 'ai' ? 'STYLIST' : 'WARDROBE'}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity onPress={() => setExpandedLookId(null)} style={{ padding: 4, backgroundColor: tc.iconBtnBg, borderRadius: 16, marginLeft: 16 }}>
+                                            <Ionicons name="close" size={20} color={tc.textPrimary} />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                                        {topItems.length > 0 && (
+                                            <View style={{ width: '48%', alignItems: 'center', marginBottom: 16 }}>
+                                                <Text style={{ fontSize: 12, fontWeight: '700', color: tc.textPrimary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Top</Text>
+                                                <View style={{ width: '100%', backgroundColor: tc.surface, borderRadius: 16, padding: 12, alignItems: 'center' }}>
+                                                    <Image source={{ uri: topItems[0].processedUrl }} style={{ width: 80, height: 100 }} resizeMode="contain" />
+                                                </View>
+                                            </View>
+                                        )}
+                                        {bottomItems.length > 0 && (
+                                            <View style={{ width: '48%', alignItems: 'center', marginBottom: 16 }}>
+                                                <Text style={{ fontSize: 12, fontWeight: '700', color: tc.textPrimary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Bottom</Text>
+                                                <View style={{ width: '100%', backgroundColor: tc.surface, borderRadius: 16, padding: 12, alignItems: 'center' }}>
+                                                    <Image source={{ uri: bottomItems[0].processedUrl }} style={{ width: 80, height: 100 }} resizeMode="contain" />
+                                                </View>
+                                            </View>
+                                        )}
+                                        {footwearItems.length > 0 && (
+                                            <View style={{ width: '48%', alignItems: 'center', marginBottom: 16 }}>
+                                                <Text style={{ fontSize: 12, fontWeight: '700', color: tc.textPrimary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Shoes</Text>
+                                                <View style={{ width: '100%', backgroundColor: tc.surface, borderRadius: 16, padding: 12, alignItems: 'center' }}>
+                                                    <Image source={{ uri: footwearItems[0].processedUrl }} style={{ width: 70, height: 90 }} resizeMode="contain" />
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+                                </>
+                            );
+                        })()}
+                    </Pressable>
+                </Pressable>
+            </Modal>
 
             <Modal
                 visible={quizVisible}
