@@ -125,6 +125,12 @@ export async function processClothingImageOnDevice(
         console.log(`[ImageProcessor] ML Kit unavailable, shape-based fallback: ${finalClassification.category}/${finalClassification.subCategory}`);
     }
 
+    // ── Memory Cleanup ───────────────────────────────────────────
+    // Release the large RGBA pixel buffer (~4MB per 1024x1024 image)
+    // immediately after use. Critical for sequential multi-image
+    // processing to prevent memory accumulation.
+    (bgResult as any).rgbaPixels = null;
+
     const isFallback = !hasBgRemoval;
     if (isFallback) {
         console.log(`[ImageProcessor] Done (fallback mode): category=${finalClassification.category}, color=${colors.dominantName}`);
