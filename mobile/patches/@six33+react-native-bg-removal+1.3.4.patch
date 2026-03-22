@@ -1,0 +1,21 @@
+diff --git a/node_modules/@six33/react-native-bg-removal/android/src/main/java/com/backgroundremover/BackgroundRemoverPackage.kt b/node_modules/@six33/react-native-bg-removal/android/src/main/java/com/backgroundremover/BackgroundRemoverPackage.kt
+index 1234567..abcdefg 100644
+--- a/node_modules/@six33/react-native-bg-removal/android/src/main/java/com/backgroundremover/BackgroundRemoverPackage.kt
++++ b/node_modules/@six33/react-native-bg-removal/android/src/main/java/com/backgroundremover/BackgroundRemoverPackage.kt
+@@ -19,14 +19,13 @@ class BackgroundRemoverPackage : TurboReactPackage() {
+   override fun getReactModuleInfoProvider(): ReactModuleInfoProvider {
+     return ReactModuleInfoProvider {
+       val moduleInfos: MutableMap<String, ReactModuleInfo> = HashMap()
+-      val isTurboModule: Boolean = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED
+       moduleInfos[BackgroundRemoverModule.NAME] = ReactModuleInfo(
+         BackgroundRemoverModule.NAME,
+         BackgroundRemoverModule.NAME,
+         false,  // canOverrideExistingModule
+         false,  // needsEagerInit
+         true,  // hasConstants
+-        false,  // isCxxModule
+-        isTurboModule // isTurboModule
++        false   // isCxxModule
+       )
+       moduleInfos
+     }
