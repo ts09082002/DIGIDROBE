@@ -714,10 +714,19 @@ export default function WardrobeScreen() {
             onLongPress={() => beginMultiSelectFromItem(item.id)}
             activeOpacity={0.9}
         >
-            <View style={{ width: '100%', aspectRatio: item.brand === 'AURA STUDIO' || item.category === 'bottomwear' || item.category === 'dresses' || item.category === 'outerwear' ? 0.75 : 0.9, backgroundColor: tc.surface, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{
+                width: '100%',
+                aspectRatio: 0.82,
+                backgroundColor: tc.surface,
+                borderRadius: 16,
+                overflow: 'hidden',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 12,
+            }}>
                 <Image
                     source={{ uri: item.processedUrl || item.originalUrl }}
-                    style={{ width: '90%', height: '90%' }}
+                    style={{ width: '100%', height: '100%' }}
                     resizeMode="contain"
                 />
                 {!selectionMode && (
