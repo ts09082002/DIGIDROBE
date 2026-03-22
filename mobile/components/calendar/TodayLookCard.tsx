@@ -2,8 +2,10 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../context/ThemeContext';
-import { FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import { FontFamily, Spacing, BorderRadius, Shadows, Colors } from '../../constants/theme';
 import type { WardrobeItem } from '../../services/api';
+import { useRouter } from 'expo-router';
+import { normalizeCategory } from '../../constants/categories';
 
 type TodayLookCardProps = {
     items: WardrobeItem[];
@@ -43,6 +45,7 @@ export default function TodayLookCard({
     onPlanManually,
 }: TodayLookCardProps) {
     const tc = useThemeColors();
+    const router = useRouter();
     const hasItems = items.length > 0;
     const label = formatDateLabel(date);
 
@@ -75,17 +78,44 @@ export default function TodayLookCard({
                         ))}
                     </View>
 
-                    {/* Wore it button */}
-                    <TouchableOpacity
-                        style={[styles.woreItBtn, { backgroundColor: tc.accentLight }]}
-                        onPress={onWoreIt}
-                        activeOpacity={0.7}
-                        accessibilityRole="button"
-                        accessibilityLabel="Mark outfit as worn"
-                    >
-                        <Ionicons name="checkmark-circle" size={18} color={tc.accent} />
-                        <Text style={[styles.woreItText, { color: tc.accent }]}>Wore it</Text>
-                    </TouchableOpacity>
+                    {/* Action buttons */}
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={[styles.woreItBtn, { backgroundColor: tc.accentLight }]}
+                            onPress={onWoreIt}
+                            activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel="Mark outfit as worn"
+                        >
+                            <Ionicons name="checkmark-circle" size={18} color={tc.accent} />
+                            <Text style={[styles.woreItText, { color: tc.accent }]}>Wore it</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity
+                            style={styles.seeOnCanvasBtn}
+                            onPress={() => {
+                                const topItems = items.filter(i => {
+                                    const c = normalizeCategory(i.category);
+                                    return c === 'topwear' || c === 'dresses';
+                                });
+                                const bottomItems = items.filter(i => normalizeCategory(i.category) === 'bottomwear');
+                                const shoeItems = items.filter(i => normalizeCategory(i.category) === 'footwear');
+                                
+                                router.replace({
+                                    pathname: '/(tabs)/',
+                                    params: {
+                                        viewOutfit: 'true',
+                                        topId: topItems[0]?.id || '',
+                                        bottomId: bottomItems[0]?.id || '',
+                                        shoeId: shoeItems[0]?.id || ''
+                                    }
+                                });
+                            }}
+                        >
+                            <Ionicons name="eye-outline" size={16} color={Colors.white} />
+                            <Text style={styles.seeOnCanvasBtnText}>See on Canvas</Text>
+                        </TouchableOpacity>
+                    </View>
                 </>
             ) : (
                 <>
@@ -200,5 +230,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
+    },
+    seeOnCanvasBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.gold,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        borderRadius: BorderRadius.round,
+        gap: 8,
+    },
+    seeOnCanvasBtnText: {
+        color: Colors.white,
+        fontFamily: FontFamily.bodyBold,
+        fontSize: 13,
     },
 });

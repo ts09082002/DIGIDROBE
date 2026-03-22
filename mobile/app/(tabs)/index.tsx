@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -8,81 +8,132 @@ import {
     Image,
     Dimensions,
     Platform,
-    FlatList,
     Alert,
     RefreshControl,
+    ImageBackground,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { api, WardrobeItem } from '../../services/api';
 import * as wardrobeLocal from '../../services/wardrobe-local';
 import { Colors, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenContainer from '../../components/ui/ScreenContainer';
-import CategoryPills from '../../components/ui/CategoryPills';
-import EmptyState from '../../components/ui/EmptyState';
-import { SkeletonRow } from '../../components/ui/SkeletonLoader';
+import OutfitCanvas from '../../components/home/OutfitCanvas';
+import OutfitDetailsModal from '../../components/home/OutfitDetailsModal';
+import { fetchLocationAndWeather, getTimeOfDayForGreeting, type WeatherInfo } from '../../services/weather';
+import { generateStyleOfDayForWardrobe } from '../../engine';
+import type { RecommendationContext, StyleOfTheDayResult } from '../../engine/types';
+import { normalizeCategory } from '../../constants/categories';
 
 const { width, height } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.38;
 const BODY_PHOTO_KEY = '@drobeo_body_photo_url';
 
-const CATEGORIES = ['All Items', 'Tops', 'Bottoms', 'Footwear', 'Outerwear', 'Accessories'];
-
-const CATEGORY_MAP: Record<string, string> = {
-    'All Items': '',
-    'Tops': 'top',
-    'Bottoms': 'bottom',
-    'Footwear': 'footwear',
-    'Outerwear': 'outerwear',
-    'Accessories': 'accessories',
-};
-
-function getSubLabel(item: WardrobeItem): string {
-    return item.category?.charAt(0).toUpperCase() + item.category?.slice(1) || 'Item';
-}
-
 export default function HomeScreen() {
-    const [activeCategory, setActiveCategory] = useState('All Items');
-    const [items, setItems] = useState<WardrobeItem[]>([]);
+    const [allWardrobeItems, setAllWardrobeItems] = useState<WardrobeItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [bodyPhotoUri, setBodyPhotoUri] = useState<string | null>(null);
-    const [bodyPhotoUploading, setBodyPhotoUploading] = useState(false);
-    const [showPhotoActionSheet, setShowPhotoActionSheet] = useState(false);
     const { isDarkMode, toggleTheme } = useTheme();
     const tc = useThemeColors();
     const router = useRouter();
+    const params = useLocalSearchParams<{ viewOutfit?: string; topId?: string; bottomId?: string; shoeId?: string }>();
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const saved = await AsyncStorage.getItem(BODY_PHOTO_KEY);
-                if (saved) setBodyPhotoUri(saved);
-            } catch {}
-        })();
-    }, []);
+    // Explicit selections for Mix & Match
+    const [selectedTop, setSelectedTop] = useState<WardrobeItem | null>(null);
+    const [selectedBottom, setSelectedBottom] = useState<WardrobeItem | null>(null);
+    const [selectedShoe, setSelectedShoe] = useState<WardrobeItem | null>(null);
 
+    // Header Dropdown
+    const [headerDropdownVis, setHeaderDropdownVis] = useState(false);
+
+    // Weather + outfit suggestion
+    const [weatherInfo, setWeatherInfo] = useState<WeatherInfo | null>(null);
+    const [weatherLoading, setWeatherLoading] = useState(true);
+    const [styleOfDay, setStyleOfDay] = useState<StyleOfTheDayResult | null>(null);
+    const [outfitDetailsOpen, setOutfitDetailsOpen] = useState(false);
+
+    // Fetch wardrobe
     const fetchItems = useCallback(async () => {
         try {
             setLoading(true);
-            const category = CATEGORY_MAP[activeCategory] || undefined;
-            const data = await wardrobeLocal.getAllItems(category ? { category } : undefined);
-            setItems(data || []);
+            const data = await wardrobeLocal.getAllItems();
+            setAllWardrobeItems(data || []);
         } catch (e) {
             console.log('Failed to fetch wardrobe items', e);
-            setItems([]);
+            setAllWardrobeItems([]);
         } finally {
             setLoading(false);
         }
-    }, [activeCategory]);
+    }, []);
 
+    useFocusEffect(
+        useCallback(() => {
+            fetchItems();
+        }, [fetchItems])
+    );
+
+    // Fetch current location + temperature
     useEffect(() => {
-        fetchItems();
-    }, [fetchItems]);
+        let cancelled = false;
+        (async () => {
+            try {
+                setWeatherLoading(true);
+                const info = await fetchLocationAndWeather();
+                if (!cancelled) setWeatherInfo(info);
+            } finally {
+                if (!cancelled) setWeatherLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // Generate style of the day once we have wardrobe items + weather
+    useEffect(() => {
+        if (!weatherInfo) return;
+        if (!allWardrobeItems.length) return;
+
+        const now = new Date();
+        const timeOfDay = getTimeOfDayForGreeting(now);
+        const context: RecommendationContext = {
+            temperatureC: weatherInfo.temperatureC,
+            weather: weatherInfo.weatherType,
+            occasion: 'casual',
+            dayOfWeek: now.getDay(),
+            timeOfDay,
+        };
+
+        const todayIso = now.toISOString().split('T')[0];
+        generateStyleOfDayForWardrobe(allWardrobeItems, context, todayIso)
+            .then((res) => setStyleOfDay(res))
+            .catch(() => setStyleOfDay(null));
+    }, [allWardrobeItems, weatherInfo]);
+
+    // Populate initial selections from styleOfDay
+    useEffect(() => {
+        if (!styleOfDay || !allWardrobeItems.length) return;
+        const aiIds = new Set(styleOfDay.outfit.items.map((i) => i.id));
+        const aiItems = allWardrobeItems.filter((i) => aiIds.has(i.id));
+
+        if (!selectedTop) {
+            const top = aiItems.find((i) => {
+                const c = normalizeCategory(i.category);
+                return c === 'topwear' || c === 'dresses';
+            });
+            if (top) setSelectedTop(top);
+        }
+        if (!selectedBottom) {
+            const bottom = aiItems.find((i) => normalizeCategory(i.category) === 'bottomwear');
+            if (bottom) setSelectedBottom(bottom);
+        }
+        if (!selectedShoe) {
+            const shoe = aiItems.find((i) => normalizeCategory(i.category) === 'footwear');
+            if (shoe) setSelectedShoe(shoe);
+        }
+    }, [styleOfDay, allWardrobeItems]);
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -90,317 +141,300 @@ export default function HomeScreen() {
         setRefreshing(false);
     }, [fetchItems]);
 
-    const pickBodyPhoto = async (source: 'camera' | 'gallery') => {
-        try {
-            const permission =
-                source === 'camera'
-                    ? await ImagePicker.requestCameraPermissionsAsync()
-                    : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-            if (!permission.granted) {
-                Alert.alert('Permission needed', `Please allow ${source} access to continue.`);
-                return;
+    // Apply specific outfit passed via route params
+    useEffect(() => {
+        if (params.viewOutfit === 'true' && allWardrobeItems.length > 0) {
+            if (params.topId) {
+                const top = allWardrobeItems.find(i => i.id === params.topId);
+                if (top) setSelectedTop(top);
+            } else {
+                setSelectedTop(null);
             }
-
-            const result =
-                source === 'camera'
-                    ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1 })
-                    : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
-
-            if (result.canceled || !result.assets?.length) return;
-
-            const asset = result.assets[0];
-            setBodyPhotoUploading(true);
-
-            const uploaded = await api.uploadBodyPhoto(
-                asset.uri,
-                asset.fileName || `body-photo-${Date.now()}.jpg`,
-                asset.mimeType || 'image/jpeg',
-            );
-
-            const photoUrl = api.getImageUrl(uploaded.processedUrl || uploaded.originalUrl);
-            setBodyPhotoUri(photoUrl);
-            await AsyncStorage.setItem(BODY_PHOTO_KEY, photoUrl);
-            setShowPhotoActionSheet(false);
-        } catch (error: any) {
-            Alert.alert('Upload failed', error?.message || 'Could not upload photo');
-        } finally {
-            setBodyPhotoUploading(false);
+            if (params.bottomId) {
+                const bottom = allWardrobeItems.find(i => i.id === params.bottomId);
+                if (bottom) setSelectedBottom(bottom);
+            } else {
+                setSelectedBottom(null);
+            }
+            if (params.shoeId) {
+                const shoe = allWardrobeItems.find(i => i.id === params.shoeId);
+                if (shoe) setSelectedShoe(shoe);
+            } else {
+                setSelectedShoe(null);
+            }
+            // Reset param flag to prevent endless loops
+            router.setParams({ viewOutfit: 'false' });
         }
+    }, [params.viewOutfit, params.topId, params.bottomId, params.shoeId, allWardrobeItems, router]);
+
+    // Derived Categories
+    const tops = useMemo(() => allWardrobeItems.filter((i) => {
+        const c = normalizeCategory(i.category);
+        return c === 'topwear' || c === 'dresses';
+    }), [allWardrobeItems]);
+
+    const bottoms = useMemo(() => allWardrobeItems.filter((i) => normalizeCategory(i.category) === 'bottomwear'), [allWardrobeItems]);
+
+    const shoes = useMemo(() => allWardrobeItems.filter((i) => normalizeCategory(i.category) === 'footwear'), [allWardrobeItems]);
+
+    const nowForGreeting = getTimeOfDayForGreeting(new Date());
+    const greetingText = (() => {
+        switch (nowForGreeting) {
+            case 'morning': return 'Good morning';
+            case 'afternoon': return 'Good afternoon';
+            case 'evening': return 'Good evening';
+            default: return 'Good night';
+        }
+    })();
+
+    const heroBackgroundImage = (() => {
+        switch (nowForGreeting) {
+            case 'morning': return 'https://images.unsplash.com/photo-1506744626753-1fa28f6f53cb?q=80&w=600&auto=format&fit=crop';
+            case 'afternoon': return 'https://images.unsplash.com/photo-1516655855035-d5215bcb5604?q=80&w=600&auto=format&fit=crop';
+            case 'evening': return 'https://images.unsplash.com/photo-1509924603848-aca5e5f1a14f?q=80&w=600&auto=format&fit=crop';
+            default: return 'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?q=80&w=600&auto=format&fit=crop';
+        }
+    })();
+    const recommendationText = (() => {
+        if (weatherLoading) return 'Checking weather...';
+        if (!weatherInfo) return 'Weather unavailable';
+        return `${Math.round(weatherInfo.temperatureC)}°C${weatherInfo.locationName ? ` • ${weatherInfo.locationName}` : ''}`;
+    })();
+
+    const handleClear = () => {
+        setSelectedTop(null);
+        setSelectedBottom(null);
+        setSelectedShoe(null);
     };
 
-    const handleViewItem = (item: WardrobeItem) => {
-        router.push({ pathname: '/(tabs)/wardrobe', params: { viewItemId: item.id } });
+    const handleSuggestAI = () => {
+        if (!styleOfDay || !allWardrobeItems.length) {
+            Alert.alert("No suggestions", "Add more items to your wardrobe first.");
+            return;
+        }
+        const aiIds = new Set(styleOfDay.outfit.items.map((i) => i.id));
+        const aiItems = allWardrobeItems.filter((i) => aiIds.has(i.id));
+
+        const top = aiItems.find((i) => normalizeCategory(i.category) === 'topwear' || normalizeCategory(i.category) === 'dresses');
+        const bottom = aiItems.find((i) => normalizeCategory(i.category) === 'bottomwear');
+        const shoe = aiItems.find((i) => normalizeCategory(i.category) === 'footwear');
+
+        setSelectedTop(top || null);
+        setSelectedBottom(bottom || null);
+        setSelectedShoe(shoe || null);
     };
 
-    const renderClothingCard = ({ item }: { item: WardrobeItem }) => {
-        const imageUrl = item.processedUrl || item.originalUrl;
-
+    // Helper component for horizontal list
+    const CategoryListRow = ({
+        categoryName,
+        iconName,
+        subtitle,
+        items,
+        selectedItem,
+        onSelect
+    }: {
+        categoryName: string,
+        iconName: keyof typeof Ionicons.glyphMap,
+        subtitle: string,
+        items: WardrobeItem[],
+        selectedItem: WardrobeItem | null,
+        onSelect: (item: WardrobeItem) => void
+    }) => {
         return (
-            <View style={styles.clothingCard}>
-                <View style={[styles.clothingImageContainer, { backgroundColor: tc.surface }]}>
-                    {imageUrl ? (
-                        <Image
-                            source={{ uri: imageUrl }}
-                            style={styles.clothingImage}
-                            resizeMode="cover"
-                        />
-                    ) : (
-                        <Ionicons name="shirt-outline" size={40} color={tc.textMuted} />
+            <View style={styles.mixListWrapper}>
+                <View style={styles.mixListHeaderRow}>
+                    <Ionicons name={iconName} size={16} color={tc.textPrimary} style={{ marginTop: 2 }} />
+                    <Text style={[styles.mixListTitle, { color: tc.textPrimary }]}>{categoryName}</Text>
+                    <Text style={[styles.mixListSubtitle, { color: tc.textMuted }]}>{subtitle}</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mixListScroll}>
+                    {items.map((item) => {
+                        const isSelected = selectedItem?.id === item.id;
+                        const imageUrl = item.processedUrl || item.originalUrl;
+                        return (
+                            <TouchableOpacity
+                                key={item.id}
+                                activeOpacity={0.8}
+                                onPress={() => onSelect(item)}
+                                style={[
+                                    styles.mixItemBox,
+                                    { backgroundColor: tc.surface },
+                                    isSelected && { borderColor: '#d4aa3b', borderWidth: 2 }
+                                ]}
+                            >
+                                {imageUrl ? (
+                                    <Image source={{ uri: imageUrl }} style={styles.mixItemImage} resizeMode="contain" />
+                                ) : (
+                                    <Ionicons name="shirt-outline" size={30} color={tc.textMuted} />
+                                )}
+                                {isSelected && (
+                                    <View style={[styles.checkBadge, { backgroundColor: tc.accent }]}>
+                                        <Ionicons name="checkmark" size={12} color="#fff" />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        );
+                    })}
+                    {items.length === 0 && (
+                        <View style={[styles.mixItemBox, { backgroundColor: tc.surface, justifyContent: 'center' }]}>
+                            <Text style={{ color: tc.textMuted, fontSize: 12 }}>Empty</Text>
+                        </View>
                     )}
-                </View>
-                <View style={styles.clothingInfo}>
-                    <Text style={[styles.clothingSubLabel, { color: tc.textMuted }]} numberOfLines={1}>
-                        {getSubLabel(item)}
-                    </Text>
-                    <Text style={[styles.clothingName, { color: tc.textPrimary }]} numberOfLines={1}>
-                        {item.name || 'Unnamed'}
-                    </Text>
-                </View>
-                <TouchableOpacity
-                    style={[styles.viewButton, { backgroundColor: tc.accent }]}
-                    onPress={() => handleViewItem(item)}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View ${item.name || 'item'}`}
-                >
-                    <Text style={styles.viewButtonText}>VIEW</Text>
-                </TouchableOpacity>
+                </ScrollView>
             </View>
         );
     };
 
     return (
         <ScreenContainer>
-            {/* Header */}
+            {/* Minimalist Top Header matched to screenshot */}
             <View style={styles.header}>
                 <View style={styles.logoContainer}>
-                    <View style={[styles.logoIconBg, { backgroundColor: tc.accent }]}>
-                        <Ionicons name="diamond" size={14} color="#FFF" />
+                    <View style={styles.logoIconBg}>
+                        <Ionicons name="diamond" size={12} color="#000" />
                     </View>
                     <Text style={[styles.logoText, { color: tc.textPrimary }]}>Drobeo</Text>
                 </View>
                 <View style={styles.headerRight}>
-                    <TouchableOpacity
-                        onPress={toggleTheme}
-                        style={[styles.iconBtn, { backgroundColor: tc.surface }]}
-                        accessibilityRole="button"
-                        accessibilityLabel={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                    >
-                        <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={20} color={tc.textSecondary} />
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/notifications')}>
+                        <Ionicons name="notifications-outline" size={20} color={tc.textPrimary} />
+                        <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => router.push('/(tabs)/profile')}
-                        style={[styles.iconBtn, { backgroundColor: tc.surface }]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Go to profile"
-                    >
-                        <Ionicons name="person-outline" size={20} color={tc.textSecondary} />
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(tabs)/profile')}>
+                        <Ionicons name="person-outline" size={20} color={tc.textPrimary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => setHeaderDropdownVis(!headerDropdownVis)}>
+                        <Ionicons name="ellipsis-horizontal" size={20} color={tc.textPrimary} />
                     </TouchableOpacity>
                 </View>
+                {headerDropdownVis && (
+                    <View style={[styles.headerDropdown, { backgroundColor: tc.card, borderColor: tc.border }]}>
+                        <TouchableOpacity 
+                            style={styles.dropdownItem} 
+                            onPress={() => { setHeaderDropdownVis(false); router.push('/about'); }}
+                        >
+                            <Ionicons name="information-circle-outline" size={18} color={tc.textPrimary} />
+                            <Text style={[styles.dropdownText, { color: tc.textPrimary }]}>About Drobeo</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.dropdownItem} 
+                            onPress={() => { setHeaderDropdownVis(false); toggleTheme(); }}
+                        >
+                            <Ionicons name={isDarkMode ? 'sunny-outline' : 'moon-outline'} size={18} color={tc.textPrimary} />
+                            <Text style={[styles.dropdownText, { color: tc.textPrimary }]}>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
                 refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={tc.accent}
-                        colors={[tc.accent]}
-                    />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.warning} />
                 }
             >
-                {/* Your Photo / Model Viewer */}
-                <View style={[styles.modelContainer, { backgroundColor: tc.card }]}>
-                    {bodyPhotoUploading ? (
-                        <View style={styles.uploadPlaceholder}>
-                            <View style={[styles.uploadIconCircle, { backgroundColor: tc.accentLight }]}>
-                                <Ionicons name="cloud-upload-outline" size={32} color={tc.accent} />
-                            </View>
-                            <Text style={[styles.uploadTitle, { color: tc.textSecondary }]}>
-                                Uploading your photo...
-                            </Text>
-                        </View>
-                    ) : bodyPhotoUri ? (
-                        <>
-                            <Image
-                                source={{ uri: bodyPhotoUri }}
-                                style={styles.modelImage}
-                                resizeMode="contain"
-                            />
-                            <LinearGradient
-                                colors={['transparent', isDarkMode ? 'rgba(28,25,23,0.85)' : 'rgba(0,0,0,0.3)']}
-                                style={styles.modelGradient}
-                            />
-                            <TouchableOpacity
-                                style={styles.changePhotoBtn}
-                                onPress={() => setShowPhotoActionSheet(true)}
-                                activeOpacity={0.8}
-                                accessibilityRole="button"
-                                accessibilityLabel="Change body photo"
-                            >
-                                <Ionicons name="camera-outline" size={14} color="#FFF" />
-                                <Text style={styles.changePhotoText}>Change Photo</Text>
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <View style={styles.uploadPlaceholder}>
-                            <View style={[styles.uploadIconCircle, { backgroundColor: tc.accentLight }]}>
-                                <Ionicons name="person-outline" size={40} color={tc.accent} />
-                            </View>
-                            <Text style={[styles.uploadTitle, { color: tc.textPrimary }]}>
-                                Upload Your Photo
-                            </Text>
-                            <Text style={[styles.uploadSubtitle, { color: tc.textSecondary }]}>
-                                Add a full-body photo to see outfit suggestions on you
-                            </Text>
-                            <View style={styles.uploadBtnRow}>
-                                <TouchableOpacity
-                                    style={[styles.uploadBtn, { backgroundColor: tc.accent }]}
-                                    onPress={() => pickBodyPhoto('camera')}
-                                    activeOpacity={0.8}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Take photo with camera"
-                                >
-                                    <Ionicons name="camera-outline" size={16} color="#FFF" />
-                                    <Text style={styles.uploadBtnTextLight}>Camera</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.uploadBtn, { backgroundColor: tc.surface, borderWidth: 1, borderColor: tc.accent }]}
-                                    onPress={() => pickBodyPhoto('gallery')}
-                                    activeOpacity={0.8}
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Choose from gallery"
-                                >
-                                    <Ionicons name="images-outline" size={16} color={tc.accent} />
-                                    <Text style={[styles.uploadBtnTextAccent, { color: tc.accent }]}>Gallery</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
-                </View>
-
-                {/* Category Filter */}
-                <View style={styles.categorySection}>
-                    <CategoryPills
-                        categories={CATEGORIES}
-                        selected={activeCategory}
-                        onSelect={setActiveCategory}
-                    />
-                </View>
-
-                {/* Clothing Items */}
-                {loading ? (
-                    <View style={styles.skeletonContainer}>
-                        <SkeletonRow count={3} />
-                    </View>
-                ) : items.length === 0 ? (
-                    <EmptyState
-                        icon="shirt-outline"
-                        title="No items found"
-                        subtitle="Upload clothes in the Wardrobe tab to see them here"
-                        actionLabel="Go to Wardrobe"
-                        onAction={() => router.push('/(tabs)/wardrobe')}
-                    />
-                ) : (
-                    <FlatList
-                        data={items}
-                        horizontal
-                        keyExtractor={(item) => item.id}
-                        renderItem={renderClothingCard}
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.clothingListContent}
-                        scrollEnabled={true}
-                        nestedScrollEnabled={true}
-                    />
-                )}
-
-                {/* Quick Stats */}
-                <View style={styles.statsRow}>
-                    <View style={[styles.statCard, { backgroundColor: tc.surface }]}>
-                        <Ionicons name="shirt" size={22} color={tc.accent} />
-                        <Text style={[styles.statNumber, { color: tc.textPrimary }]}>{items.length}</Text>
-                        <Text style={[styles.statLabel, { color: tc.textSecondary }]}>Items</Text>
-                    </View>
-                    <View style={[styles.statCard, { backgroundColor: tc.surface }]}>
-                        <Ionicons name="heart" size={22} color={Colors.error} />
-                        <Text style={[styles.statNumber, { color: tc.textPrimary }]}>
-                            {items.filter((i) => i.isFavorite).length}
-                        </Text>
-                        <Text style={[styles.statLabel, { color: tc.textSecondary }]}>Favorites</Text>
-                    </View>
-                    <View style={[styles.statCard, { backgroundColor: tc.surface }]}>
-                        <Ionicons name="layers" size={22} color={Colors.info} />
-                        <Text style={[styles.statNumber, { color: tc.textPrimary }]}>
-                            {new Set(items.map((i) => i.category)).size}
-                        </Text>
-                        <Text style={[styles.statLabel, { color: tc.textSecondary }]}>Categories</Text>
-                    </View>
-                </View>
-
-                <View style={{ height: 100 }} />
-            </ScrollView>
-
-            {/* Action Sheet for Photo Upload */}
-            {showPhotoActionSheet && (
-                <View style={styles.actionSheetOverlay}>
-                    <TouchableOpacity
-                        style={StyleSheet.absoluteFillObject}
-                        activeOpacity={1}
-                        onPress={() => setShowPhotoActionSheet(false)}
-                    />
-                    <View style={[styles.actionSheetContainer, { backgroundColor: tc.card }]}>
-                        <View style={[styles.actionSheetHandle, { backgroundColor: tc.textMuted }]} />
-                        <Text style={[styles.actionSheetTitle, { color: tc.textPrimary }]}>Update Photo</Text>
-                        <Text style={[styles.actionSheetSubtitle, { color: tc.textSecondary }]}>
-                            Choose a clear, full-body photo for the best experience.
-                        </Text>
-
-                        <View style={styles.actionSheetRow}>
-                            <TouchableOpacity
-                                style={[styles.actionSheetBtn, { backgroundColor: tc.surface }]}
-                                onPress={() => pickBodyPhoto('camera')}
-                                activeOpacity={0.8}
-                                accessibilityRole="button"
-                                accessibilityLabel="Take photo with camera"
-                            >
-                                <View style={[styles.actionSheetIconBox, { backgroundColor: tc.accentLight }]}>
-                                    <Ionicons name="camera" size={24} color={tc.accent} />
+                {/* Hero Greeting Card */}
+                <View style={styles.heroWrap}>
+                    <ImageBackground
+                        source={{ uri: heroBackgroundImage }}
+                        style={styles.heroCard}
+                        imageStyle={{ borderRadius: 20 }}
+                    >
+                        {/* Dark overlay for readability */}
+                        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }]} />
+                        <View style={styles.heroTopRow}>
+                            <View>
+                                <View style={styles.greetingTitleRow}>
+                                    <Ionicons name="sunny-outline" size={20} color={tc.accentLight} />
+                                    <Text style={styles.heroGreetingText}>{greetingText}</Text>
                                 </View>
-                                <Text style={[styles.actionSheetBtnText, { color: tc.textPrimary }]}>Camera</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.actionSheetBtn, { backgroundColor: tc.surface }]}
-                                onPress={() => pickBodyPhoto('gallery')}
-                                activeOpacity={0.8}
-                                accessibilityRole="button"
-                                accessibilityLabel="Choose from gallery"
-                            >
-                                <View style={[styles.actionSheetIconBox, { backgroundColor: tc.accentLight }]}>
-                                    <Ionicons name="images" size={24} color={tc.accent} />
-                                </View>
-                                <Text style={[styles.actionSheetBtnText, { color: tc.textPrimary }]}>Gallery</Text>
-                            </TouchableOpacity>
+                                <Text style={styles.heroStylistText}>Stylist</Text>
+                                <Text style={styles.heroSubText}>Start fresh — pick your look for today</Text>
+                            </View>
+                            <View style={styles.itemCountBadge}>
+                                <Ionicons name="shirt" size={16} color={tc.accentLight} />
+                                <Text style={styles.itemCountText}>{allWardrobeItems.length}</Text>
+                                <Text style={styles.itemCountSub}>items</Text>
+                            </View>
                         </View>
+                        <Text style={[styles.heroBottomText, { color: tc.accentLight }]}>✨ Tap occasion chips in Outfits to get AI suggestions</Text>
+                    </ImageBackground>
+                </View>
 
-                        <TouchableOpacity
-                            style={styles.actionSheetCancel}
-                            onPress={() => setShowPhotoActionSheet(false)}
-                        >
-                            <Text style={[styles.actionSheetCancelText, { color: tc.textMuted }]}>Cancel</Text>
+                {/* Canvas Area */}
+                <View style={styles.instructionRow}>
+                    <Ionicons name="hand-right-outline" size={16} color={tc.textSecondary} />
+                    <Text style={[styles.instructionText, { color: tc.textSecondary }]}>Drag each item • Pinch to resize</Text>
+                </View>
+
+                <View style={styles.canvasContainer}>
+                    <OutfitCanvas
+                        topItem={selectedTop}
+                        bottomItem={selectedBottom}
+                        shoeItem={selectedShoe}
+                        onOpenDetails={() => setOutfitDetailsOpen(true)}
+                    />
+                </View>
+
+                {/* Mix & Match Bottom Sheet Container */}
+                <View style={[styles.mixMatchSheet, { backgroundColor: tc.card }]}>
+                    <View style={styles.mixMatchHeaderRow}>
+                        <Text style={[styles.mixMatchMainTitle, { color: tc.textPrimary }]}>Mix & match</Text>
+                        <TouchableOpacity style={styles.clearBtn} onPress={handleClear}>
+                            <Text style={styles.clearBtnText}>Clear</Text>
                         </TouchableOpacity>
                     </View>
+
+                    <CategoryListRow
+                        categoryName="Tops"
+                        iconName="shirt-outline"
+                        subtitle="Unclassified item"
+                        items={tops}
+                        selectedItem={selectedTop}
+                        onSelect={setSelectedTop}
+                    />
+
+                    <CategoryListRow
+                        categoryName="Bottoms"
+                        iconName="triangle-outline"
+                        subtitle={selectedBottom?.brand || 'H&M'}
+                        items={bottoms}
+                        selectedItem={selectedBottom}
+                        onSelect={setSelectedBottom}
+                    />
+
+                    <CategoryListRow
+                        categoryName="Footwear"
+                        iconName="walk-outline"
+                        subtitle="Footwear item"
+                        items={shoes}
+                        selectedItem={selectedShoe}
+                        onSelect={setSelectedShoe}
+                    />
+
+                    <TouchableOpacity style={[styles.aiButton, { backgroundColor: tc.accent }]} onPress={handleSuggestAI} activeOpacity={0.8}>
+                        <Text style={styles.aiButtonText}>✨ See AI Outfit Suggestions</Text>
+                    </TouchableOpacity>
                 </View>
-            )}
+
+            </ScrollView>
+
+            <OutfitDetailsModal
+                visible={outfitDetailsOpen}
+                onClose={() => setOutfitDetailsOpen(false)}
+                weatherInfo={weatherInfo}
+                greetingText={greetingText}
+                recommendationText={recommendationText}
+                topItem={selectedTop}
+                bottomItem={selectedBottom}
+                shoeItem={selectedShoe}
+            />
         </ScreenContainer>
     );
 }
 
 const styles = StyleSheet.create({
-    /* Header */
+    /* Minimal Header */
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -412,286 +446,269 @@ const styles = StyleSheet.create({
     logoContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.sm,
+        gap: 6,
     },
     logoIconBg: {
-        width: 30,
-        height: 30,
-        borderRadius: BorderRadius.sm,
+        width: 24,
+        height: 24,
+        borderRadius: 8,
+        backgroundColor: Colors.gold,
         justifyContent: 'center',
         alignItems: 'center',
     },
     logoText: {
-        fontSize: 20,
-        fontWeight: '700',
+        fontSize: 18,
+        fontWeight: '800',
         fontFamily: FontFamily.heading,
         letterSpacing: -0.5,
     },
     headerRight: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.sm,
+        gap: 12,
     },
     iconBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    scrollContent: {
-        paddingBottom: 20,
-    },
-
-    /* Model Viewer / Photo Upload */
-    modelContainer: {
-        marginHorizontal: Spacing.lg,
-        borderRadius: BorderRadius.xl,
-        overflow: 'hidden',
-        height: height * 0.42,
         position: 'relative',
-        marginBottom: Spacing.lg,
-        ...Shadows.sm,
+        padding: 4,
     },
-    modelImage: {
-        width: '100%',
-        height: '100%',
-    },
-    modelGradient: {
+    badge: {
         position: 'absolute',
-        bottom: 0,
-        left: 0,
+        top: 0,
         right: 0,
-        height: 80,
+        backgroundColor: Colors.gold,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#fff',
+    },
+    badgeText: {
+        fontSize: 8,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    arToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#2A2A2A',
+        borderRadius: 20,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        gap: 4,
+    },
+    arText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
 
-    /* Upload Placeholder */
-    uploadPlaceholder: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 32,
-        gap: Spacing.md,
+    /* Header Dropdown */
+    headerDropdown: {
+        position: 'absolute',
+        top: 50,
+        right: Spacing.lg,
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingVertical: 8,
+        minWidth: 160,
+        zIndex: 1000,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
     },
-    uploadIconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        justifyContent: 'center',
+    dropdownItem: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: Spacing.xs,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: 12,
+        gap: 10,
     },
-    uploadTitle: {
+    dropdownText: {
+        fontSize: 14,
+        fontWeight: '600',
+        fontFamily: FontFamily.bodySemiBold,
+    },
+
+    /* Hero */
+    heroWrap: {
+        marginHorizontal: Spacing.lg,
+        marginTop: Spacing.xs,
+        marginBottom: Spacing.sm,
+    },
+    heroCard: {
+        height: 140,
+        borderRadius: 20,
+        padding: Spacing.lg,
+        justifyContent: 'space-between',
+    },
+    heroTopRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    greetingTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 4,
+    },
+    heroGreetingText: {
+        color: '#FFF',
         fontSize: 18,
         fontWeight: '700',
-        fontFamily: FontFamily.headingMedium,
-        textAlign: 'center',
+        fontFamily: FontFamily.heading,
     },
-    uploadSubtitle: {
-        fontSize: 14,
-        fontFamily: FontFamily.body,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-    uploadBtnRow: {
-        flexDirection: 'row',
-        gap: Spacing.md,
-        marginTop: Spacing.sm,
-    },
-    uploadBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.xl,
-        paddingVertical: Spacing.md,
-        borderRadius: BorderRadius.md,
-        gap: Spacing.sm,
-    },
-    uploadBtnTextLight: {
-        fontSize: 14,
-        fontWeight: '700',
-        fontFamily: FontFamily.bodyBold,
+    heroStylistText: {
         color: '#FFF',
-    },
-    uploadBtnTextAccent: {
         fontSize: 14,
-        fontWeight: '700',
-        fontFamily: FontFamily.bodyBold,
-    },
-    changePhotoBtn: {
-        position: 'absolute',
-        bottom: Spacing.lg,
-        right: Spacing.lg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        borderRadius: BorderRadius.round,
-        gap: 6,
-    },
-    changePhotoText: {
-        color: '#FFF',
-        fontSize: 12,
         fontWeight: '600',
-        fontFamily: FontFamily.bodySemiBold,
-    },
-
-    /* Category Filters */
-    categorySection: {
-        marginBottom: Spacing.lg,
-    },
-
-    /* Skeleton */
-    skeletonContainer: {
-        paddingVertical: Spacing.xl,
-    },
-
-    /* Clothing Cards */
-    clothingListContent: {
-        paddingHorizontal: Spacing.lg,
-        gap: Spacing.md,
-    },
-    clothingCard: {
-        width: CARD_WIDTH,
-    },
-    clothingImageContainer: {
-        width: '100%',
-        height: CARD_WIDTH * 0.95,
-        borderRadius: BorderRadius.md,
-        overflow: 'hidden',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: Spacing.sm,
-    },
-    clothingImage: {
-        width: '100%',
-        height: '100%',
-    },
-    clothingInfo: {
-        marginBottom: Spacing.sm,
-        paddingHorizontal: 2,
-    },
-    clothingSubLabel: {
-        fontSize: 11,
-        fontWeight: '600',
-        fontFamily: FontFamily.bodySemiBold,
-        letterSpacing: 0.5,
-        textTransform: 'uppercase',
         marginBottom: 2,
     },
-    clothingName: {
-        fontSize: 14,
-        fontWeight: '700',
-        fontFamily: FontFamily.bodyBold,
+    heroSubText: {
+        color: '#E0E0E0',
+        fontSize: 12,
     },
-    viewButton: {
+    itemCountBadge: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 12,
+        paddingHorizontal: 16,
         paddingVertical: 10,
-        borderRadius: BorderRadius.sm,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    viewButtonText: {
-        fontSize: 12,
-        fontWeight: '800',
-        fontFamily: FontFamily.bodyBold,
+    itemCountText: {
         color: '#FFF',
-        letterSpacing: 1,
+        fontSize: 16,
+        fontWeight: '800',
+        marginTop: 4,
+    },
+    itemCountSub: {
+        color: '#E0E0E0',
+        fontSize: 10,
+    },
+    heroBottomText: {
+        fontSize: 11,
+        fontWeight: '600',
     },
 
-    /* Stats Row */
-    statsRow: {
+    /* Canvas Instruction */
+    instructionRow: {
         flexDirection: 'row',
-        paddingHorizontal: Spacing.lg,
-        gap: Spacing.sm,
-        marginTop: Spacing.xl,
-    },
-    statCard: {
-        flex: 1,
-        borderRadius: BorderRadius.md,
-        padding: Spacing.md,
         alignItems: 'center',
-        gap: Spacing.xs,
+        justifyContent: 'center',
+        gap: 6,
+        marginBottom: 8,
     },
-    statNumber: {
-        fontSize: 22,
-        fontWeight: '800',
-        fontFamily: FontFamily.heading,
-    },
-    statLabel: {
+    instructionText: {
         fontSize: 12,
         fontWeight: '500',
-        fontFamily: FontFamily.bodyMedium,
+    },
+    canvasContainer: {
+        marginHorizontal: Spacing.lg,
+        marginBottom: Spacing.lg,
+        overflow: 'hidden',
+        borderRadius: 16,
     },
 
-    /* Action Sheet */
-    actionSheetOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'flex-end',
-        zIndex: 999,
+    /* Mix & Match Sheet */
+    mixMatchSheet: {
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        paddingTop: Spacing.xl,
+        paddingHorizontal: Spacing.lg,
+        paddingBottom: 100, // accommodate bottom tabs
+        minHeight: 400,
+        ...Shadows.md,
     },
-    actionSheetContainer: {
-        borderTopLeftRadius: BorderRadius.xxl || 24,
-        borderTopRightRadius: BorderRadius.xxl || 24,
-        paddingHorizontal: Spacing.xl,
-        paddingBottom: 40,
-        paddingTop: Spacing.md,
-        alignItems: 'center',
-    },
-    actionSheetHandle: {
-        width: 40,
-        height: 4,
-        borderRadius: 2,
-        marginBottom: Spacing.xl,
-    },
-    actionSheetTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        fontFamily: FontFamily.heading,
-        marginBottom: 6,
-    },
-    actionSheetSubtitle: {
-        fontSize: 14,
-        fontFamily: FontFamily.body,
-        textAlign: 'center',
-        marginBottom: Spacing.xxl,
-        paddingHorizontal: Spacing.xl,
-    },
-    actionSheetRow: {
+    mixMatchHeaderRow: {
         flexDirection: 'row',
-        gap: Spacing.lg,
-        width: '100%',
-        marginBottom: Spacing.xl,
-    },
-    actionSheetBtn: {
-        flex: 1,
-        borderRadius: BorderRadius.lg,
-        paddingVertical: Spacing.xxl,
+        justifyContent: 'space-between',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: Spacing.md,
+        marginBottom: Spacing.lg,
     },
-    actionSheetIconBox: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+    mixMatchMainTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        fontFamily: FontFamily.heading,
+    },
+    clearBtn: {
+        backgroundColor: '#F3F4F6',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+    },
+    clearBtnText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#4B5563',
+    },
+
+    /* Category List Row */
+    mixListWrapper: {
+        marginBottom: Spacing.lg,
+    },
+    mixListHeaderRow: {
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
+        gap: 8,
+        marginBottom: Spacing.sm,
     },
-    actionSheetBtnText: {
+    mixListTitle: {
         fontSize: 15,
-        fontWeight: '600',
-        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '700',
+        fontFamily: FontFamily.bodyBold,
     },
-    actionSheetCancel: {
-        paddingVertical: Spacing.md,
-        width: '100%',
+    mixListSubtitle: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    mixListScroll: {
+        gap: Spacing.md,
+        paddingRight: Spacing.xl,
+    },
+    mixItemBox: {
+        width: 70,
+        height: 70,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'transparent',
+        position: 'relative',
+    },
+    mixItemImage: {
+        width: '80%',
+        height: '80%',
+    },
+    checkBadge: {
+        position: 'absolute',
+        top: -6,
+        right: -6,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
         alignItems: 'center',
     },
-    actionSheetCancelText: {
+
+    /* AI Button */
+    aiButton: {
+        borderRadius: 16,
+        paddingVertical: 14,
+        alignItems: 'center',
+        marginTop: Spacing.md,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    aiButtonText: {
+        color: '#FFF',
         fontSize: 16,
-        fontWeight: '600',
-        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '700',
+        fontFamily: FontFamily.bodyBold,
     },
 });

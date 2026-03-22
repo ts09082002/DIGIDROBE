@@ -13,12 +13,15 @@ export interface OutfitTemplate {
 }
 
 const DEFAULT_TEMPLATES: OutfitTemplate[] = [
-    { id: 'top_bottom_shoes', requiredCategories: ['topwear', 'bottomwear', 'footwear'] },
-    { id: 'top_bottom_shoes_outerwear', requiredCategories: ['topwear', 'bottomwear', 'footwear', 'outerwear'] },
+    { id: 'top_bottom_shoes_acc', requiredCategories: ['topwear', 'bottomwear', 'footwear', 'accessories'] },
+    { id: 'top_bottom_shoes_outer', requiredCategories: ['topwear', 'bottomwear', 'footwear', 'outerwear'] },
+    { id: 'dress_shoes_acc', requiredCategories: ['dresses', 'footwear', 'accessories'] },
     { id: 'dress_shoes', requiredCategories: ['dresses', 'footwear'] },
+    { id: 'top_bottom_shoes', requiredCategories: ['topwear', 'bottomwear', 'footwear'] },
     // Fallback templates for smaller wardrobes
     { id: 'top_bottom', requiredCategories: ['topwear', 'bottomwear'] },
     { id: 'dress_only', requiredCategories: ['dresses'] },
+    { id: 'top_only', requiredCategories: ['topwear'] }, // absolute last resort
 ];
 
 function buildCategoryIndex(items: EngineWardrobeItem[]): Record<string, EngineWardrobeItem[]> {
@@ -64,9 +67,6 @@ export function generateStyleOfTheDay(
     const templates = options.templates ?? DEFAULT_TEMPLATES;
     const lockedItems = new Set(options.lockedItemIds ?? []);
 
-    // Quick map by ID for fast building of locked pools
-    const itemMap = new Map(wardrobeItems.map(item => [item.id, item]));
-
     const byCategory = buildCategoryIndex(wardrobeItems);
 
     const candidates: { id: string; items: EngineWardrobeItem[] }[] = [];
@@ -79,11 +79,9 @@ export function generateStyleOfTheDay(
         for (const cat of template.requiredCategories) {
             let pool = byCategory[cat];
 
-            // Check if there's any locked item in this category
             if (pool) {
                 const lockedInCat = pool.filter(item => lockedItems.has(item.id));
                 if (lockedInCat.length > 0) {
-                    // Force the pool to solely be the locked item(s) for this category
                     pool = lockedInCat;
                 }
             }
@@ -99,36 +97,28 @@ export function generateStyleOfTheDay(
 
         const perTemplateLimit = Math.max(1, Math.floor(maxCandidates / templates.length));
 
-        const [poolA, poolB, ...rest] = pools;
-        const basePairs: Array<[EngineWardrobeItem, EngineWardrobeItem]> = [];
-        for (const a of sample(poolA, perTemplateLimit)) {
-            for (const b of sample(poolB, perTemplateLimit)) {
-                basePairs.push([a, b]);
-                if (basePairs.length >= perTemplateLimit) break;
+        let outfitsForPair: EngineWardrobeItem[][] = pools[0].map(item => [item]);
+
+        for (let i = 1; i < pools.length; i++) {
+            const pool = pools[i];
+            const nextOutfits: EngineWardrobeItem[][] = [];
+            const sampledPool = sample(pool, 5);
+            
+            for (const outfit of outfitsForPair) {
+                for (const item of sampledPool) {
+                    nextOutfits.push([...outfit, item]);
+                }
             }
-            if (basePairs.length >= perTemplateLimit) break;
+            outfitsForPair = nextOutfits;
         }
 
-        for (const pair of basePairs) {
-            let outfitsForPair: EngineWardrobeItem[][] = [[...pair]];
-            for (const pool of rest) {
-                const nextOutfits: EngineWardrobeItem[][] = [];
-                const sampledPool = sample(pool, 4);
-                for (const outfit of outfitsForPair) {
-                    for (const item of sampledPool) {
-                        nextOutfits.push([...outfit, item]);
-                    }
-                }
-                outfitsForPair = nextOutfits;
-            }
+        const finalTemplateOutfits = sample(outfitsForPair, perTemplateLimit);
 
-            for (const items of outfitsForPair) {
-                if (candidateCounter >= maxCandidates) break;
-                const id = items.map((i) => i.id).sort().join('|');
-                candidates.push({ id, items });
-                candidateCounter += 1;
-            }
+        for (const items of finalTemplateOutfits) {
             if (candidateCounter >= maxCandidates) break;
+            const id = items.map((i) => i.id).sort().join('|');
+            candidates.push({ id, items });
+            candidateCounter += 1;
         }
         if (candidateCounter >= maxCandidates) break;
     }
@@ -140,8 +130,6 @@ export function generateStyleOfTheDay(
     );
 
     let finiteScored = scored.filter((s) => Number.isFinite(s.totalScore));
-
-    // Fallback: If all outfits are blocked by novelty (-Infinity), use them rather than returning nothing
     if (!finiteScored.length) {
         finiteScored = scored;
     }
@@ -163,4 +151,3 @@ export function generateStyleOfTheDay(
         scores: chosen,
     };
 }
-

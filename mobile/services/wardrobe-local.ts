@@ -20,6 +20,7 @@ import {
     deleteImages,
     getLocalFileSize,
 } from './local-image-storage';
+import { addNotification } from './notifications';
 
 const itemsCollection = database.get<WardrobeItemModel>('wardrobe_items');
 
@@ -85,6 +86,13 @@ export async function addClothingItem(
             item.thumbnailPath = thumbnailPath;
             item.fileSize = fileSize;
         });
+    });
+
+    await addNotification({
+        type: 'upload',
+        title: 'New Item Added',
+        message: `Your new ${record.category} has been added to your digital closet!`,
+        imageUri: processedPath
     });
 
     return record.toApiShape();
@@ -188,6 +196,12 @@ export async function deleteItem(id: string): Promise<void> {
     // Then remove the database record
     await database.write(async () => {
         await record.markAsDeleted();
+    });
+
+    await addNotification({
+        type: 'delete',
+        title: 'Item Removed',
+        message: 'An item has been successfully removed from your closet.',
     });
 }
 

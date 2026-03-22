@@ -9,87 +9,87 @@ import { Platform } from 'react-native';
 // ── Raw Palette ──────────────────────────────────────────────────────────────
 
 export const Colors = {
-    // Primary (warm gold)
-    gold: '#CA8A04',
-    goldLight: '#FDE68A',
-    goldDark: '#A16207',
-    amber: '#F59E0B',
-    amberLight: '#FCD34D',
-
+    // Primary (now mapping to Swiggy-inspired Slate Green for backward compatibility)
+    gold: '#627D72',         // Desaturated Slate Green
+    goldLight: '#E8F0EC',    // Very light slate green
+    goldDark: '#4A6158',     // Darker Slate Green
+    amber: '#627D72',        // Also mapped to Slate Green to unify action areas
+    amberLight: '#E8F0EC',   
+    
     // Stone neutrals
-    white: '#FFFFFF',
-    cream: '#F5F5F4',        // stone-100
-    warmGray: '#FAFAF9',     // stone-50
-    lightGray: '#E7E5E4',    // stone-200
-    mediumGray: '#A8A29E',   // stone-400
-    darkGray: '#78716C',     // stone-500
-    charcoal: '#1C1917',     // stone-900
-    dark: '#1C1917',         // stone-900
+    white: '#FFFFFF',        // Pure White
+    cream: '#FAF6F2',        // Warm Oatmeal
+    warmGray: '#F3F4F6',     // Very light grey
+    lightGray: '#E5E7EB',    // Gray 200
+    mediumGray: '#9CA3AF',   // Muted Pebble Grey
+    darkGray: '#6B7280',     // Mist Grey
+    charcoal: '#212121',     // Ink Charcoal
+    dark: '#111827',         // Gray 900
     black: '#000000',
 
     // Status
-    success: '#16A34A',      // green-600
-    error: '#DC2626',        // red-600
-    warning: '#F59E0B',      // amber-500
-    info: '#2563EB',         // blue-600
+    success: '#10B981',      
+    error: '#EF4444',        
+    warning: '#F59E0B',      
+    info: '#3B82F6',         
 
     // Card backgrounds
     cardBg: '#FFFFFF',
-    cardBgAlt: '#FAFAF9',
-    overlayBg: 'rgba(0,0,0,0.5)',
+    cardBgAlt: '#FAF6F2',
+    overlayBg: 'rgba(33,33,33,0.5)',
 
     // Category colors
-    categoryActive: '#FEF3C7',   // amber-100
-    categoryBorder: '#CA8A04',
+    categoryActive: '#E8F0EC',   
+    categoryBorder: '#627D72',   
 };
 
 // ── Semantic Light / Dark Palettes ───────────────────────────────────────────
 
 export const LightColors = {
-    background: '#FAFAF9',       // stone-50
+    background: '#FAF6F2',       // Warm Oatmeal
     backgroundElevated: '#FFFFFF',
-    surface: '#F5F5F4',          // stone-100
-    surfacePressed: '#E7E5E4',   // stone-200
-    card: '#FFFFFF',
-    border: '#E7E5E4',           // stone-200
-    borderStrong: '#D6D3D1',     // stone-300
-    textPrimary: '#1C1917',      // stone-900
-    textSecondary: '#78716C',    // stone-500
-    textMuted: '#A8A29E',        // stone-400
-    textInverse: '#FAFAF9',
-    iconDefault: '#78716C',      // stone-500
-    iconBtnBg: '#FFFFFF',
-    accent: '#CA8A04',
-    accentLight: '#FEF3C7',      // amber-100
-    accentText: '#92400E',       // amber-800
-    skeleton: '#E7E5E4',
-    skeletonHighlight: '#F5F5F4',
-    tabBar: '#FFFFFF',
-    tabBarBorder: '#E7E5E4',
+    surface: '#FFFFFF',          // Cards & Surfaces
+    surfacePressed: '#F3F4F6',   // Active touches
+    card: '#FFFFFF',             // Pure White
+    border: '#E5E7EB',           // Faint border
+    borderStrong: '#D1D5DB',     // Stronger border
+    textPrimary: '#212121',      // Ink Charcoal
+    textSecondary: '#6B7280',    // Mist Grey
+    textMuted: '#9CA3AF',        // Muted Pebble
+    textInverse: '#FFFFFF',      // White
+    iconDefault: '#9CA3AF',      // Muted Pebble Grey
+    iconBtnBg: '#FFFFFF',        // White
+    accent: '#627D72',           // Desaturated Slate Green
+    accentLight: '#E8F0EC',      // Light Tinted Green
+    accentText: '#FFFFFF',       // Primary Action Text -> White
+    skeleton: '#E5E7EB',         
+    skeletonHighlight: '#F3F4F6',
+    tabBar: 'rgba(255, 255, 255, 0.9)',           // Frosted White
+    tabBarBorder: 'transparent',
     statusBar: 'dark' as const,
 };
 
 export const DarkColors = {
-    background: '#1C1917',       // stone-900
-    backgroundElevated: '#292524', // stone-800
-    surface: '#292524',          // stone-800
-    surfacePressed: '#44403C',   // stone-700
-    card: '#292524',
-    border: '#44403C',           // stone-700
-    borderStrong: '#57534E',     // stone-600
-    textPrimary: '#FAFAF9',      // stone-50
-    textSecondary: '#A8A29E',    // stone-400
-    textMuted: '#78716C',        // stone-500
-    textInverse: '#1C1917',
-    iconDefault: '#A8A29E',      // stone-400
-    iconBtnBg: '#44403C',
-    accent: '#CA8A04',
-    accentLight: '#451A03',      // amber-950 (subtle on dark)
-    accentText: '#FDE68A',
-    skeleton: '#44403C',
-    skeletonHighlight: '#57534E',
-    tabBar: '#1C1917',
-    tabBarBorder: '#44403C',
+    background: '#121212',       // Soft Dark
+    backgroundElevated: '#1E1E1E', // Elevated Dark
+    surface: '#1E1E1E',          // Cards
+    surfacePressed: '#2C2C2C',   // Touched Dark
+    card: '#1E1E1E',             // Cards
+    border: '#2C2C2C',           // Borders
+    borderStrong: '#3D3D3D',     // Strong Border
+    textPrimary: '#F9FAFB',      // Off-White
+    textSecondary: '#9CA3AF',    // Muted Pebble
+    textMuted: '#6B7280',        // Mist Grey
+    textInverse: '#121212',      // Dark
+    iconDefault: '#9CA3AF',      // Muted Pebble
+    iconBtnBg: '#2C2C2C',        // Surface Icon
+    accent: '#627D72',           // Slate Green
+    accentLight: '#2A3631',      // Deep Slate tint
+    accentText: '#FFFFFF',       // White Text
+    skeleton: '#2C2C2C',         
+    skeletonHighlight: '#3D3D3D', 
+    tabBar: 'rgba(30, 30, 30, 0.9)',           // Frosted Dark
+    tabBarBorder: 'transparent', // No harsh borders
     statusBar: 'light' as const,
 };
 
@@ -186,11 +186,11 @@ export const Spacing = {
 // ── Border Radius ────────────────────────────────────────────────────────────
 
 export const BorderRadius = {
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 20,
-    xxl: 24,
+    sm: 12,
+    md: 16,     // Replaces typical 8px with 16px minimum for cards/buttons
+    lg: 20,     // 20px radius
+    xl: 24,
+    xxl: 28,
     round: 50,
 };
 
@@ -199,24 +199,24 @@ export const BorderRadius = {
 export const Shadows = {
     sm: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.02,
+        shadowRadius: 8,
+        elevation: 1,
     },
     md: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.03, // Soft glow
+        shadowRadius: 15,
+        elevation: 2,
     },
     lg: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        elevation: 6,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.04,
+        shadowRadius: 20,
+        elevation: 4,
     },
 };
 

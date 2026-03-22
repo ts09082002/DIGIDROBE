@@ -1,0 +1,26 @@
+commit 8662de2936d692b237a8880039a3d233047169b2
+Author: ts09082002 <ts09082002@gmail.com>
+Date:   Tue Mar 17 23:58:56 2026 +0530
+
+    digi-3
+
+ mobile/app/signup.tsx | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+commit 55f150b5053aec804e7872aee43708d2b4a3abe0
+Author: ts09082002 <ts09082002@gmail.com>
+Date:   Mon Mar 16 02:08:06 2026 +0530
+
+    digi-3
+
+ mobile/app/signup.tsx | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+commit bec510cb315117c4764e7b1de3ea3e31e0109b1d
+Author: ts09082002 <ts09082002@gmail.com>
+Date:   Sat Mar 14 20:38:18 2026 +0530
+
+    digi-3
+
+ mobile/app/signup.tsx | 390 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 390 insertions(+)

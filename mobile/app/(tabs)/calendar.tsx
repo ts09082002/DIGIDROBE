@@ -17,6 +17,7 @@ import { generateStyleOfDayForWardrobe } from '../../engine';
 import { Toast } from '../../components/Toast';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import SkeletonLoader from '../../components/ui/SkeletonLoader';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import MonthGrid from '../../components/calendar/MonthGrid';
 import TodayLookCard from '../../components/calendar/TodayLookCard';
 import DayDetailSheet from '../../components/calendar/DayDetailSheet';
@@ -58,6 +59,7 @@ export default function CalendarScreen() {
     const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [autoFilling, setAutoFilling] = useState(false);
+    const [isSuggesting, setIsSuggesting] = useState(false);
 
     // Sheet state
     const [sheetVisible, setSheetVisible] = useState(false);
@@ -201,15 +203,20 @@ export default function CalendarScreen() {
     // ---------- Today card actions ----------
 
     const handleTodaySuggest = useCallback(async () => {
-        const ids = await suggestOutfit(today);
-        if (ids.length > 0) {
-            try {
+        try {
+            setIsSuggesting(true);
+            const ids = await suggestOutfit(today);
+            if (ids.length > 0) {
                 await ootdLocal.saveOOTD(today, ids);
                 await loadData(year, month);
                 showToast('success', 'AI outfit planned for today');
-            } catch {
+            } else {
                 showToast('error', 'Could not save suggestion');
             }
+        } catch {
+            showToast('error', 'Could not save suggestion');
+        } finally {
+            setIsSuggesting(false);
         }
     }, [today, suggestOutfit, year, month, loadData, showToast]);
 
@@ -370,6 +377,9 @@ export default function CalendarScreen() {
                 }}
                 onAISuggest={handleSheetAISuggest}
             />
+
+            <FullScreenLoader visible={autoFilling} message="Planning your week..." />
+            <FullScreenLoader visible={isSuggesting} message="Generating AI style..." />
 
             <Toast
                 visible={toastVisible}

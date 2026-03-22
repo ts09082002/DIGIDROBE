@@ -35,6 +35,7 @@ import { Toast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import { SkeletonGrid } from '../../components/ui/SkeletonLoader';
+import FullScreenLoader from '../../components/ui/FullScreenLoader';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - Spacing.xl * 2 - Spacing.md) / 2;
@@ -128,6 +129,7 @@ export default function WardrobeScreen() {
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
     const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
     // In-memory cache for wardrobe items (30s TTL)
@@ -817,13 +819,8 @@ export default function WardrobeScreen() {
                 contentContainerStyle={styles.categoriesContainer}
             />
 
-            {/* Upload Progress */}
-            {uploading && (
-                <View style={styles.uploadBanner}>
-                    <ActivityIndicator size="small" color={Colors.gold} />
-                    <Text style={styles.uploadText}>Uploading image...</Text>
-                </View>
-            )}
+            <FullScreenLoader visible={uploading} message="Uploading to wardrobe..." />
+            <FullScreenLoader visible={isDeleting} message="Deleting item..." />
 
             {/* Background processing feedback */}
             {processingVisible && (
@@ -1237,11 +1234,12 @@ export default function WardrobeScreen() {
                 onConfirm={async () => {
                     if (!selectedItem) return;
                     try {
+                        setDeleteDialogVisible(false);
+                        setIsDeleting(true);
                         await wardrobeLocal.deleteItem(selectedItem.id);
                         setSelectedItem(null);
-                        setDeleteDialogVisible(false);
                         invalidateCache();
-                        loadItems(true);
+                        await loadItems(true);
                         setToastType('success');
                         setToastMessage('Item deleted');
                         setToastVisible(true);
@@ -1249,6 +1247,8 @@ export default function WardrobeScreen() {
                         setToastType('error');
                         setToastMessage('Could not delete item');
                         setToastVisible(true);
+                    } finally {
+                        setIsDeleting(false);
                     }
                 }}
             />

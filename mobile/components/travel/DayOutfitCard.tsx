@@ -12,6 +12,9 @@ import { FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/them
 import { useThemeColors } from '../../context/ThemeContext';
 import type { TripDay } from '../../services/trips-local';
 import type { WardrobeItem } from '../../services/api';
+import { useRouter } from 'expo-router';
+import { normalizeCategory } from '../../constants/categories';
+import { Colors } from '../../constants/theme';
 
 type Props = {
     day: TripDay;
@@ -27,6 +30,7 @@ const SLOT_HEIGHT = 96;
 
 export default function DayOutfitCard({ day, dayIndex, dayLabel, items, onAISuggest, onManualPick }: Props) {
     const tc = useThemeColors();
+    const router = useRouter();
     const hasOutfit = items.length > 0;
 
     return (
@@ -170,5 +174,22 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
+    },
+    seeOnCanvasBtnOuter: {
+        marginTop: Spacing.md,
+    },
+    seeOnCanvasBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.gold,
+        paddingVertical: 10,
+        borderRadius: BorderRadius.round,
+        gap: 8,
+    },
+    seeOnCanvasBtnText: {
+        color: Colors.white,
+        fontFamily: FontFamily.bodyBold,
+        fontSize: 13,
     },
 });

@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "838322575800-au1a31ko5ntkpb9gtkdb09oabqaqhe1s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dgdorde.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "838322575800-k0aj71r3eito42vgc0bk87b1iggv6afv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dgdorde.app",
+            "certificate_hash": "402489de4eeae674a9f6e68fce2feb7344002873"
+          }
+        },
+        {
           "client_id": "838322575800-lluotvoiimbfrftp44bphkrtmge8i2ii.apps.googleusercontent.com",
           "client_type": 3
         }

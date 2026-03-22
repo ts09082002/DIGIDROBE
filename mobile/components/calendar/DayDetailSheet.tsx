@@ -16,8 +16,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../context/ThemeContext';
-import { FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import { FontFamily, Spacing, BorderRadius, Shadows, Colors } from '../../constants/theme';
 import type { OOTD, WardrobeItem } from '../../services/api';
+import { useRouter } from 'expo-router';
+import { normalizeCategory } from '../../constants/categories';
 
 type DayDetailSheetProps = {
     visible: boolean;
@@ -54,6 +56,7 @@ export default function DayDetailSheet({
     onAISuggest,
 }: DayDetailSheetProps) {
     const tc = useThemeColors();
+    const router = useRouter();
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [notes, setNotes] = useState('');
     const [showPicker, setShowPicker] = useState(false);
@@ -234,6 +237,38 @@ export default function DayDetailSheet({
                                 )}
                                 <Text style={[styles.outlineBtnText, { color: tc.accent }]}>
                                     AI Suggest
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.outlineBtn, { borderColor: Colors.gold, backgroundColor: Colors.gold }]}
+                                onPress={() => {
+                                    onClose(); // Close modal first
+                                    const topItems = selectedItemObjects.filter(i => {
+                                        const c = normalizeCategory(i.category);
+                                        return c === 'topwear' || c === 'dresses';
+                                    });
+                                    const bottomItems = selectedItemObjects.filter(i => normalizeCategory(i.category) === 'bottomwear');
+                                    const shoeItems = selectedItemObjects.filter(i => normalizeCategory(i.category) === 'footwear');
+                                    
+                                    setTimeout(() => {
+                                        router.replace({
+                                            pathname: '/(tabs)/',
+                                            params: {
+                                                viewOutfit: 'true',
+                                                topId: topItems[0]?.id || '',
+                                                bottomId: bottomItems[0]?.id || '',
+                                                shoeId: shoeItems[0]?.id || ''
+                                            }
+                                        });
+                                    }, 100);
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel="See outfit on home canvas"
+                            >
+                                <Ionicons name="eye-outline" size={18} color={Colors.white} />
+                                <Text style={[styles.outlineBtnText, { color: Colors.white }]} numberOfLines={1}>
+                                    Canvas
                                 </Text>
                             </TouchableOpacity>
                         </View>

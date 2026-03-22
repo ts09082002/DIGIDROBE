@@ -227,9 +227,12 @@ function DraggableCanvasItem({
 }
 
 
+import { useRouter } from 'expo-router';
+
 export default function OutfitsScreen() {
     const { isDarkMode } = useTheme();
     const tc = useThemeColors();
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState('AI Stylist');
     const [suggestion, setSuggestion] = useState<StylistSuggestion | null>(null);
     const [loading, setLoading] = useState(true);
@@ -249,7 +252,7 @@ export default function OutfitsScreen() {
         stylePreference: null,
     });
     const [backendSuggestion, setBackendSuggestion] = useState<StylistSuggestion | null>(null);
-    const [quizVisible, setQuizVisible] = useState(true);
+    const [quizVisible, setQuizVisible] = useState(false); // Disabled per user request
     const [styleOfDay, setStyleOfDay] = useState<StyleOfTheDayResult | null>(null);
     const [styleOfDayLoading, setStyleOfDayLoading] = useState(false);
     const [manuallySwappedItems, setManuallySwappedItems] = useState<Record<string, WardrobeItem>>({});
@@ -1074,6 +1077,24 @@ export default function OutfitsScreen() {
                                                                 </ScrollView>
                                                             </View>
                                                         )}
+                                                        
+                                                        <TouchableOpacity
+                                                            style={styles.seeOnCanvasBtn}
+                                                            onPress={() => {
+                                                                router.replace({
+                                                                    pathname: '/(tabs)/',
+                                                                    params: {
+                                                                        viewOutfit: 'true',
+                                                                        topId: topItems[0]?.id || '',
+                                                                        bottomId: bottomItems[0]?.id || '',
+                                                                        shoeId: footwearItems[0]?.id || ''
+                                                                    }
+                                                                });
+                                                            }}
+                                                        >
+                                                            <Ionicons name="eye-outline" size={18} color={Colors.white} />
+                                                            <Text style={styles.seeOnCanvasBtnText}>See on Canvas</Text>
+                                                        </TouchableOpacity>
                                                     </View>
                                                 )}
                                             </TouchableOpacity>
@@ -2113,6 +2134,21 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.md,
         backgroundColor: Colors.cream,
         marginRight: Spacing.sm,
+    },
+    seeOnCanvasBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.gold,
+        paddingVertical: 12,
+        borderRadius: BorderRadius.round,
+        marginTop: Spacing.lg,
+        gap: 8,
+    },
+    seeOnCanvasBtnText: {
+        color: Colors.white,
+        fontFamily: FontFamily.bodyBold,
+        fontSize: 14,
     },
     // Occasion chips and Score Pills
     occasionChipsStrip: {

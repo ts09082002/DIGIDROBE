@@ -1,9 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, Text } from 'react-native';
 import { useThemeColors } from '../../context/ThemeContext';
 import { Colors, FontFamily } from '../../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 
 const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
     index: { active: 'home', inactive: 'home-outline' },
@@ -17,6 +18,8 @@ export default function TabLayout() {
     const tc = useThemeColors();
     const insets = useSafeAreaInsets();
 
+    const isDark = tc.background === Colors.black || tc.background === '#121212'; // Simple check for dark mode context
+
     return (
         <Tabs
             screenOptions={({ route }) => ({
@@ -26,21 +29,31 @@ export default function TabLayout() {
                 tabBarStyle: [
                     styles.tabBar,
                     {
-                        backgroundColor: tc.tabBar,
-                        borderTopColor: tc.tabBarBorder,
                         height: (Platform.OS === 'ios' ? 60 : 58) + insets.bottom,
                         paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12),
                     },
                 ],
-                tabBarActiveTintColor: Colors.gold,
-                tabBarInactiveTintColor: tc.textMuted,
+                tabBarBackground: () => (
+                    <BlurView
+                        tint={isDark ? 'dark' : 'light'}
+                        intensity={85}
+                        style={StyleSheet.absoluteFill}
+                    />
+                ),
+                tabBarActiveTintColor: tc.accent,
+                tabBarInactiveTintColor: tc.iconDefault,
                 tabBarIcon: ({ focused, color, size }) => {
                     const icons = TAB_ICONS[route.name] || TAB_ICONS.index;
                     const iconName = focused ? icons.active : icons.inactive;
 
                     return (
-                        <View style={focused ? styles.activeIconContainer : undefined}>
-                            <Ionicons name={iconName} size={24} color={color} />
+                        <View style={styles.iconWrapper}>
+                            <View style={focused ? styles.activeIconContainer : styles.inactiveIconContainer}>
+                                <Ionicons name={iconName} size={24} color={color} />
+                            </View>
+                            {focused && (
+                                <View style={[styles.activeIndicator, { backgroundColor: tc.accent }]} />
+                            )}
                         </View>
                     );
                 },
@@ -62,21 +75,36 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
     tabBar: {
         paddingTop: 8,
-        borderTopWidth: 1,
-        elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
+        borderTopWidth: 0,
+        elevation: 0,
+        position: 'absolute',
+        backgroundColor: 'transparent',
     },
     tabBarLabel: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: '500',
         fontFamily: FontFamily.bodyMedium,
-        marginTop: 2,
+        marginTop: 4,
+    },
+    iconWrapper: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 48,
+        height: 48,
     },
     activeIconContainer: {
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    inactiveIconContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    activeIndicator: {
+        position: 'absolute',
+        bottom: -6,
+        width: 16,
+        height: 3,
+        borderRadius: 2,
     },
 });
