@@ -2,94 +2,94 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 /**
- * DROBEO Design System
- * Premium luxury wardrobe app — warm gold on stone neutrals, refined typography
+ * VibeCheck Design System
+ * Premium digital wardrobe app — Champagne Gold on clean linens, refined Soft UI
  */
 
 // ── Raw Palette ──────────────────────────────────────────────────────────────
 
 export const Colors = {
-    // Primary (now mapping to Swiggy-inspired Slate Green for backward compatibility)
-    gold: '#627D72',         // Desaturated Slate Green
-    goldLight: '#E8F0EC',    // Very light slate green
-    goldDark: '#4A6158',     // Darker Slate Green
-    amber: '#627D72',        // Also mapped to Slate Green to unify action areas
-    amberLight: '#E8F0EC',   
-    
-    // Stone neutrals
-    white: '#FFFFFF',        // Pure White
-    cream: '#FAF6F2',        // Warm Oatmeal
-    warmGray: '#F3F4F6',     // Very light grey
-    lightGray: '#E5E7EB',    // Gray 200
-    mediumGray: '#9CA3AF',   // Muted Pebble Grey
-    darkGray: '#6B7280',     // Mist Grey
-    charcoal: '#212121',     // Ink Charcoal
-    dark: '#111827',         // Gray 900
+    // Primary brand accent — Dusty Rose (premium wardrobe / fashion-forward)
+    gold: '#A0627A',
+    goldLight: '#F9EFF2',
+    goldDark: '#7B4560',
+    amber: '#A0627A',
+    amberLight: '#F9EFF2',
+
+    // Clean neutrals
+    white: '#FFFFFF',
+    cream: '#F8F7F4',           // Clean Linen — breathable background
+    warmGray: '#F2F2F0',        // Very light grey
+    lightGray: '#EBEBEB',       // Subtle border
+    mediumGray: '#94A3B8',      // Muted Slate
+    darkGray: '#64748B',        // Cool Slate
+    charcoal: '#1A1A1A',        // Near Black
+    dark: '#111116',            // Deep Onyx
     black: '#000000',
 
     // Status
-    success: '#10B981',      
-    error: '#EF4444',        
-    warning: '#F59E0B',      
-    info: '#3B82F6',         
+    success: '#10B981',
+    error: '#EF4444',
+    warning: '#F59E0B',
+    info: '#3B82F6',
 
     // Card backgrounds
     cardBg: '#FFFFFF',
-    cardBgAlt: '#FAF6F2',
-    overlayBg: 'rgba(33,33,33,0.5)',
+    cardBgAlt: '#F8F7F4',
+    overlayBg: 'rgba(26,26,26,0.5)',
 
     // Category colors
-    categoryActive: '#E8F0EC',   
-    categoryBorder: '#627D72',   
+    categoryActive: '#F9EFF2',
+    categoryBorder: '#A0627A',
 };
 
 // ── Semantic Light / Dark Palettes ───────────────────────────────────────────
 
 export const LightColors = {
-    background: '#FAF6F2',       // Warm Oatmeal
+    background: '#F8F7F4',           // Clean Linen — airy and breathable
     backgroundElevated: '#FFFFFF',
-    surface: '#FFFFFF',          // Cards & Surfaces
-    surfacePressed: '#F3F4F6',   // Active touches
-    card: '#FFFFFF',             // Pure White
-    border: '#E5E7EB',           // Faint border
-    borderStrong: '#D1D5DB',     // Stronger border
-    textPrimary: '#212121',      // Ink Charcoal
-    textSecondary: '#6B7280',    // Mist Grey
-    textMuted: '#9CA3AF',        // Muted Pebble
-    textInverse: '#FFFFFF',      // White
-    iconDefault: '#9CA3AF',      // Muted Pebble Grey
-    iconBtnBg: '#FFFFFF',        // White
-    accent: '#627D72',           // Desaturated Slate Green
-    accentLight: '#E8F0EC',      // Light Tinted Green
-    accentText: '#FFFFFF',       // Primary Action Text -> White
-    skeleton: '#E5E7EB',         
-    skeletonHighlight: '#F3F4F6',
-    tabBar: 'rgba(255, 255, 255, 0.9)',           // Frosted White
+    surface: '#FFFFFF',              // Pure white cards
+    surfacePressed: '#F2F2F0',       // Subtle press state
+    card: '#FFFFFF',
+    border: '#EBEBEB',               // Feather-light border
+    borderStrong: '#D4D4D8',
+    textPrimary: '#1A1A1A',          // Near-black — 100% legible
+    textSecondary: '#64748B',        // Cool Slate — clear secondary
+    textMuted: '#94A3B8',            // Muted Slate
+    textInverse: '#FFFFFF',
+    iconDefault: '#94A3B8',
+    iconBtnBg: '#FFFFFF',
+    accent: '#A0627A',               // Dusty Rose
+    accentLight: '#F9EFF2',          // Soft rose tint
+    accentText: '#FFFFFF',
+    skeleton: '#EBEBEB',
+    skeletonHighlight: '#F2F2F0',
+    tabBar: 'rgba(255, 255, 255, 0.92)',
     tabBarBorder: 'transparent',
     statusBar: 'dark' as const,
 };
 
 export const DarkColors = {
-    background: '#121212',       // Soft Dark
-    backgroundElevated: '#1E1E1E', // Elevated Dark
-    surface: '#1E1E1E',          // Cards
-    surfacePressed: '#2C2C2C',   // Touched Dark
-    card: '#1E1E1E',             // Cards
-    border: '#2C2C2C',           // Borders
-    borderStrong: '#3D3D3D',     // Strong Border
-    textPrimary: '#F9FAFB',      // Off-White
-    textSecondary: '#9CA3AF',    // Muted Pebble
-    textMuted: '#6B7280',        // Mist Grey
-    textInverse: '#121212',      // Dark
-    iconDefault: '#9CA3AF',      // Muted Pebble
-    iconBtnBg: '#2C2C2C',        // Surface Icon
-    accent: '#627D72',           // Slate Green
-    accentLight: '#2A3631',      // Deep Slate tint
-    accentText: '#FFFFFF',       // White Text
-    skeleton: '#2C2C2C',         
-    skeletonHighlight: '#3D3D3D', 
-    tabBar: 'rgba(30, 30, 30, 0.9)',           // Frosted Dark
-    tabBarBorder: 'transparent', // No harsh borders
+    background: '#0E0E12',           // Deep Onyx — rich dark
+    backgroundElevated: '#18181E',
+    surface: '#18181E',              // Elevated dark surface
+    surfacePressed: '#222230',       // Active press
+    card: '#18181E',
+    border: '#2A2A35',               // Subtle dark border
+    borderStrong: '#3A3A48',
+    textPrimary: '#F0F0F0',          // Bright off-white — 100% legible on dark
+    textSecondary: '#B0B0C0',        // Visible muted — no dark-on-dark
+    textMuted: '#7A7A90',            // Still readable against dark surfaces
+    textInverse: '#0E0E12',
+    iconDefault: '#B0B0C0',
+    iconBtnBg: '#222230',
+    accent: '#C07A90',               // Dusty Rose — slightly lighter in dark mode for pop
+    accentLight: '#2D1820',          // Deep rose tint
+    accentText: '#FFFFFF',
+    skeleton: '#2A2A35',
+    skeletonHighlight: '#3A3A48',
+    tabBar: 'rgba(18, 18, 24, 0.92)',
+    tabBarBorder: 'transparent',
     statusBar: 'light' as const,
 };
 
@@ -113,28 +113,28 @@ export const Typography = {
         fontSize: 28,
         fontWeight: '700' as const,
         fontFamily: FontFamily.heading,
-        color: Colors.dark,
+        color: Colors.charcoal,
         letterSpacing: -0.5,
     },
     heading2: {
         fontSize: 22,
         fontWeight: '700' as const,
         fontFamily: FontFamily.heading,
-        color: Colors.dark,
+        color: Colors.charcoal,
         letterSpacing: -0.3,
     },
     heading3: {
         fontSize: 18,
         fontWeight: '600' as const,
         fontFamily: FontFamily.headingMedium,
-        color: Colors.dark,
+        color: Colors.charcoal,
     },
     subtitle: {
-        fontSize: 14,
+        fontSize: 11,
         fontWeight: '600' as const,
         fontFamily: FontFamily.bodySemiBold,
         color: Colors.darkGray,
-        letterSpacing: 1.2,
+        letterSpacing: 1.4,
         textTransform: 'uppercase' as const,
     },
     body: {
@@ -164,14 +164,16 @@ export const Typography = {
         color: Colors.white,
     },
     label: {
-        fontSize: 12,
-        fontWeight: '500' as const,
-        fontFamily: FontFamily.bodyMedium,
+        fontSize: 11,
+        fontWeight: '600' as const,
+        fontFamily: FontFamily.bodySemiBold,
         color: Colors.darkGray,
+        letterSpacing: 1.2,
+        textTransform: 'uppercase' as const,
     },
 };
 
-// ── Spacing ──────────────────────────────────────────────────────────────────
+// ── Spacing — enterprise-grade 16/24px gutters ────────────────────────────────
 
 export const Spacing = {
     xs: 4,
@@ -187,36 +189,36 @@ export const Spacing = {
 
 export const BorderRadius = {
     sm: 12,
-    md: 16,     // Replaces typical 8px with 16px minimum for cards/buttons
-    lg: 20,     // 20px radius
+    md: 16,
+    lg: 20,
     xl: 24,
     xxl: 28,
     round: 50,
 };
 
-// ── Shadows ──────────────────────────────────────────────────────────────────
+// ── Shadows — ultra-soft, premium depth ──────────────────────────────────────
 
 export const Shadows = {
     sm: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.02,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
         elevation: 1,
     },
     md: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03, // Soft glow
-        shadowRadius: 15,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        elevation: 3,
     },
     lg: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.04,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
         shadowRadius: 20,
-        elevation: 4,
+        elevation: 5,
     },
 };
 

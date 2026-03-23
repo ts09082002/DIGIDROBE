@@ -6,7 +6,15 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import { DatabaseProvider } from '../db/DatabaseProvider';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+// ── Global font default ───────────────────────────────────────────────────────
+// Any Text that doesn't explicitly set fontFamily will use Montserrat Regular.
+// Components that do set fontFamily (e.g. headings using Cormorant) still override this.
+// @ts-ignore — defaultProps is valid but not in the TS typings
+Text.defaultProps = Text.defaultProps ?? {};
+// @ts-ignore
+Text.defaultProps.style = [{ fontFamily: 'Montserrat_400Regular' }];
 import { useFonts, Cormorant_600SemiBold, Cormorant_700Bold } from '@expo-google-fonts/cormorant';
 import { Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

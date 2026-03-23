@@ -19,7 +19,7 @@ export default function AboutScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={tc.textPrimary} />
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>About Drobeo</Text>
+                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>About VibeCheck</Text>
                 <View style={{ width: 40 }} /> {/* balance */}
             </View>
 
@@ -34,7 +34,7 @@ export default function AboutScreen() {
                     />
                     <View style={styles.heroOverlay}>
                         <View style={styles.pillLabel}>
-                            <Text style={styles.pillText}>DROBEO CLOSET</Text>
+                            <Text style={styles.pillText}>VIBECHECK CLOSET</Text>
                         </View>
                         <Text style={styles.heroTitle}>Our Story</Text>
                         <Text style={styles.heroSubtitle}>Reimagining the digital closet</Text>
@@ -50,7 +50,7 @@ export default function AboutScreen() {
                         <Text style={[styles.sectionTitle, { color: tc.textPrimary }]}>The Mission</Text>
                     </View>
                     <Text style={[styles.paragraph, { color: tc.textSecondary }]}>
-                        Drobeo was born from a simple observation: our digital lives are expanding, but our closets are stuck in the physical past. We believe fashion should be accessible, personal, and limitlessly creative. We're building a space where your style knows no boundaries.
+                        VibeCheck was born from a simple observation: our digital lives are expanding, but our closets are stuck in the physical past. We believe fashion should be accessible, personal, and limitlessly creative. We're building a space where your style knows no boundaries.
                     </Text>
                 </View>
 

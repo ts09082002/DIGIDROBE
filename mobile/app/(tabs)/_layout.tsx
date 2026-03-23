@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, StyleSheet, Platform, Text } from 'react-native';
-import { useThemeColors } from '../../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 import { Colors, FontFamily } from '../../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -15,10 +15,8 @@ const TAB_ICONS: Record<string, { active: any; inactive: any }> = {
 };
 
 export default function TabLayout() {
-    const tc = useThemeColors();
+    const { isDarkMode, colors: tc } = useTheme();
     const insets = useSafeAreaInsets();
-
-    const isDark = tc.background === Colors.black || tc.background === '#121212'; // Simple check for dark mode context
 
     return (
         <Tabs
@@ -36,13 +34,12 @@ export default function TabLayout() {
                 tabBarBackground: () => (
                     <View style={StyleSheet.absoluteFill}>
                         <BlurView
-                            tint={isDark ? 'dark' : 'light'}
+                            tint={isDarkMode ? 'dark' : 'light'}
                             intensity={100}
-                            experimentalBlurMethod="dimezisBlurView" // Advanced Android blur
+                            experimentalBlurMethod="dimezisBlurView"
                             style={StyleSheet.absoluteFill}
                         />
-                        {/* Smoky tint overlay */}
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(250,246,242,0.6)' }]} />
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDarkMode ? 'rgba(14,14,18,0.75)' : 'rgba(255,255,255,0.7)' }]} />
                     </View>
                 ),
                 tabBarActiveTintColor: tc.accent,

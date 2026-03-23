@@ -12,7 +12,7 @@ export interface AppNotification {
     imageUri?: string;
 }
 
-const NOTIFICATIONS_KEY = '@drobeo_notifications';
+const NOTIFICATIONS_KEY = '@vibecheck_notifications';
 
 export async function getNotifications(): Promise<AppNotification[]> {
     try {

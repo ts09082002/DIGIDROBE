@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -10,7 +10,7 @@ import {
     Platform,
     Alert,
     RefreshControl,
-    ImageBackground,
+
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
@@ -21,7 +21,7 @@ import { Colors, FontFamily, Spacing, BorderRadius, Shadows } from '../../consta
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenContainer from '../../components/ui/ScreenContainer';
-import OutfitCanvas from '../../components/home/OutfitCanvas';
+import OutfitCanvas, { type OutfitCanvasHandle } from '../../components/home/OutfitCanvas';
 import OutfitDetailsModal from '../../components/home/OutfitDetailsModal';
 import { fetchLocationAndWeather, getTimeOfDayForGreeting, type WeatherInfo } from '../../services/weather';
 import { generateStyleOfDayForWardrobe } from '../../engine';
@@ -29,7 +29,7 @@ import type { RecommendationContext, StyleOfTheDayResult } from '../../engine/ty
 import { normalizeCategory } from '../../constants/categories';
 
 const { width, height } = Dimensions.get('window');
-const BODY_PHOTO_KEY = '@drobeo_body_photo_url';
+const BODY_PHOTO_KEY = '@vibecheck_body_photo_url';
 
 export default function HomeScreen() {
     const [allWardrobeItems, setAllWardrobeItems] = useState<WardrobeItem[]>([]);
@@ -39,6 +39,10 @@ export default function HomeScreen() {
     const tc = useThemeColors();
     const router = useRouter();
     const params = useLocalSearchParams<{ viewOutfit?: string; topId?: string; bottomId?: string; shoeId?: string }>();
+
+    // Canvas ref — exposes zoomIn / zoomOut for the +/- buttons
+    const canvasRef = useRef<OutfitCanvasHandle>(null);
+    const [canvasHasSelection, setCanvasHasSelection] = useState(false);
 
     // Explicit selections for Mix & Match
     const [selectedTop, setSelectedTop] = useState<WardrobeItem | null>(null);
@@ -193,14 +197,6 @@ export default function HomeScreen() {
         }
     })();
 
-    const heroBackgroundImage = (() => {
-        switch (nowForGreeting) {
-            case 'morning': return 'https://images.unsplash.com/photo-1506744626753-1fa28f6f53cb?q=80&w=600&auto=format&fit=crop';
-            case 'afternoon': return 'https://images.unsplash.com/photo-1516655855035-d5215bcb5604?q=80&w=600&auto=format&fit=crop';
-            case 'evening': return 'https://images.unsplash.com/photo-1509924603848-aca5e5f1a14f?q=80&w=600&auto=format&fit=crop';
-            default: return 'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?q=80&w=600&auto=format&fit=crop';
-        }
-    })();
     const recommendationText = (() => {
         if (weatherLoading) return 'Checking weather...';
         if (!weatherInfo) return 'Weather unavailable';
@@ -332,7 +328,7 @@ export default function HomeScreen() {
                     <View style={[styles.logoIconBg, { backgroundColor: tc.accent }]}>
                         <Ionicons name="diamond" size={12} color="#fff" />
                     </View>
-                    <Text style={[styles.logoText, { color: tc.textPrimary }]}>Drobeo</Text>
+                    <Text style={[styles.logoText, { color: tc.textPrimary }]}>VibeCheck</Text>
                 </View>
                 <View style={styles.headerRight}>
                     <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/notifications')}>
@@ -353,7 +349,7 @@ export default function HomeScreen() {
                             onPress={() => { setHeaderDropdownVis(false); router.push('/about'); }}
                         >
                             <Ionicons name="information-circle-outline" size={18} color={tc.textPrimary} />
-                            <Text style={[styles.dropdownText, { color: tc.textPrimary }]}>About Drobeo</Text>
+                            <Text style={[styles.dropdownText, { color: tc.textPrimary }]}>About VibeCheck</Text>
                         </TouchableOpacity>
                         <TouchableOpacity 
                             style={styles.dropdownItem} 
@@ -372,54 +368,53 @@ export default function HomeScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.warning} />
                 }
             >
-                {/* Hero Greeting Card */}
-                <View style={styles.heroWrap}>
-                    <ImageBackground
-                        source={{ uri: heroBackgroundImage }}
-                        style={styles.heroCard}
-                        imageStyle={{ borderRadius: 20 }}
-                    >
-                        {/* Dark overlay for readability */}
-                        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }]} />
-                        <View style={styles.heroTopRow}>
-                            <View>
-                                <View style={styles.greetingTitleRow}>
-                                    <Ionicons name="sunny-outline" size={20} color={tc.accentLight} />
-                                    <Text style={styles.heroGreetingText}>{greetingText}</Text>
-                                </View>
-                                <Text style={styles.heroStylistText}>Stylist</Text>
-                                <Text style={styles.heroSubText}>Start fresh — pick your look for today</Text>
-                            </View>
-                            <View style={styles.itemCountBadge}>
-                                <Ionicons name="shirt" size={16} color={tc.accentLight} />
-                                <Text style={styles.itemCountText}>{allWardrobeItems.length}</Text>
-                                <Text style={styles.itemCountSub}>items</Text>
-                            </View>
-                        </View>
-                        <Text style={[styles.heroBottomText, { color: tc.accentLight }]}>✨ Tap occasion chips in Outfits to get AI suggestions</Text>
-                    </ImageBackground>
-                </View>
-
                 {/* Canvas Area */}
                 <View style={styles.instructionRow}>
                     <Ionicons name="hand-right-outline" size={16} color={tc.textSecondary} />
-                    <Text style={[styles.instructionText, { color: tc.textSecondary }]}>Drag each item • Pinch to resize</Text>
+                    <Text style={[styles.instructionText, { color: tc.textSecondary }]}>Tap to select • Drag or Pinch to resize</Text>
                 </View>
 
                 <View style={styles.canvasContainer}>
                     <OutfitCanvas
+                        ref={canvasRef}
                         topItem={selectedTop}
                         bottomItem={selectedBottom}
                         shoeItem={selectedShoe}
                         accessoryItems={selectedAccessories}
                         onOpenDetails={() => setOutfitDetailsOpen(true)}
+                        onSelectionChange={setCanvasHasSelection}
                     />
-                    <TouchableOpacity 
-                        style={[styles.shuffleBtn, { backgroundColor: tc.backgroundElevated }]} 
-                        onPress={handleShuffle}
-                    >
-                        <Ionicons name="shuffle" size={24} color={tc.textPrimary} />
-                    </TouchableOpacity>
+
+                    {/* Controls row: +/- appear only when an item is selected */}
+                    <View style={styles.canvasControls}>
+                        {canvasHasSelection && (
+                            <TouchableOpacity
+                                style={[styles.canvasControlBtn, { backgroundColor: tc.backgroundElevated }]}
+                                onPress={() => canvasRef.current?.zoomOut()}
+                                accessibilityLabel="Zoom out selected item"
+                            >
+                                <Ionicons name="remove" size={18} color={tc.textPrimary} />
+                            </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                            style={[styles.shuffleBtn, { backgroundColor: tc.backgroundElevated }]}
+                            onPress={handleShuffle}
+                            accessibilityLabel="Shuffle outfit"
+                        >
+                            <Ionicons name="shuffle" size={22} color={tc.textPrimary} />
+                        </TouchableOpacity>
+
+                        {canvasHasSelection && (
+                            <TouchableOpacity
+                                style={[styles.canvasControlBtn, { backgroundColor: tc.backgroundElevated }]}
+                                onPress={() => canvasRef.current?.zoomIn()}
+                                accessibilityLabel="Zoom in selected item"
+                            >
+                                <Ionicons name="add" size={18} color={tc.textPrimary} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
 
                 {/* Mix & Match Bottom Sheet Container */}
@@ -480,6 +475,8 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                 </View>
 
+                {/* Bottom spacer so the card clears the tab bar */}
+                <View style={{ height: 100 }} />
             </ScrollView>
 
             <OutfitDetailsModal
@@ -594,68 +591,6 @@ const styles = StyleSheet.create({
         fontFamily: FontFamily.bodySemiBold,
     },
 
-    /* Hero */
-    heroWrap: {
-        marginHorizontal: Spacing.lg,
-        marginTop: Spacing.xs,
-        marginBottom: Spacing.sm,
-    },
-    heroCard: {
-        height: 140,
-        borderRadius: 20,
-        padding: Spacing.lg,
-        justifyContent: 'space-between',
-    },
-    heroTopRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-    },
-    greetingTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: 4,
-    },
-    heroGreetingText: {
-        color: '#FFF',
-        fontSize: 18,
-        fontWeight: '700',
-        fontFamily: FontFamily.heading,
-    },
-    heroStylistText: {
-        color: '#FFF',
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 2,
-    },
-    heroSubText: {
-        color: '#E0E0E0',
-        fontSize: 12,
-    },
-    itemCountBadge: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    itemCountText: {
-        color: '#FFF',
-        fontSize: 16,
-        fontWeight: '800',
-        marginTop: 4,
-    },
-    itemCountSub: {
-        color: '#E0E0E0',
-        fontSize: 10,
-    },
-    heroBottomText: {
-        fontSize: 11,
-        fontWeight: '600',
-    },
-
     /* Canvas Instruction */
     instructionRow: {
         flexDirection: 'row',
@@ -678,10 +613,16 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         ...Shadows.md,
     },
-    shuffleBtn: {
+    canvasControls: {
         position: 'absolute',
         top: 10,
         right: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        zIndex: 10,
+    },
+    shuffleBtn: {
         width: 44,
         height: 44,
         borderRadius: 22,
@@ -692,16 +633,28 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.15,
         shadowRadius: 4,
-        zIndex: 10,
+    },
+    canvasControlBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
     },
 
     /* Mix & Match Sheet */
     mixMatchSheet: {
         borderRadius: 24,
         marginHorizontal: Spacing.md,
+        marginBottom: Spacing.xxl,
         paddingTop: Spacing.xl,
         paddingHorizontal: Spacing.lg,
-        paddingBottom: 100,
+        paddingBottom: Spacing.xl,
         minHeight: 400,
         ...Shadows.md,
     },

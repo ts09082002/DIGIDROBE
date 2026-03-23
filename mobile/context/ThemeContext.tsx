@@ -3,7 +3,7 @@ import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LightColors, DarkColors, type SemanticColors } from '../constants/theme';
 
-const THEME_STORAGE_KEY = '@drobeo_theme_mode';
+const THEME_STORAGE_KEY = '@vibecheck_theme_mode';
 
 type ThemeContextType = {
     isDarkMode: boolean;

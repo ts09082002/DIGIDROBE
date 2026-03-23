@@ -25,7 +25,7 @@ async function scheduleDailyNotifications() {
         await Notifications.scheduleNotificationAsync({
             content: {
                 title: 'Good Morning! ☀️',
-                body: 'Open Drobeo to put together your perfect outfit for the day!',
+                body: 'Open VibeCheck to put together your perfect outfit for the day!',
                 data: { route: 'styling' },
             },
             trigger: {
@@ -120,7 +120,7 @@ export function useDailyNotifications() {
 
                     if (hour >= 5 && hour < 12) {
                         title = 'Good Morning! ☀️';
-                        body = 'Open Drobeo to put together your perfect outfit for the day!';
+                        body = 'Open VibeCheck to put together your perfect outfit for the day!';
                     } else if (hour >= 12 && hour < 17) {
                         title = 'Good Afternoon! 🌤️';
                         body = 'How is your outfit looking? Need a quick style refresh?';
