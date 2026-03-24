@@ -669,7 +669,7 @@ export default function OutfitsScreen() {
         <ScreenContainer>
 
             {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}>
                 <View style={styles.headerLeft}>
                     <Ionicons name="sparkles" size={20} color={Colors.gold} />
                     <Text style={[styles.title, { color: tc.textPrimary }]}>My Outfits</Text>
@@ -784,21 +784,21 @@ export default function OutfitsScreen() {
                                         {/* Optional Score Breakdown */}
                                         {styleOfDay?.scores ? (
                                             <View style={styles.scoreBreakdownRow}>
-                                                <View style={styles.scorePill}>
+                                                <View style={[styles.scorePill, { backgroundColor: tc.surface }]}>
                                                     <View style={[styles.scoreDot, { backgroundColor: '#FF6B6B' }]} />
-                                                    <Text style={styles.scoreText}>Color {Math.round(styleOfDay.scores.colorScore)}</Text>
+                                                    <Text style={[styles.scoreText, { color: tc.textPrimary }]}>Color {Math.round(styleOfDay.scores.colorScore)}</Text>
                                                 </View>
-                                                <View style={styles.scorePill}>
+                                                <View style={[styles.scorePill, { backgroundColor: tc.surface }]}>
                                                     <View style={[styles.scoreDot, { backgroundColor: '#4ECDC4' }]} />
-                                                    <Text style={styles.scoreText}>Weather {Math.round(styleOfDay.scores.weatherScore)}</Text>
+                                                    <Text style={[styles.scoreText, { color: tc.textPrimary }]}>Weather {Math.round(styleOfDay.scores.weatherScore)}</Text>
                                                 </View>
-                                                <View style={styles.scorePill}>
+                                                <View style={[styles.scorePill, { backgroundColor: tc.surface }]}>
                                                     <View style={[styles.scoreDot, { backgroundColor: '#FFE66D' }]} />
-                                                    <Text style={styles.scoreText}>Occasion {Math.round(styleOfDay.scores.occasionScore)}</Text>
+                                                    <Text style={[styles.scoreText, { color: tc.textPrimary }]}>Occasion {Math.round(styleOfDay.scores.occasionScore)}</Text>
                                                 </View>
-                                                <View style={styles.scorePill}>
+                                                <View style={[styles.scorePill, { backgroundColor: tc.surface }]}>
                                                     <View style={[styles.scoreDot, { backgroundColor: '#A29BFE' }]} />
-                                                    <Text style={styles.scoreText}>You {Math.round(styleOfDay.scores.userPreferenceScore)}</Text>
+                                                    <Text style={[styles.scoreText, { color: tc.textPrimary }]}>You {Math.round(styleOfDay.scores.userPreferenceScore)}</Text>
                                                 </View>
                                             </View>
                                         ) : null}
@@ -932,7 +932,7 @@ export default function OutfitsScreen() {
                                     subtitle="Use the AI Stylist tab to generate an outfit and save it here as a look."
                                 />
                             ) : (
-                                <View style={[styles.looksList, { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }]}>
+                                <View style={styles.looksList}>
                                     {savedLooks.map((look, index) => {
                                         const items = look.itemIds
                                             .map((id) => wardrobeById[id])
@@ -945,66 +945,79 @@ export default function OutfitsScreen() {
                                             byCategory[key].push(wItem);
                                         });
 
-                                        const topItems = byCategory['topwear'] || [];
-                                        const bottomItems = byCategory['bottomwear'] || [];
-                                        const outerwearItems = byCategory['outerwear'] || [];
-                                        const footwearItems = byCategory['footwear'] || [];
+                                        const top = (byCategory['topwear'] || [])[0];
+                                        const bottom = (byCategory['bottomwear'] || [])[0];
+                                        const shoe = (byCategory['footwear'] || [])[0];
+                                        const out = (byCategory['outerwear'] || [])[0];
 
-                                        const expanded = expandedLookId === look.id;
-                                        
-                                        // Extracted individual items for the collage overlay
-                                        const top = topItems[0];
-                                        const bottom = bottomItems[0];
-                                        const shoe = footwearItems[0];
-                                        const out = outerwearItems[0];
-
-                                        // Formatted Date
                                         const dateObj = new Date(look.createdAt || Date.now());
-                                        const formattedDate = `${String(dateObj.getDate()).padStart(2, '0')} ${dateObj.toLocaleString('default', { month: 'short' }).toUpperCase()}`;
+                                        const day = String(dateObj.getDate()).padStart(2, '0');
+                                        const month = dateObj.toLocaleString('default', { month: 'short' }).toUpperCase();
+
+                                        // Alternate card layout for visual rhythm
+                                        const isWide = index % 3 === 0;
 
                                         return (
                                             <TouchableOpacity
                                                 key={look.id}
-                                                activeOpacity={0.9}
+                                                activeOpacity={0.88}
                                                 onPress={() => setExpandedLookId(look.id)}
                                                 style={[
                                                     styles.lookCard,
-                                                    { 
-                                                        width: '48%',
-                                                        backgroundColor: 'transparent',
-                                                        borderWidth: 0,
-                                                        borderColor: tc.border,
-                                                        padding: 0,
-                                                        marginBottom: Spacing.xl,
-                                                        shadowOpacity: 0,
-                                                        elevation: 0
-                                                    }
+                                                    isWide ? styles.lookCardWide : styles.lookCardNarrow,
+                                                    { backgroundColor: tc.card },
                                                 ]}
                                             >
-                                                <View>
-                                                    {/* Collage Frame */}
-                                                    <View style={{ width: '100%', aspectRatio: 0.85, backgroundColor: tc.surface, borderRadius: 20, overflow: 'hidden', padding: 8 }}>
-                                                        {out && (
-                                                            <Image source={{ uri: out.processedUrl }} style={{ position: 'absolute', top: '5%', right: '5%', width: '90%', height: '85%', zIndex: 0 }} resizeMode="contain" />
-                                                        )}
-                                                        {top && (
-                                                            <Image source={{ uri: top.processedUrl }} style={{ position: 'absolute', top: '15%', right: '15%', width: '70%', height: '50%', zIndex: 1 }} resizeMode="contain" />
-                                                        )}
-                                                        {bottom && (
-                                                            <Image source={{ uri: bottom.processedUrl }} style={{ position: 'absolute', bottom: '10%', left: '15%', width: '70%', height: '50%', zIndex: 2 }} resizeMode="contain" />
-                                                        )}
-                                                        {shoe && (
-                                                            <Image source={{ uri: shoe.processedUrl }} style={{ position: 'absolute', bottom: '15%', left: '10%', width: '35%', height: '25%', zIndex: 3 }} resizeMode="contain" />
-                                                        )}
+                                                {/* Collage image area */}
+                                                <View style={[styles.lookCollage, { backgroundColor: isDarkMode ? '#1C1C24' : '#F2F0EC' }]}>
+                                                    {/* Index badge */}
+                                                    <View style={[styles.lookIndexBadge, { backgroundColor: tc.accent }]}>
+                                                        <Text style={styles.lookIndexText}>{String(index + 1).padStart(2, '0')}</Text>
                                                     </View>
-                                                    
-                                                    {/* Details block matching screenshot typography */}
-                                                    <Text style={[styles.lookTitle, { color: tc.textPrimary, fontStyle: 'italic', fontSize: 16, marginTop: 12 }]} numberOfLines={1}>
-                                                        {look.name || `Look ${index + 1}`}
-                                                    </Text>
-                                                    <Text style={[styles.lookSubtitle, { color: tc.textSecondary, fontSize: 10, textTransform: 'uppercase', marginTop: 4, letterSpacing: 0.5 }]}>
-                                                        {items.length} ITEMS • {formattedDate}
-                                                    </Text>
+
+                                                    {/* Layered garments */}
+                                                    {out && (
+                                                        <Image source={{ uri: out.processedUrl }} style={styles.collageOut} resizeMode="contain" />
+                                                    )}
+                                                    {top && (
+                                                        <Image source={{ uri: top.processedUrl }} style={styles.collageTop} resizeMode="contain" />
+                                                    )}
+                                                    {bottom && (
+                                                        <Image source={{ uri: bottom.processedUrl }} style={styles.collageBottom} resizeMode="contain" />
+                                                    )}
+                                                    {shoe && (
+                                                        <Image source={{ uri: shoe.processedUrl }} style={styles.collageShoe} resizeMode="contain" />
+                                                    )}
+
+                                                    {/* Gradient overlay — subtle dark vignette, no white fade */}
+                                                    <LinearGradient
+                                                        colors={['transparent', 'rgba(0,0,0,0.38)']}
+                                                        style={styles.collageGradient}
+                                                    />
+                                                </View>
+
+                                                {/* Footer */}
+                                                <View style={styles.lookFooter}>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={[styles.lookTitle, { color: tc.textPrimary }]} numberOfLines={1}>
+                                                            {look.name || `Look ${index + 1}`}
+                                                        </Text>
+                                                        <Text style={[styles.lookMeta, { color: tc.textMuted }]}>
+                                                            {items.length} items · {day} {month}
+                                                        </Text>
+                                                    </View>
+                                                    {/* Category dots */}
+                                                    <View style={styles.lookCatDots}>
+                                                        {(['topwear', 'bottomwear', 'footwear'] as const).map(cat => (
+                                                            <View
+                                                                key={cat}
+                                                                style={[
+                                                                    styles.lookCatDot,
+                                                                    { backgroundColor: byCategory[cat]?.length ? tc.accent : tc.border },
+                                                                ]}
+                                                            />
+                                                        ))}
+                                                    </View>
                                                 </View>
                                             </TouchableOpacity>
                                         );
@@ -2032,66 +2045,125 @@ const styles = StyleSheet.create({
     },
     emptyFavsTitle: { fontSize: 18, fontWeight: '700', fontFamily: FontFamily.bodySemiBold },
     emptyFavsSub: { fontSize: 14, textAlign: 'center', fontFamily: FontFamily.body },
+    // ── My Looks grid ──────────────────────────────────────────────────────────
     looksList: {
-        paddingHorizontal: Spacing.xl,
+        paddingHorizontal: Spacing.lg,
         paddingBottom: 100,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: Spacing.md,
     },
     lookCard: {
-        borderRadius: BorderRadius.lg,
-        borderWidth: 1,
-        padding: Spacing.md,
-        marginBottom: Spacing.md,
-        ...Shadows.sm,
+        borderRadius: BorderRadius.xl,
+        overflow: 'hidden',
+        ...Shadows.md,
     },
-    lookHeaderRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+    lookCardWide: {
+        width: '100%',
+    },
+    lookCardNarrow: {
+        width: '47.5%',
+    },
+    lookCollage: {
+        width: '100%',
+        aspectRatio: 1,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    lookIndexBadge: {
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        zIndex: 10,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: Spacing.sm,
     },
-    lookTitle: {
-        fontSize: 15,
+    lookIndexText: {
+        color: '#FFF',
+        fontSize: 10,
         fontWeight: '700',
         fontFamily: FontFamily.bodyBold,
     },
-    lookSubtitle: {
-        fontSize: 11,
-        marginTop: 2,
-        fontFamily: FontFamily.body,
+    collageOut: {
+        position: 'absolute',
+        top: '3%',
+        left: '5%',
+        width: '90%',
+        height: '85%',
+        zIndex: 0,
     },
-    lookThumbRow: {
-        flexDirection: 'row',
-        gap: Spacing.md,
-        marginTop: Spacing.sm,
+    collageTop: {
+        position: 'absolute',
+        top: '8%',
+        right: '8%',
+        width: '72%',
+        height: '55%',
+        zIndex: 1,
     },
-    lookThumb: {
-        width: 96,
-        height: 112,
-        borderRadius: BorderRadius.md,
-        backgroundColor: Colors.cream,
+    collageBottom: {
+        position: 'absolute',
+        bottom: '8%',
+        left: '12%',
+        width: '70%',
+        height: '52%',
+        zIndex: 2,
     },
-    lookCategoryChips: {
-        flex: 1,
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: Spacing.sm,
-        alignContent: 'flex-start',
+    collageShoe: {
+        position: 'absolute',
+        bottom: '10%',
+        right: '8%',
+        width: '36%',
+        height: '28%',
+        zIndex: 3,
     },
-    lookChip: {
+    collageGradient: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '45%',
+        zIndex: 4,
+    },
+    lookFooter: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 999,
-        backgroundColor: Colors.warmGray,
-        gap: 6,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.md,
+        gap: Spacing.sm,
     },
-    lookChipLabel: {
-        fontSize: 11,
+    lookTitle: {
+        fontSize: 13,
         fontWeight: '600',
-        color: Colors.charcoal,
+        fontFamily: FontFamily.bodySemiBold,
+        fontStyle: 'italic',
     },
+    lookMeta: {
+        fontSize: 10,
+        fontFamily: FontFamily.body,
+        marginTop: 2,
+        letterSpacing: 0.3,
+    },
+    lookCatDots: {
+        flexDirection: 'row',
+        gap: 4,
+        alignItems: 'center',
+    },
+    lookCatDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    // Legacy compat
+    lookHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
+    lookSubtitle: { fontSize: 11, marginTop: 2, fontFamily: FontFamily.body },
+    lookThumbRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },
+    lookThumb: { width: 96, height: 112, borderRadius: BorderRadius.md, backgroundColor: Colors.cream },
+    lookCategoryChips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, alignContent: 'flex-start' },
+    lookChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: Colors.warmGray, gap: 6 },
+    lookChipLabel: { fontSize: 11, fontWeight: '600', color: Colors.charcoal },
     lookChipCount: {
         fontSize: 11,
         fontWeight: '700',

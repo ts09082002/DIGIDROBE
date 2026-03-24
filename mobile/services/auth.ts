@@ -11,9 +11,9 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const GUEST_KEY = '@drobeo_auth_guest';
-const PROFILE_NAME_KEY = '@drobeo_profile_name';
-const PROFILE_EMAIL_KEY = '@drobeo_profile_email';
+const GUEST_KEY = '@vibecheck_auth_guest';
+const PROFILE_NAME_KEY = '@vibecheck_profile_name';
+const PROFILE_EMAIL_KEY = '@vibecheck_profile_email';
 
 // ─── Google Sign-In ─────────────────────────────────────────────────────────
 

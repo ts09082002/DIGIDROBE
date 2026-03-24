@@ -11,13 +11,13 @@ interface Props {
 }
 
 export default function AnimatedSplashScreen({ onFinish }: Props) {
-    const letters = 'DROBEO'.split('');
-    const letterAnims = useRef(letters.map(() => new Animated.Value(0))).current;
-    
-    const logoOpacity = useRef(new Animated.Value(0)).current;
+    // Animate the whole brand name as one unit + subtitle separately
+    const logoOpacity    = useRef(new Animated.Value(0)).current;
+    const brandOpacity   = useRef(new Animated.Value(0)).current;
+    const brandY         = useRef(new Animated.Value(18)).current;
     const subtitleOpacity = useRef(new Animated.Value(0)).current;
-    const footerOpacity = useRef(new Animated.Value(0)).current;
-    const screenOpacity = useRef(new Animated.Value(1)).current;
+    const footerOpacity  = useRef(new Animated.Value(0)).current;
+    const screenOpacity  = useRef(new Animated.Value(1)).current;
 
     const [fontsLoaded] = useFonts({
         Cormorant_600SemiBold,
@@ -29,26 +29,28 @@ export default function AnimatedSplashScreen({ onFinish }: Props) {
     useEffect(() => {
         if (!fontsLoaded) return;
 
-        // Intro animation sequence
-        const letterAnimations = letterAnims.map(anim => 
-            Animated.timing(anim, {
-                toValue: 1,
-                duration: 600,
-                useNativeDriver: true,
-            })
-        );
-
         Animated.sequence([
-            // 1. Fade in the diamond logo
+            // 1. Diamond icon fades in
             Animated.timing(logoOpacity, {
                 toValue: 1,
-                duration: 400,
-                delay: 200,
+                duration: 450,
+                delay: 150,
                 useNativeDriver: true,
             }),
-            // 2. Stagger in the letters D-R-O-B-E-O
-            Animated.stagger(120, letterAnimations),
-            // 3. Fade in subtitle & footer
+            // 2. Brand name rises and fades in elegantly
+            Animated.parallel([
+                Animated.timing(brandOpacity, {
+                    toValue: 1,
+                    duration: 700,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(brandY, {
+                    toValue: 0,
+                    duration: 700,
+                    useNativeDriver: true,
+                }),
+            ]),
+            // 3. Subtitle + footer fade in
             Animated.parallel([
                 Animated.timing(subtitleOpacity, {
                     toValue: 1,
@@ -59,163 +61,166 @@ export default function AnimatedSplashScreen({ onFinish }: Props) {
                     toValue: 1,
                     duration: 500,
                     useNativeDriver: true,
-                })
+                }),
             ]),
-            // 4. Wait for a moment to let user read
-            Animated.delay(1200),
-            // 5. Fade out entire screen
+            // 4. Hold
+            Animated.delay(1400),
+            // 5. Fade out
             Animated.timing(screenOpacity, {
                 toValue: 0,
-                duration: 400,
+                duration: 450,
                 useNativeDriver: true,
-            })
+            }),
         ]).start(() => {
             onFinish();
         });
-
     }, [fontsLoaded]);
 
     if (!fontsLoaded) {
-        return <View style={styles.container} />; // Plain bg while loading
+        return <View style={styles.container} />;
     }
 
     return (
         <Animated.View style={[styles.container, { opacity: screenOpacity }]} pointerEvents="auto">
-            {/* Top Logo Section */}
-            <View style={styles.topSection}>
-                <Animated.View style={[styles.diamondWrapper, { opacity: logoOpacity }]}>
-                    <View style={styles.diamond} />
-                    <Text style={styles.diamondText}>D</Text>
-                </Animated.View>
-            </View>
 
-            {/* Middle Brand Section */}
-            <View style={styles.middleSection}>
-                <View style={styles.lettersContainer}>
-                    {letters.map((char, index) => {
-                        return (
-                            <Animated.Text 
-                                key={index} 
-                                style={[
-                                    styles.brandLetter, 
-                                    { 
-                                        opacity: letterAnims[index],
-                                        transform: [{
-                                            translateY: letterAnims[index].interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [10, 0]
-                                            })
-                                        }]
-                                    }
-                                ]}
-                            >
-                                {char}
-                            </Animated.Text>
-                        );
-                    })}
+            {/* Top diamond icon */}
+            <Animated.View style={[styles.iconWrap, { opacity: logoOpacity }]}>
+                <View style={styles.diamond} />
+                <Text style={styles.diamondText}>V</Text>
+            </Animated.View>
+
+            {/* Brand name block */}
+            <Animated.View
+                style={[
+                    styles.brandBlock,
+                    {
+                        opacity: brandOpacity,
+                        transform: [{ translateY: brandY }],
+                    },
+                ]}
+            >
+                {/* VIBE in accent, CHECK in dark — split word for tonal contrast */}
+                <View style={styles.brandRow}>
+                    <Text style={[styles.brandWord, styles.brandAccent]}>VIBE</Text>
+                    <Text style={[styles.brandWord, styles.brandDark]}>CHECK</Text>
                 </View>
-
-                <Animated.View style={[styles.subtitleContainer, { opacity: subtitleOpacity }]}>
+                <Animated.View style={[styles.subtitleRow, { opacity: subtitleOpacity }]}>
                     <View style={styles.subtitleLine} />
-                    <Text style={styles.subtitleText}>THE DIGITAL ATELIER</Text>
+                    <Text style={styles.subtitleText}>THE DIGITAL WARDROBE</Text>
                     <View style={styles.subtitleLine} />
                 </Animated.View>
-            </View>
+            </Animated.View>
 
-            {/* Bottom Footer Section */}
-            <Animated.View style={[styles.footerSection, { opacity: footerOpacity }]}>
+            {/* Footer */}
+            <Animated.View style={[styles.footer, { opacity: footerOpacity }]}>
                 <View style={styles.footerLine} />
                 <Text style={styles.footerText}>CURATED BY AI</Text>
-                <Text style={styles.footerInfinity}>∞</Text>
+                <Text style={styles.footerGlyph}>✦</Text>
             </Animated.View>
         </Animated.View>
     );
 }
 
+const ACCENT = Colors.gold; // Dusty Rose — matches new theme
+
 const styles = StyleSheet.create({
     container: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: Colors.cream, // Warm Alabaster
+        backgroundColor: Colors.cream,
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 9999,
     },
-    topSection: {
-        position: 'absolute',
-        top: height * 0.35,
-        alignItems: 'center',
-    },
-    diamondWrapper: {
-        width: 50,
-        height: 50,
+
+    /* Diamond icon */
+    iconWrap: {
+        width: 52,
+        height: 52,
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: 28,
     },
     diamond: {
         position: 'absolute',
-        width: 36,
-        height: 36,
-        backgroundColor: Colors.gold, // Maroon Red
+        width: 38,
+        height: 38,
+        backgroundColor: ACCENT,
         transform: [{ rotate: '45deg' }],
+        borderRadius: 4,
     },
     diamondText: {
         color: Colors.white,
         fontFamily: FontFamily.heading,
-        fontSize: 20,
-        fontWeight: '500',
+        fontSize: 22,
+        fontWeight: '700',
     },
-    middleSection: {
+
+    /* Brand block */
+    brandBlock: {
         alignItems: 'center',
-        marginTop: height * 0.15,
+        paddingHorizontal: 32,       // breathing room on small screens
     },
-    lettersContainer: {
+    brandRow: {
         flexDirection: 'row',
-        gap: 12,
-        marginBottom: 16,
+        alignItems: 'baseline',
+        gap: 6,
+        marginBottom: 14,
     },
-    brandLetter: {
-        fontSize: 48,
+    brandWord: {
         fontFamily: FontFamily.heading,
-        fontWeight: '500',
-        color: Colors.gold, // Maroon Red
-        letterSpacing: 4,
+        fontSize: 44,
+        fontWeight: '700',
+        fontStyle: 'italic',
+        letterSpacing: 3,
     },
-    subtitleContainer: {
+    brandAccent: {
+        color: ACCENT,
+    },
+    brandDark: {
+        color: Colors.charcoal,
+    },
+
+    /* Subtitle */
+    subtitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 10,
     },
     subtitleLine: {
-        width: 30,
+        width: 28,
         height: 1,
         backgroundColor: Colors.lightGray,
     },
     subtitleText: {
         fontFamily: FontFamily.bodyMedium,
-        fontSize: 12,
-        letterSpacing: 2,
-        color: Colors.amber, // Denim Blue
+        fontSize: 10,
+        letterSpacing: 2.5,
+        color: Colors.darkGray,
     },
-    footerSection: {
+
+    /* Footer */
+    footer: {
         position: 'absolute',
         bottom: height * 0.08,
         alignItems: 'center',
     },
     footerLine: {
-        width: 60,
+        width: 48,
         height: 1,
-        backgroundColor: Colors.gold, // Maroon Red
-        marginBottom: 12,
+        backgroundColor: ACCENT,
+        marginBottom: 10,
+        opacity: 0.6,
     },
     footerText: {
         fontFamily: FontFamily.bodyMedium,
-        fontSize: 10,
-        letterSpacing: 3,
-        color: Colors.amber, // Denim Blue
-        marginBottom: 20,
+        fontSize: 9,
+        letterSpacing: 3.5,
+        color: Colors.darkGray,
+        marginBottom: 8,
     },
-    footerInfinity: {
-        fontSize: 18,
-        color: Colors.amber,
+    footerGlyph: {
+        fontSize: 14,
+        color: ACCENT,
+        opacity: 0.7,
     },
 });

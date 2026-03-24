@@ -58,7 +58,7 @@ export default function LoginScreen() {
                     style={styles.logo}
                     resizeMode="contain"
                 />
-                <Text style={[styles.appName, { color: tc.textPrimary }]}>Drobeo</Text>
+                <Text style={[styles.appName, { color: tc.textPrimary }]}>VibeCheck</Text>
                 <Text style={[styles.tagline, { color: tc.textSecondary }]}>
                     Your Digital Wardrobe
                 </Text>

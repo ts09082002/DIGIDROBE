@@ -5,7 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const STORAGE_KEY = '@drobeo_trips';
+const STORAGE_KEY = '@vibecheck_trips';
 
 export interface TripDay {
     date: string;           // ISO date YYYY-MM-DD
