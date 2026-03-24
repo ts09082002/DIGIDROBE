@@ -322,24 +322,22 @@ export default function HomeScreen() {
 
     return (
         <ScreenContainer>
-            {/* Minimalist Top Header matched to screenshot */}
-            <View style={styles.header}>
-                <View style={styles.logoContainer}>
-                    <View style={[styles.logoIconBg, { backgroundColor: tc.accent }]}>
-                        <Ionicons name="diamond" size={12} color="#fff" />
-                    </View>
-                    <Text style={[styles.logoText, { color: tc.textPrimary }]}>VibeCheck</Text>
+            {/* Standard VibeCheck Header */}
+            <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="sparkles" size={20} color={tc.accent} />
+                    <Text style={[{ color: tc.textPrimary, fontSize: 24, fontWeight: '700', fontFamily: FontFamily.heading }]}>VibeCheck</Text>
                 </View>
-                <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/notifications')}>
-                        <Ionicons name="notifications-outline" size={20} color={tc.textPrimary} />
-                        <View style={[styles.badge, { backgroundColor: tc.accent, borderColor: tc.background }]}><Text style={styles.badgeText}>2</Text></View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} onPress={() => router.push('/notifications')}>
+                        <Ionicons name="notifications-outline" size={18} color={tc.textPrimary} />
+                        <View style={[styles.badge, { backgroundColor: tc.accent, borderColor: tc.background, top: -2, right: -2 }]}><Text style={styles.badgeText}>2</Text></View>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/(tabs)/profile')}>
-                        <Ionicons name="person-outline" size={20} color={tc.textPrimary} />
+                    <TouchableOpacity style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} onPress={() => router.push('/(tabs)/profile')}>
+                        <Ionicons name="person-outline" size={18} color={tc.textPrimary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => setHeaderDropdownVis(!headerDropdownVis)}>
-                        <Ionicons name="ellipsis-horizontal" size={20} color={tc.textPrimary} />
+                    <TouchableOpacity style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} onPress={() => setHeaderDropdownVis(!headerDropdownVis)}>
+                        <Ionicons name="ellipsis-horizontal" size={18} color={tc.textPrimary} />
                     </TouchableOpacity>
                 </View>
                 {headerDropdownVis && (

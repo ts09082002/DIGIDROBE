@@ -472,20 +472,23 @@ export default function ProfileScreen() {
 
     return (
         <ScreenContainer>
-            <ScrollView showsVerticalScrollIndicator={false}>
-
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={[styles.title, { color: tc.textPrimary }]}>Profile</Text>
-                    <TouchableOpacity
-                        style={[styles.settingsBtn, { backgroundColor: tc.iconBtnBg, ...Shadows.sm }]}
-                        onPress={openEditProfile}
-                        accessibilityRole="button"
-                        accessibilityLabel="Edit profile"
-                    >
-                        <Ionicons name="create-outline" size={20} color={tc.textPrimary} />
-                    </TouchableOpacity>
+            {/* Header */}
+            <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="sparkles" size={20} color={tc.accent} />
+                    <Text style={[{ color: tc.textPrimary, fontSize: 24, fontWeight: '700', fontFamily: FontFamily.heading }]}>Profile</Text>
                 </View>
+                <TouchableOpacity
+                    style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]}
+                    onPress={openEditProfile}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit profile"
+                >
+                    <Ionicons name="create-outline" size={18} color={tc.textPrimary} />
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
 
                 {/* Profile Card */}
                 <TouchableOpacity

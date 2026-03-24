@@ -827,12 +827,15 @@ export default function WardrobeScreen() {
     return (
         <ScreenContainer>
             {/* Header with Edit + Filter */}
-            <View style={styles.headerRow}>
-                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Wardrobe</Text>
-                <View style={styles.headerActions}>
+            <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="sparkles" size={20} color={tc.accent} />
+                    <Text style={[{ color: tc.textPrimary, fontSize: 24, fontWeight: '700', fontFamily: FontFamily.heading }]}>Wardrobe</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                     <TouchableOpacity
                         onPress={toggleSelectionMode}
-                        style={styles.headerTextBtn}
+                        style={[{ paddingHorizontal: 16, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]}
                     >
                         <Text style={[styles.headerTextBtnLabel, { color: tc.accent }]}>
                             {selectionMode ? 'Done' : 'Edit'}
@@ -840,7 +843,7 @@ export default function WardrobeScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                         onPress={openFilterSheet}
-                        style={[styles.filterIconBtn, { backgroundColor: tc.iconBtnBg }]}
+                        style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]}
                     >
                         <Ionicons name="options-outline" size={20} color={activeFilterCount > 0 ? tc.accent : tc.textSecondary} />
                         {activeFilterCount > 0 && (

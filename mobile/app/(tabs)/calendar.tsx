@@ -277,19 +277,22 @@ export default function CalendarScreen() {
     return (
         <ScreenContainer>
             {/* Header */}
-            <View style={styles.header}>
-                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Calendar</Text>
+            <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="sparkles" size={20} color={tc.accent} />
+                    <Text style={[{ color: tc.textPrimary, fontSize: 24, fontWeight: '700', fontFamily: FontFamily.heading }]}>Calendar</Text>
+                </View>
                 <TouchableOpacity
                     onPress={handleAutoFillWeek}
                     disabled={autoFilling}
-                    style={[styles.autoFillBtn, { backgroundColor: tc.surface }]}
+                    style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]}
                     accessibilityRole="button"
                     accessibilityLabel="Auto-fill week with AI suggestions"
                 >
                     {autoFilling ? (
                         <ActivityIndicator size="small" color={tc.accent} />
                     ) : (
-                        <Ionicons name="sparkles" size={20} color={tc.accent} />
+                        <Ionicons name="color-wand" size={18} color={tc.accent} />
                     )}
                 </TouchableOpacity>
             </View>

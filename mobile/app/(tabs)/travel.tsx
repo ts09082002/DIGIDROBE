@@ -421,33 +421,38 @@ export default function TravelScreen() {
         <ScreenContainer>
             {/* Header */}
             {viewMode === 'list' ? (
-                <View style={styles.header}>
-                    <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Travel</Text>
+                <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="sparkles" size={20} color={tc.accent} />
+                        <Text style={[{ color: tc.textPrimary, fontSize: 24, fontWeight: '700', fontFamily: FontFamily.heading }]}>Travel</Text>
+                    </View>
                     <TouchableOpacity
-                        style={[styles.addBtn, { backgroundColor: tc.accent }]}
+                        style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.accent, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]}
                         onPress={() => setCreateModalVisible(true)}
                         accessibilityRole="button"
                         accessibilityLabel="Create new trip"
                     >
-                        <Ionicons name="add" size={22} color="#FFFFFF" />
+                        <Ionicons name="add" size={20} color="#FFFFFF" />
                     </TouchableOpacity>
                 </View>
             ) : (
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        onPress={() => {
-                            setViewMode('list');
-                            setSelectedTrip(null);
-                        }}
-                        style={styles.backBtn}
-                        accessibilityRole="button"
-                        accessibilityLabel="Go back to trip list"
-                    >
-                        <Ionicons name="arrow-back" size={22} color={tc.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { color: tc.textPrimary, flex: 1 }]} numberOfLines={1}>
-                        {selectedTrip?.destination}
-                    </Text>
+                <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                        <TouchableOpacity
+                            onPress={() => {
+                                setViewMode('list');
+                                setSelectedTrip(null);
+                            }}
+                            style={{ marginRight: 8, padding: 4 }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Go back to trip list"
+                        >
+                            <Ionicons name="arrow-back" size={22} color={tc.textPrimary} />
+                        </TouchableOpacity>
+                        <Text style={[{ color: tc.textPrimary, flex: 1, fontSize: 24, fontWeight: '700', fontFamily: FontFamily.heading }]} numberOfLines={1}>
+                            {selectedTrip?.destination}
+                        </Text>
+                    </View>
                 </View>
             )}
 

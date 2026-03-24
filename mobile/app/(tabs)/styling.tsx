@@ -63,26 +63,29 @@ export default function StylingScreen() {
 
     return (
         <ScreenContainer>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    accessibilityRole="button"
-                    accessibilityLabel="Go back"
-                >
-                    <Ionicons name="arrow-back" size={24} color={tc.textPrimary} />
-                </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Avatar Styling</Text>
-                <TouchableOpacity
-                    onPress={() => {
-                        setSelectedItem(null);
-                        setSelectedSkinTone('#E8C4A8');
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Reset selection"
-                >
-                    <Text style={[styles.resetText, { color: tc.accent }]}>Reset</Text>
-                </TouchableOpacity>
+            {/* Standard VibeCheck Header */}
+            <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="sparkles" size={20} color={tc.accent} />
+                    <Text style={[{ color: tc.textPrimary, fontSize: 24, fontWeight: '700', fontFamily: FontFamily.heading }]}>Styling</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            setSelectedItem(null);
+                            setSelectedSkinTone('#E8C4A8');
+                        }}
+                        style={[{ paddingHorizontal: 12, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]}
+                    >
+                        <Text style={[styles.resetText, { color: tc.accent }]}>Reset</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} 
+                        onPress={() => router.back()}
+                    >
+                        <Ionicons name="close" size={20} color={tc.textPrimary} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Avatar Area */}

@@ -669,10 +669,10 @@ export default function OutfitsScreen() {
         <ScreenContainer>
 
             {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}>
-                <View style={styles.headerLeft}>
-                    <Ionicons name="sparkles" size={20} color={Colors.gold} />
-                    <Text style={[styles.title, { color: tc.textPrimary }]}>My Outfits</Text>
+            <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="sparkles" size={20} color={tc.accent} />
+                    <Text style={[{ color: tc.textPrimary, fontSize: 24, fontWeight: '700', fontFamily: FontFamily.heading }]}>My Outfits</Text>
                 </View>
                 {stats && (
                     <View style={styles.statsRow}>

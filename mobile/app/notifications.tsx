@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform }
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useThemeColors } from '../context/ThemeContext';
-import { FontFamily, Spacing, BorderRadius } from '../constants/theme';
+import { FontFamily, Spacing, BorderRadius, Shadows } from '../constants/theme';
 import ScreenContainer from '../components/ui/ScreenContainer';
 import { getNotifications, markAllRead, AppNotification } from '../services/notifications';
 
@@ -106,15 +106,26 @@ export default function NotificationsScreen() {
 
     return (
         <ScreenContainer>
-            {/* Header */}
-            <View style={[styles.header, { backgroundColor: tc.background }]}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={tc.textPrimary} />
-                </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: tc.textPrimary }]}>Notifications</Text>
-                <TouchableOpacity onPress={handleMarkAllRead}>
-                    <Text style={styles.markReadText}>Mark all as read</Text>
-                </TouchableOpacity>
+            {/* Standard VibeCheck Header */}
+            <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="sparkles" size={20} color={tc.accent} />
+                    <Text style={[{ color: tc.textPrimary, fontSize: 24, fontWeight: '700', fontFamily: FontFamily.heading }]}>Alerts</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    <TouchableOpacity 
+                        style={[{ paddingHorizontal: 16, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} 
+                        onPress={handleMarkAllRead}
+                    >
+                        <Text style={[styles.markReadText, { color: tc.accent }]}>Read All</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} 
+                        onPress={() => router.back()}
+                    >
+                        <Ionicons name="close" size={20} color={tc.textPrimary} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
