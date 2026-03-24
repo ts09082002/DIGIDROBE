@@ -82,30 +82,59 @@ const CATEGORY_ICONS: Record<string, string> = {
 // ─── Sub-modal content ────────────────────────────────────────────────────────
 
 function PrivacyContent({ tc }: { tc: any }) {
+    const lastUpdated = '24 March 2026';
+
     return (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.xl, gap: Spacing.lg }}>
-            <View style={[{ backgroundColor: tc.surface, borderRadius: BorderRadius.lg, padding: Spacing.lg }]}>
-                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>Data You Control</Text>
-                <Text style={[styles.subModalBody, { color: tc.textSecondary }]}>
-                    VibeCheck stores your wardrobe images and outfit data exclusively on your device. No images are ever uploaded to our servers without your explicit consent.
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.xl, paddingBottom: 40, gap: Spacing.lg }}>
+            <View style={{ marginBottom: Spacing.sm }}>
+                <Text style={[styles.subModalBody, { color: tc.textMuted, fontSize: 12 }]}>
+                    Last Updated: {lastUpdated}
                 </Text>
             </View>
+
             <View style={[{ backgroundColor: tc.surface, borderRadius: BorderRadius.lg, padding: Spacing.lg }]}>
-                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>Cloud Sync</Text>
+                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>1. Our Commitment</Text>
                 <Text style={[styles.subModalBody, { color: tc.textSecondary }]}>
-                    When Cloud Sync is enabled, only metadata (item names, categories, colors) is synced. Your photos always remain on-device.
+                    VibeCheck is built with a "Privacy-First" philosophy. We believe your wardrobe and your style choices are personal. Our architecture is designed to keep your most sensitive data—your photos—entirely on your device.
                 </Text>
             </View>
+
             <View style={[{ backgroundColor: tc.surface, borderRadius: BorderRadius.lg, padding: Spacing.lg }]}>
-                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>Account Deletion</Text>
+                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>2. Images & Processing</Text>
                 <Text style={[styles.subModalBody, { color: tc.textSecondary }]}>
-                    To permanently delete your account and all associated data, sign in and use the Sign Out option — all local data is cleared automatically.
+                    • <Text style={{ fontWeight: '700', color: tc.textPrimary }}>Local Storage:</Text> All photos you upload are stored locally in your device's secure storage.{"\n"}
+                    • <Text style={{ fontWeight: '700', color: tc.textPrimary }}>On-Device AI:</Text> Background removal and clothing classification run entirely on your phone's processor. No image data is ever sent to a cloud server for processing.
                 </Text>
             </View>
+
             <View style={[{ backgroundColor: tc.surface, borderRadius: BorderRadius.lg, padding: Spacing.lg }]}>
-                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>Analytics</Text>
+                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>3. Cloud Sync (Optional)</Text>
                 <Text style={[styles.subModalBody, { color: tc.textSecondary }]}>
-                    VibeCheck does not sell or share your personal data with third parties. Crash analytics are used solely to improve app stability.
+                    If you choose to enable "Cloud Sync", we only synchronize text-based metadata:{"\n"}
+                    • Item categories, colors, brands, and names.{"\n"}
+                    • Your "Looks" and Calendar plans.{"\n"}
+                    <Text style={{ fontStyle: 'italic', marginTop: 4, display: 'flex' }}>Note: Even with sync enabled, your original high-resolution photos remain strictly on your physical device.</Text>
+                </Text>
+            </View>
+
+            <View style={[{ backgroundColor: tc.surface, borderRadius: BorderRadius.lg, padding: Spacing.lg }]}>
+                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>4. Authentication</Text>
+                <Text style={[styles.subModalBody, { color: tc.textSecondary }]}>
+                    We use Firebase Authentication (Google/Apple) to secure your account. We only store your email and UID to manage your subscription and optional metadata backup.
+                </Text>
+            </View>
+
+            <View style={[{ backgroundColor: tc.surface, borderRadius: BorderRadius.lg, padding: Spacing.lg }]}>
+                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>5. Data Deletion</Text>
+                <Text style={[styles.subModalBody, { color: tc.textSecondary }]}>
+                    You have full control over your data. You can clear your local cache, or permanently delete your account from the Profile settings. Deleting your account removes all synced metadata from our servers immediately.
+                </Text>
+            </View>
+
+            <View style={[{ backgroundColor: tc.surface, borderRadius: BorderRadius.lg, padding: Spacing.lg }]}>
+                <Text style={[styles.subModalSectionTitle, { color: tc.textPrimary }]}>6. Third Parties</Text>
+                <Text style={[styles.subModalBody, { color: tc.textSecondary }]}>
+                    VibeCheck does not sell, trade, or share your data with advertisers or third-party data brokers.
                 </Text>
             </View>
         </ScrollView>

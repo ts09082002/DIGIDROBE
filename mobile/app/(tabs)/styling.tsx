@@ -217,7 +217,6 @@ export default function StylingScreen() {
                 <TouchableOpacity
                     style={[styles.finishButton, { backgroundColor: tc.accent }]}
                     onPress={() => {
-                        // TODO: Save outfit look
                         router.back();
                     }}
                     accessibilityRole="button"
