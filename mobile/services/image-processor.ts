@@ -116,6 +116,9 @@ export async function processClothingImageOnDevice(
         bgResult.height,
     );
 
+    // Release the large pixel buffer so GC can reclaim memory before the next job
+    (bgResult as any).rgbaPixels = null;
+
     // If ML Kit returned unclassified and we have good bg-removal pixels,
     // fall back to shape-based classification
     let finalClassification = classification;

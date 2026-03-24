@@ -30,14 +30,15 @@ import {
 import { WardrobeItem } from '../../services/api';
 import * as wardrobeLocal from '../../services/wardrobe-local';
 import * as ootdLocal from '../../services/ootd-local';
-import { classifyClothing, canonicalToBackend } from '../../services/ml-classifier';
-import { processClothingImageOnDevice } from '../../services/image-processor';
+
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
 import { Toast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import { SkeletonGrid } from '../../components/ui/SkeletonLoader';
 import FullScreenLoader from '../../components/ui/FullScreenLoader';
+import { enqueueAssets } from '../../services/processing-queue';
+import ProcessingProgressBar from '../../components/ProcessingProgressBar';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - Spacing.xl * 2 - Spacing.md) / 2;
@@ -115,7 +116,7 @@ export default function WardrobeScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [selectedItem, setSelectedItem] = useState<WardrobeItem | null>(null);
     const [uploadOptionsVisible, setUploadOptionsVisible] = useState(false);
-    const [processingVisible, setProcessingVisible] = useState(false);
+
     const [editingName, setEditingName] = useState(false);
     const [nameInput, setNameInput] = useState('');
     const [savingName, setSavingName] = useState(false);
@@ -135,6 +136,9 @@ export default function WardrobeScreen() {
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
     const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Sequential processing queue progress
+    const [queueProgress, setQueueProgress] = useState<{ current: number; total: number; done: boolean } | null>(null);
 
     // Filter states (replaces search)
     const [filterSheetVisible, setFilterSheetVisible] = useState(false);
@@ -488,57 +492,55 @@ export default function WardrobeScreen() {
     const uploadAssets = async (assets: ImagePicker.ImagePickerAsset[], source: 'gallery' | 'camera') => {
         if (!assets.length) return;
 
-        const start = Date.now();
         const preferredCategoryFromFilter = getPreferredUploadCategory();
 
-        const uploadedItems = await Promise.all(
-            assets.map(async (asset) => {
-                const filename = asset.fileName || `${source}_photo.jpg`;
-                const uploadUri = await autoCropAndResize(asset.uri, asset.width, asset.height);
-
-                let finalCategory: string | undefined = preferredCategoryFromFilter;
-
-                // ── On-Device Processing ─────────────────────
-                const result = await processClothingImageOnDevice(uploadUri);
-                console.log(
-                    `[OnDevice] ${filename} → category: ${result.classification.category}, ` +
-                    `color: ${result.colors.dominantName}`
-                );
-                if (!result.classification.isLowConfidence && result.classification.category !== 'unclassified') {
-                    finalCategory = canonicalToBackend(result.classification.category);
-                } else if (preferredCategoryFromFilter) {
-                    finalCategory = preferredCategoryFromFilter;
-                }
-
-                // ── Save locally (no backend upload) ─────────
-                const newItem = await wardrobeLocal.addClothingItem(
-                    result,
-                    uploadUri,
-                    filename,
-                    finalCategory,
-                );
-                return {
-                    ...newItem,
-                    category: normalizeCategory(newItem.category),
-                } as WardrobeItem;
-            }),
+        // Pre-crop/resize all assets to their upload URIs first (fast, no GPU saturation)
+        const prepared = await Promise.all(
+            assets.map(async (asset) => ({
+                uri: await autoCropAndResize(asset.uri, asset.width, asset.height),
+                filename: asset.fileName || `${source}_photo.jpg`,
+                preferredCategory: preferredCategoryFromFilter,
+            }))
         );
 
-        if (uploadedItems.length > 0) {
-            invalidateCache();
-            setItems((prev) => [...uploadedItems, ...prev]);
-            const elapsed = Date.now() - start;
-            console.log(`Wardrobe upload (${source}) completed in ${elapsed}ms for ${uploadedItems.length} image(s)`);
-            setProcessingVisible(true);
-            setTimeout(() => setProcessingVisible(false), 2200);
-            setToastType('success');
-            setToastMessage(
-                uploadedItems.length === 1
-                    ? '1 item added'
-                    : `${uploadedItems.length} items added`,
-            );
-            setToastVisible(true);
-        }
+        const start = Date.now();
+
+        // Show the progress bar immediately
+        setQueueProgress({ current: 0, total: prepared.length, done: false });
+
+        enqueueAssets(prepared, {
+            onProgress: (current, total) => {
+                setQueueProgress({ current, total, done: false });
+            },
+            onItemComplete: (item) => {
+                // Prepend each finished item to the list immediately
+                invalidateCache();
+                setItems((prev) => [item, ...prev]);
+            },
+            onQueueComplete: (items) => {
+                const elapsed = Date.now() - start;
+                console.log(`[Queue] Batch (${source}) done in ${elapsed}ms — ${items.length} item(s)`);
+
+                setQueueProgress((prev) => prev ? { ...prev, done: true } : null);
+                // Unmount the progress bar after the component's own 2 s dismiss animation
+                setTimeout(() => setQueueProgress(null), 3000);
+
+                if (items.length > 0) {
+                    setToastType('success');
+                    setToastMessage(
+                        items.length === 1
+                            ? '1 item added'
+                            : `${items.length} items added`,
+                    );
+                    setToastVisible(true);
+                }
+            },
+            onError: (jobId, error) => {
+                console.warn(`[Queue] Job ${jobId} failed:`, error.message);
+                // Individual job failure is silent — queue continues.
+                // If ALL jobs fail, onQueueComplete still fires with an empty array.
+            },
+        });
     };
 
     const handleUpload = async () => {
@@ -955,20 +957,16 @@ export default function WardrobeScreen() {
                 </View>
             )}
 
-            <FullScreenLoader visible={uploading} message="Uploading to wardrobe..." />
+            <FullScreenLoader visible={uploading} message="Preparing images..." />
             <FullScreenLoader visible={isDeleting} message="Deleting item..." />
 
-            {/* Background processing feedback */}
-            {processingVisible && (
-                <View style={styles.processingOverlay}>
-                    <View style={styles.processingCard}>
-                        <ActivityIndicator size="small" color={Colors.gold} />
-                        <View style={styles.processingTextContainer}>
-                            <Text style={styles.processingTitle}>Removing background…</Text>
-                            <Text style={styles.processingSubtitle}>We’ll update your item in a moment.</Text>
-                        </View>
-                    </View>
-                </View>
+            {/* Sequential queue progress bar */}
+            {queueProgress && (
+                <ProcessingProgressBar
+                    current={queueProgress.current}
+                    total={queueProgress.total}
+                    done={queueProgress.done}
+                />
             )}
 
             {/* Items Grid */}
