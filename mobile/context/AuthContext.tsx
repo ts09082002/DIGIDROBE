@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             // Subscribe to Firebase auth state changes
-            unsubscribe = auth().onAuthStateChanged((firebaseUser) => {
+            unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
                 setUser(firebaseUser);
                 setIsLoading(false);
             });
