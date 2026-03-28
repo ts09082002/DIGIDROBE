@@ -427,7 +427,7 @@ export default function HomeScreen() {
                     <CategoryListRow
                         categoryName="Tops"
                         iconName="shirt-outline"
-                        subtitle="Unclassified item"
+                        subtitle={tops.length > 0 ? `${tops.length} piece${tops.length !== 1 ? 's' : ''}` : 'Nothing here yet'}
                         items={tops}
                         selectedItem={selectedTop}
                         onSelect={setSelectedTop}
@@ -435,26 +435,26 @@ export default function HomeScreen() {
 
                     <CategoryListRow
                         categoryName="Bottoms"
-                        iconName="triangle-outline"
-                        subtitle={selectedBottom?.brand || 'H&M'}
+                        iconName="layers-outline"
+                        subtitle={bottoms.length > 0 ? `${bottoms.length} piece${bottoms.length !== 1 ? 's' : ''}` : 'Nothing here yet'}
                         items={bottoms}
                         selectedItem={selectedBottom}
                         onSelect={setSelectedBottom}
                     />
 
                     <CategoryListRow
-                        categoryName="Footwear"
-                        iconName="walk-outline"
-                        subtitle="Footwear item"
+                        categoryName="Kicks"
+                        iconName="footsteps-outline"
+                        subtitle={shoes.length > 0 ? `${shoes.length} pair${shoes.length !== 1 ? 's' : ''}` : 'Nothing here yet'}
                         items={shoes}
                         selectedItem={selectedShoe}
                         onSelect={setSelectedShoe}
                     />
 
                     <CategoryListRow
-                        categoryName="Accessories"
-                        iconName="watch-outline"
-                        subtitle="Bags & Jewelry"
+                        categoryName="Drip"
+                        iconName="sparkles-outline"
+                        subtitle={accessories.length > 0 ? `${accessories.length} piece${accessories.length !== 1 ? 's' : ''}` : 'Nothing here yet'}
                         items={accessories}
                         selectedItemsArray={selectedAccessories}
                         onSelect={(item) => {

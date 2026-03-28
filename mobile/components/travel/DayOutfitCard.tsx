@@ -147,14 +147,16 @@ export default function DayOutfitCard({ day, dayIndex, dayLabel, items, onAISugg
                                 {items.length} item{items.length !== 1 ? 's' : ''}
                             </Text>
                         </View>
-                        <TouchableOpacity
-                            style={[styles.aiRebtn, { backgroundColor: tc.accentLight }]}
-                            onPress={onAISuggest}
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="sparkles" size={12} color={tc.accent} />
-                            <Text style={[styles.aiRebtnText, { color: tc.accent }]}>Re-suggest</Text>
-                        </TouchableOpacity>
+                        <View style={styles.footerRight}>
+                            <TouchableOpacity
+                                style={[styles.aiRebtn, { backgroundColor: tc.accentLight }]}
+                                onPress={onAISuggest}
+                                accessibilityRole="button"
+                            >
+                                <Ionicons name="sparkles" size={12} color={tc.accent} />
+                                <Text style={[styles.aiRebtnText, { color: tc.accent }]}>Re-suggest</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </>
             ) : (
@@ -369,6 +371,11 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
+    },
+    footerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
     },
     /* Empty state */
     emptyState: {

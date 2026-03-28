@@ -38,6 +38,9 @@ import ScreenContainer from '../../components/ui/ScreenContainer';
 import { SkeletonGrid } from '../../components/ui/SkeletonLoader';
 import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { enqueueAssets } from '../../services/processing-queue';
+const logEvent = (name: string, params?: Record<string, any>) => {
+    try { require('@react-native-firebase/analytics').default().logEvent(name, params); } catch (_) {}
+};
 import ProcessingProgressBar from '../../components/ProcessingProgressBar';
 
 const { width } = Dimensions.get('window');
@@ -49,7 +52,7 @@ const SUGGESTIONS_MAX = 120;
 const TARGET_WIDTH = 800;
 const TARGET_ASPECT_RATIO = 4 / 5;
 
-const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Dresses', 'Outerwear', 'Footwear', 'Bags', 'Accessories'];
+const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Outerwear', 'Footwear', 'Bags', 'Accessories'];
 
 const FILTER_COLORS = ['Black', 'White', 'Blue', 'Red', 'Green', 'Pink', 'Brown', 'Gray', 'Navy', 'Beige', 'Yellow', 'Orange', 'Purple'];
 const FILTER_SEASONS = ['Summer', 'Winter', 'Spring', 'Fall'];
@@ -416,6 +419,7 @@ export default function WardrobeScreen() {
 
     useEffect(() => {
         loadItems();
+        logEvent('screen_view', { screen_name: 'wardrobe', screen_class: 'WardrobeScreen' });
     }, [loadItems]);
 
     const invalidateCache = useCallback(() => {
@@ -526,6 +530,11 @@ export default function WardrobeScreen() {
                 setTimeout(() => setQueueProgress(null), 3000);
 
                 if (items.length > 0) {
+                    logEvent('add_item', {
+                        source,
+                        count: items.length,
+                        category: items[0]?.category ?? 'unknown',
+                    });
                     setToastType('success');
                     setToastMessage(
                         items.length === 1
@@ -1080,7 +1089,7 @@ export default function WardrobeScreen() {
 
                         <View style={styles.bottomSheetActions}>
                             <TouchableOpacity
-                                style={styles.bottomSheetAction}
+                                style={[styles.bottomSheetAction, { backgroundColor: tc.surface }]}
                                 onPress={() => {
                                     setUploadOptionsVisible(false);
                                     handleCamera();
@@ -1090,13 +1099,13 @@ export default function WardrobeScreen() {
                                     <Ionicons name="camera" size={22} color={Colors.white} />
                                 </View>
                                 <View style={styles.bottomSheetActionTextContainer}>
-                                    <Text style={styles.bottomSheetActionTitle}>Take Photo</Text>
-                                    <Text style={styles.bottomSheetActionSubtitle}>Use your camera to capture</Text>
+                                    <Text style={[styles.bottomSheetActionTitle, { color: tc.textPrimary }]}>Take Photo</Text>
+                                    <Text style={[styles.bottomSheetActionSubtitle, { color: tc.textSecondary }]}>Use your camera to capture</Text>
                                 </View>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={styles.bottomSheetAction}
+                                style={[styles.bottomSheetAction, { backgroundColor: tc.surface }]}
                                 onPress={() => {
                                     setUploadOptionsVisible(false);
                                     handleUpload();
@@ -1106,8 +1115,8 @@ export default function WardrobeScreen() {
                                     <Ionicons name="images" size={22} color={Colors.white} />
                                 </View>
                                 <View style={styles.bottomSheetActionTextContainer}>
-                                    <Text style={styles.bottomSheetActionTitle}>Choose from Gallery</Text>
-                                    <Text style={styles.bottomSheetActionSubtitle}>Pick one or more photos</Text>
+                                    <Text style={[styles.bottomSheetActionTitle, { color: tc.textPrimary }]}>Choose from Gallery</Text>
+                                    <Text style={[styles.bottomSheetActionSubtitle, { color: tc.textSecondary }]}>Pick one or more photos</Text>
                                 </View>
                             </TouchableOpacity>
 
@@ -1115,7 +1124,7 @@ export default function WardrobeScreen() {
                                 style={styles.bottomSheetCancel}
                                 onPress={() => setUploadOptionsVisible(false)}
                             >
-                                <Text style={styles.bottomSheetCancelText}>Cancel</Text>
+                                <Text style={[styles.bottomSheetCancelText, { color: tc.textSecondary }]}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -1317,12 +1326,14 @@ export default function WardrobeScreen() {
                                     key={cat.value}
                                     style={[
                                         styles.tagPickerChip,
+                                        { borderColor: tc.border },
                                         pickerCategory === cat.value && styles.tagPickerChipActive,
                                     ]}
                                     onPress={() => setPickerCategory(cat.value)}
                                 >
                                     <Text style={[
                                         styles.tagPickerChipText,
+                                        { color: tc.textPrimary },
                                         pickerCategory === cat.value && { color: Colors.white },
                                     ]}>
                                         {cat.label}
@@ -1369,6 +1380,7 @@ export default function WardrobeScreen() {
                         setDeleteDialogVisible(false);
                         setIsDeleting(true);
                         await wardrobeLocal.deleteItem(selectedItem.id);
+                        logEvent('delete_item', { category: selectedItem.category });
                         setSelectedItem(null);
                         invalidateCache();
                         await loadItems(true);
@@ -1413,7 +1425,7 @@ export default function WardrobeScreen() {
                     </Text>
                 </View>
 
-                <View style={styles.floatingActions}>
+                <View style={[styles.floatingActions, { marginLeft: 8 }]}>
                     <TouchableOpacity
                         style={[styles.floatingActionBtn, { backgroundColor: tc.accent }]}
                         onPress={openBulkMovePicker}
@@ -1437,6 +1449,7 @@ export default function WardrobeScreen() {
                                             try {
                                                 setIsDeleting(true);
                                                 await Promise.all(selectedItemIds.map(id => wardrobeLocal.deleteItem(id)));
+                                                logEvent('delete_item', { count: selectedItemIds.length });
                                                 setSelectionMode(false);
                                                 setSelectedItemIds([]);
                                                 invalidateCache();
@@ -1684,10 +1697,12 @@ const styles = StyleSheet.create({
     floatingActionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 5,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 12,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        borderRadius: BorderRadius.round,
+        minHeight: 38,
     },
     floatingActionBtnText: {
         fontSize: 13,
@@ -1770,13 +1785,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        paddingVertical: 14,
-        borderRadius: 16,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.xxl,
+        borderRadius: BorderRadius.round,
+        minHeight: 48,
     },
     filterApplyBtnText: {
-        fontSize: 16,
-        fontFamily: FontFamily.bodyBold,
-        fontWeight: '700',
+        fontSize: 15,
+        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '600',
         color: Colors.white,
     },
 
@@ -2037,18 +2054,20 @@ const styles = StyleSheet.create({
     suggestionAddBtn: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         alignSelf: 'flex-start',
         gap: 4,
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: 6,
-        borderRadius: BorderRadius.md,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderRadius: BorderRadius.round,
         backgroundColor: Colors.gold,
+        minHeight: 30,
     },
     suggestionAddBtnText: {
         color: Colors.white,
         fontSize: 12,
-        fontFamily: FontFamily.bodyBold,
-        fontWeight: '700',
+        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '600',
     },
     suggestionLoader: {
         flexDirection: 'row',
@@ -2239,10 +2258,12 @@ const styles = StyleSheet.create({
     modalActionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 10,
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        borderRadius: BorderRadius.round,
+        minHeight: 42,
     },
     modalActionText: {
         fontSize: 13,
@@ -2294,13 +2315,15 @@ const styles = StyleSheet.create({
     },
     tagPickerSaveBtn: {
         backgroundColor: Colors.gold,
-        borderRadius: BorderRadius.lg,
+        borderRadius: BorderRadius.round,
         paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.xl,
+        paddingHorizontal: Spacing.xxl,
         alignSelf: 'center',
         minWidth: 120,
         alignItems: 'center',
+        justifyContent: 'center',
         marginTop: Spacing.sm,
+        minHeight: 48,
     },
     tagPickerSaveBtnText: {
         fontSize: 15,

@@ -33,6 +33,10 @@ import { applyOnlineUpdate } from '../../engine/personalization';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import { SkeletonGrid } from '../../components/ui/SkeletonLoader';
 import EmptyState from '../../components/ui/EmptyState';
+import ShareOutfitModal from '../../components/share/ShareOutfitModal';
+const logEvent = (name: string, params?: Record<string, any>) => {
+    try { require('@react-native-firebase/analytics').default().logEvent(name, params); } catch (_) {}
+};
 
 const TABS = ['My Looks', 'AI Stylist'];
 
@@ -243,6 +247,7 @@ export default function OutfitsScreen() {
     const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
     const [looksLoading, setLooksLoading] = useState(false);
     const [expandedLookId, setExpandedLookId] = useState<string | null>(null);
+    const [shareLook, setShareLook] = useState<{ lookName: string; items: WardrobeItem[]; date: string } | null>(null);
     const [savingLook, setSavingLook] = useState(false);
     const [profileStep, setProfileStep] = useState(1);
     const [styleProfile, setStyleProfile] = useState<StyleProfile>({
@@ -332,8 +337,8 @@ export default function OutfitsScreen() {
     };
 
     const regenerateSuggestion = async () => {
-        // Record skip before regenerating
         await recordOutfitInteraction(styleOfDay, 'skip');
+        logEvent('use_ai_suggestion', { occasion: styleContext.occasion });
         setManuallySwappedItems({});
         const topId = styleOfDayItems.find(it => normalizeCategory(it.category) === 'topwear')?.id;
         await generateOfflineStyleOfDay(wardrobeItems, undefined, topId ? [topId] : []);
@@ -481,6 +486,10 @@ export default function OutfitsScreen() {
                 source: 'ai',
             };
             await saveLook(look);
+            logEvent('create_outfit', {
+                item_count: look.itemIds.length,
+                source: look.source,
+            });
             await loadLooks();
         } catch (e) {
             console.error('Failed to save look:', e);
@@ -805,18 +814,18 @@ export default function OutfitsScreen() {
 
                                         <View style={styles.manualSwapGrid}>
                                             {suggestedOutfit.map((item, i) => (
-                                                <View key={item.id} style={styles.swapItemCard}>
+                                                <View key={item.id} style={[styles.swapItemCard, { backgroundColor: tc.surface, borderColor: tc.border }]}>
                                                     <Image
                                                         source={{ uri: item.processedUrl }}
-                                                        style={styles.swapItemImg}
+                                                        style={[styles.swapItemImg, { backgroundColor: tc.surface }]}
                                                         resizeMode="contain"
                                                     />
-                                                    <View style={styles.swapItemMeta}>
+                                                    <View style={[styles.swapItemMeta, { backgroundColor: tc.card, borderTopColor: tc.border }]}>
                                                         <Text style={[styles.swapItemCat, { color: tc.textSecondary }]} numberOfLines={1}>
                                                             {normalizeCategory(item.category).toUpperCase()}
                                                         </Text>
                                                         <TouchableOpacity
-                                                            style={styles.swapBtn}
+                                                            style={[styles.swapBtn, { backgroundColor: isDarkMode ? tc.surfacePressed : '#FFF3D6' }]}
                                                             onPress={() => openSelector(normalizeCategory(item.category))}
                                                         >
                                                             <Ionicons name="swap-horizontal" size={14} color={Colors.goldDark} />
@@ -882,7 +891,7 @@ export default function OutfitsScreen() {
                                                     <View key={item.id} style={styles.generatedLookItem}>
                                                         <Image
                                                             source={{ uri: item.processedUrl }}
-                                                            style={styles.generatedLookImage}
+                                                            style={[styles.generatedLookImage, { backgroundColor: tc.surface }]}
                                                             resizeMode="contain"
                                                         />
                                                         <Text
@@ -1006,18 +1015,17 @@ export default function OutfitsScreen() {
                                                             {items.length} items · {day} {month}
                                                         </Text>
                                                     </View>
-                                                    {/* Category dots */}
-                                                    <View style={styles.lookCatDots}>
-                                                        {(['topwear', 'bottomwear', 'footwear'] as const).map(cat => (
-                                                            <View
-                                                                key={cat}
-                                                                style={[
-                                                                    styles.lookCatDot,
-                                                                    { backgroundColor: byCategory[cat]?.length ? tc.accent : tc.border },
-                                                                ]}
-                                                            />
-                                                        ))}
-                                                    </View>
+                                                    {/* Share button */}
+                                                    <TouchableOpacity
+                                                        style={[styles.lookOotdBtn, { borderColor: tc.accent }]}
+                                                        onPress={(e) => {
+                                                            e.stopPropagation?.();
+                                                            setShareLook({ lookName: look.name || `Look ${index + 1}`, items, date: look.createdAt?.split('T')[0] ?? new Date().toISOString().split('T')[0] });
+                                                        }}
+                                                    >
+                                                        <Ionicons name="share-outline" size={11} color={tc.accent} />
+                                                        <Text style={[styles.lookOotdText, { color: tc.accent }]}>Share</Text>
+                                                    </TouchableOpacity>
                                                 </View>
                                             </TouchableOpacity>
                                         );
@@ -1210,6 +1218,16 @@ export default function OutfitsScreen() {
                     </ScrollView>
                 </SafeAreaView>
             </Modal>
+
+            {shareLook && (
+                <ShareOutfitModal
+                    visible={!!shareLook}
+                    lookName={shareLook.lookName}
+                    items={shareLook.items}
+                    date={shareLook.date}
+                    onClose={() => setShareLook(null)}
+                />
+            )}
         </ScreenContainer>
     );
 }
@@ -2004,13 +2022,15 @@ const styles = StyleSheet.create({
     saveLookBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 999,
+        justifyContent: 'center',
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.sm,
+        borderRadius: BorderRadius.round,
         gap: 6,
+        minHeight: 38,
     },
     saveLookText: {
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: '600',
         fontFamily: FontFamily.bodySemiBold,
     },
@@ -2155,6 +2175,22 @@ const styles = StyleSheet.create({
         width: 6,
         height: 6,
         borderRadius: 3,
+    },
+    lookOotdBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderRadius: BorderRadius.round,
+        borderWidth: 1,
+        minHeight: 30,
+    },
+    lookOotdText: {
+        fontSize: 11,
+        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '600',
     },
     // Legacy compat
     lookHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },

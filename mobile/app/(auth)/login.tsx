@@ -68,7 +68,7 @@ export default function LoginScreen() {
             <View style={[styles.card, { backgroundColor: tc.card }]}>
                 {/* Google Sign-In */}
                 <TouchableOpacity
-                    style={[styles.socialBtn, styles.googleBtn, { borderColor: tc.border }]}
+                    style={[styles.socialBtn, styles.googleBtn, { backgroundColor: tc.card, borderColor: tc.border }]}
                     onPress={handleGoogle}
                     disabled={isLoading}
                     activeOpacity={0.7}
@@ -200,7 +200,6 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.md,
     },
     googleBtn: {
-        backgroundColor: '#FFFFFF',
         borderWidth: 1,
         ...Shadows.sm,
     },

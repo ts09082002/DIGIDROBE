@@ -1,0 +1,18 @@
+diff --git a/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js b/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js
+index fb459dd..ed4da2b 100644
+--- a/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js
++++ b/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js
+@@ -73,10 +73,10 @@ async function assembleAsync(androidProjectPath, { variant, port, appName, build
+         'lint',
+         // ignore tests
+         '-x',
+-        'test',
+-        '--configure-on-demand'
++        'test'
++        // '--configure-on-demand' removed — causes transform race condition on Windows
+     ];
+-    if (buildCache) args.push('--build-cache');
++    // '--build-cache' removed — causes transform race condition on Windows
+     // Generate a profile under `/android/app/build/reports/profile`
+     if (_env.env.EXPO_PROFILE) args.push('--profile');
+     return await spawnGradleAsync(androidProjectPath, {

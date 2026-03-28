@@ -211,66 +211,67 @@ export default function DayDetailSheet({
 
                         {/* Action buttons */}
                         <View style={styles.actionGroup}>
-                            <TouchableOpacity
-                                style={[styles.outlineBtn, { borderColor: tc.border }]}
-                                onPress={() => setShowPicker(true)}
-                                accessibilityRole="button"
-                                accessibilityLabel="Edit outfit"
-                            >
-                                <Ionicons name="pencil-outline" size={18} color={tc.textPrimary} />
-                                <Text style={[styles.outlineBtnText, { color: tc.textPrimary }]}>
-                                    Edit Outfit
-                                </Text>
-                            </TouchableOpacity>
+                            {/* Edit */}
+                            <View style={styles.iconBtnWrap}>
+                                <TouchableOpacity
+                                    style={[styles.iconBtn, { backgroundColor: tc.surface, borderColor: tc.border }]}
+                                    onPress={() => setShowPicker(true)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Edit outfit"
+                                >
+                                    <Ionicons name="pencil-outline" size={22} color={tc.textPrimary} />
+                                </TouchableOpacity>
+                                <Text style={[styles.iconBtnLabel, { color: tc.textSecondary }]}>Edit</Text>
+                            </View>
 
-                            <TouchableOpacity
-                                style={[styles.outlineBtn, { borderColor: tc.border }]}
-                                onPress={handleAISuggest}
-                                disabled={suggesting}
-                                accessibilityRole="button"
-                                accessibilityLabel="Get AI suggestion"
-                            >
-                                {suggesting ? (
-                                    <ActivityIndicator size="small" color={tc.accent} />
-                                ) : (
-                                    <Ionicons name="sparkles" size={18} color={tc.accent} />
-                                )}
-                                <Text style={[styles.outlineBtnText, { color: tc.accent }]}>
-                                    AI Suggest
-                                </Text>
-                            </TouchableOpacity>
+                            {/* AI Suggest */}
+                            <View style={styles.iconBtnWrap}>
+                                <TouchableOpacity
+                                    style={[styles.iconBtn, { backgroundColor: tc.accentLight, borderColor: tc.accent }]}
+                                    onPress={handleAISuggest}
+                                    disabled={suggesting}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Get AI suggestion"
+                                >
+                                    {suggesting
+                                        ? <ActivityIndicator size="small" color={tc.accent} />
+                                        : <Ionicons name="sparkles" size={22} color={tc.accent} />
+                                    }
+                                </TouchableOpacity>
+                                <Text style={[styles.iconBtnLabel, { color: tc.accent }]}>AI</Text>
+                            </View>
 
-                            <TouchableOpacity
-                                style={[styles.outlineBtn, { borderColor: Colors.gold, backgroundColor: Colors.gold }]}
-                                onPress={() => {
-                                    onClose(); // Close modal first
-                                    const topItems = selectedItemObjects.filter(i => {
-                                        const c = normalizeCategory(i.category);
-                                        return c === 'topwear' || c === 'dresses';
-                                    });
-                                    const bottomItems = selectedItemObjects.filter(i => normalizeCategory(i.category) === 'bottomwear');
-                                    const shoeItems = selectedItemObjects.filter(i => normalizeCategory(i.category) === 'footwear');
-                                    
-                                    setTimeout(() => {
-                                        router.replace({
-                                            pathname: '/(tabs)/',
-                                            params: {
-                                                viewOutfit: 'true',
-                                                topId: topItems[0]?.id || '',
-                                                bottomId: bottomItems[0]?.id || '',
-                                                shoeId: shoeItems[0]?.id || ''
-                                            }
+                            {/* Canvas */}
+                            <View style={styles.iconBtnWrap}>
+                                <TouchableOpacity
+                                    style={[styles.iconBtn, { backgroundColor: Colors.gold, borderColor: Colors.gold }]}
+                                    onPress={() => {
+                                        onClose();
+                                        const topItems = selectedItemObjects.filter(i => {
+                                            const c = normalizeCategory(i.category);
+                                            return c === 'topwear' || c === 'dresses';
                                         });
-                                    }, 100);
-                                }}
-                                accessibilityRole="button"
-                                accessibilityLabel="See outfit on home canvas"
-                            >
-                                <Ionicons name="eye-outline" size={18} color={Colors.white} />
-                                <Text style={[styles.outlineBtnText, { color: Colors.white }]} numberOfLines={1}>
-                                    Canvas
-                                </Text>
-                            </TouchableOpacity>
+                                        const bottomItems = selectedItemObjects.filter(i => normalizeCategory(i.category) === 'bottomwear');
+                                        const shoeItems = selectedItemObjects.filter(i => normalizeCategory(i.category) === 'footwear');
+                                        setTimeout(() => {
+                                            router.replace({
+                                                pathname: '/(tabs)/',
+                                                params: {
+                                                    viewOutfit: 'true',
+                                                    topId: topItems[0]?.id || '',
+                                                    bottomId: bottomItems[0]?.id || '',
+                                                    shoeId: shoeItems[0]?.id || ''
+                                                }
+                                            });
+                                        }, 100);
+                                    }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="See outfit on home canvas"
+                                >
+                                    <Ionicons name="eye-outline" size={22} color={Colors.white} />
+                                </TouchableOpacity>
+                                <Text style={[styles.iconBtnLabel, { color: tc.textSecondary }]}>Canvas</Text>
+                            </View>
                         </View>
                     </ScrollView>
                 ) : (
@@ -423,22 +424,28 @@ const styles = StyleSheet.create({
     },
     actionGroup: {
         flexDirection: 'row',
-        gap: Spacing.md,
+        justifyContent: 'center',
+        gap: Spacing.xl,
+        marginTop: Spacing.lg,
+        paddingHorizontal: Spacing.md,
     },
-    outlineBtn: {
-        flex: 1,
-        flexDirection: 'row',
+    iconBtnWrap: {
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    iconBtn: {
+        width: 52,
+        height: 52,
+        borderRadius: 16,
+        borderWidth: 1.5,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: Spacing.sm,
-        paddingVertical: Spacing.md,
-        borderRadius: BorderRadius.md,
-        borderWidth: 1.5,
     },
-    outlineBtnText: {
-        fontSize: 14,
+    iconBtnLabel: {
+        fontSize: 11,
         fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
+        letterSpacing: 0.3,
     },
     // Picker
     pickerContainer: {

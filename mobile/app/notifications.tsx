@@ -128,7 +128,7 @@ export default function NotificationsScreen() {
                 </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { backgroundColor: tc.background }]}>
                 
                 {newNotifs.length > 0 && (
                     <View style={styles.section}>
@@ -181,7 +181,6 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingHorizontal: Spacing.lg,
         paddingBottom: 60,
-        backgroundColor: '#FCFBFA', // matching mockup off-white
     },
     section: {
         marginTop: Spacing.xl,

@@ -699,8 +699,10 @@ const styles = StyleSheet.create({
     },
     confirmPickBtn: {
         marginHorizontal: Spacing.xl,
-        height: 50,
-        borderRadius: BorderRadius.md,
+        minHeight: 50,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.xxl,
+        borderRadius: BorderRadius.round,
         alignItems: 'center',
         justifyContent: 'center',
         ...Shadows.sm,

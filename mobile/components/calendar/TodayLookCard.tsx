@@ -48,7 +48,6 @@ export default function TodayLookCard({
     const router = useRouter();
     const hasItems = items.length > 0;
     const label = formatDateLabel(date);
-
     return (
         <View style={[styles.card, { backgroundColor: tc.card, borderLeftColor: tc.accent }, Shadows.sm]}>
             {/* Header */}
@@ -90,7 +89,7 @@ export default function TodayLookCard({
                             <Ionicons name="checkmark-circle" size={18} color={tc.accent} />
                             <Text style={[styles.woreItText, { color: tc.accent }]}>Wore it</Text>
                         </TouchableOpacity>
-                        
+
                         <TouchableOpacity
                             style={styles.seeOnCanvasBtn}
                             onPress={() => {
@@ -192,11 +191,12 @@ const styles = StyleSheet.create({
     woreItBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        alignSelf: 'flex-start',
-        gap: Spacing.xs,
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.sm,
+        justifyContent: 'center',
+        gap: 6,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.md,
         borderRadius: BorderRadius.round,
+        minHeight: 42,
     },
     woreItText: {
         fontSize: 14,
@@ -215,10 +215,12 @@ const styles = StyleSheet.create({
     actionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.xs,
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.sm + 2,
+        justifyContent: 'center',
+        gap: 6,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.md,
         borderRadius: BorderRadius.round,
+        minHeight: 42,
     },
     actionBtnTextLight: {
         fontSize: 14,
@@ -236,14 +238,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: Colors.gold,
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: Spacing.md,
         borderRadius: BorderRadius.round,
-        gap: 8,
+        gap: 6,
+        minHeight: 42,
+        flex: 1,
     },
     seeOnCanvasBtnText: {
         color: Colors.white,
-        fontFamily: FontFamily.bodyBold,
-        fontSize: 13,
+        fontFamily: FontFamily.bodySemiBold,
+        fontWeight: '600',
+        fontSize: 14,
     },
 });
