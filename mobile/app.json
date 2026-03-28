@@ -67,11 +67,11 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true,
+            "usesCleartextTraffic": false,
             "newArchEnabled": true
           },
           "ios": {
-            "usesCleartextTraffic": true,
+            "usesCleartextTraffic": false,
             "newArchEnabled": true
           }
         }
