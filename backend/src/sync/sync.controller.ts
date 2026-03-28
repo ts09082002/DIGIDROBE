@@ -37,8 +37,10 @@ export class SyncController {
             );
             return { changes, timestamp };
         } catch (error) {
+            // VULN-07 Fix: Generic error to client, log detail on server
+            console.error('Sync pull error:', error);
             throw new HttpException(
-                `Sync pull failed: ${error.message}`,
+                'Sync pull failed. Please try again later.',
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
@@ -53,8 +55,10 @@ export class SyncController {
             await this.syncService.pushChanges(body.changes, body.lastPulledAt);
             return { success: true };
         } catch (error) {
+            // VULN-07 Fix: Generic error to client, log detail on server
+            console.error('Sync push error:', error);
             throw new HttpException(
-                `Sync push failed: ${error.message}`,
+                'Sync push failed. Please try again later.',
                 HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }

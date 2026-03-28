@@ -85,8 +85,12 @@ export class SyncService {
 
             const collection = this.db.collection(`sync_${table}`);
 
+            // VULN-10 Fix: Basic schema validation
+            const validate = (rec: any) => rec && typeof rec === 'object' && typeof rec.id === 'string';
+
             // Process created records
             for (const record of tableChanges.created || []) {
+                if (!validate(record)) continue;
                 const { id, ...data } = record;
                 const docRef = collection.doc(id);
                 batch.set(docRef, {
@@ -98,6 +102,7 @@ export class SyncService {
 
             // Process updated records
             for (const record of tableChanges.updated || []) {
+                if (!validate(record)) continue;
                 const { id, ...data } = record;
                 const docRef = collection.doc(id);
                 batch.set(docRef, {

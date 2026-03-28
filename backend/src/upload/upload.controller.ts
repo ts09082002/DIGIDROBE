@@ -6,6 +6,8 @@ import {
   BadRequestException,
   Body,
 } from '@nestjs/common';
+import * as fileType from 'file-type';
+import * as fs from 'fs';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
@@ -70,6 +72,21 @@ export class UploadController {
     const imageFile = files?.image?.[0];
     if (!imageFile) {
       throw new BadRequestException('No image file provided');
+    }
+
+    // VULN-06 Fix: Validate actual file magic bytes
+    const buffer = fs.readFileSync(imageFile.path);
+    const { fileTypeFromBuffer } = await (eval('import("file-type")') as Promise<typeof import('file-type')>);
+    const type = await fileTypeFromBuffer(buffer);
+    const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+    
+    if (!type || !ALLOWED_MIME.includes(type.mime)) {
+      // Clean up the invalid file
+      if (fs.existsSync(imageFile.path)) fs.unlinkSync(imageFile.path);
+      if (files?.original?.[0]?.path && fs.existsSync(files.original[0].path)) {
+        fs.unlinkSync(files.original[0].path);
+      }
+      throw new BadRequestException('Invalid image file content (magic byte mismatch)');
     }
 
     let mlLabels: string[] | undefined;
