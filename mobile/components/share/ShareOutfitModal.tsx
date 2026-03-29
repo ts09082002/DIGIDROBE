@@ -8,10 +8,11 @@
  *   3. Canvas posts back a PNG base64 string via onMessage
  *   4. We write it to FileSystem cache and open expo-sharing
  */
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Animated,
     Dimensions,
     Image,
     Share,
@@ -22,6 +23,7 @@ import {
     StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -197,6 +199,23 @@ export default function ShareOutfitModal({ visible, lookName, items, date, onClo
     const [cardHtml, setCardHtml] = useState<string | null>(null);
     const inProgress = useRef(false);
 
+    // Shimmer sweep animation
+    const shimmerX = useRef(new Animated.Value(-CARD_W * 1.5)).current;
+    useEffect(() => {
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(shimmerX, {
+                    toValue: CARD_W * 1.5,
+                    duration: 2200,
+                    useNativeDriver: true,
+                }),
+                Animated.delay(1600),
+            ])
+        );
+        loop.start();
+        return () => loop.stop();
+    }, []);
+
     const startShare = useCallback(async () => {
         if (inProgress.current) return;
         inProgress.current = true;
@@ -293,12 +312,22 @@ export default function ShareOutfitModal({ visible, lookName, items, date, onClo
                 <View style={{ width: 40 }} />
             </View>
 
-            {/* Card preview */}
+            {/* Card preview — 3D + shine */}
             <View style={styles.cardWrap}>
-                <View style={styles.cardOuter}>
+                {/* 3D depth shadow layers */}
+                <View style={[styles.cardOuter, styles.cardDepth3]} />
+                <View style={[styles.cardOuter, styles.cardDepth2]} />
+                <View style={[styles.cardOuter, styles.cardDepth1]} />
+
+                {/* Main card */}
+                <View style={[styles.cardOuter, styles.cardMain]}>
                     <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0D0D18' }]} />
                     <View style={styles.blobTR} />
                     <View style={styles.blobBL} />
+
+                    {/* Top edge highlight — glass rim */}
+                    <View style={styles.cardTopEdge} />
+
                     <View style={styles.cardTop}>
                         <Text style={styles.cardBrand}>✦ VibeCheck</Text>
                     </View>
@@ -309,6 +338,35 @@ export default function ShareOutfitModal({ visible, lookName, items, date, onClo
                         <Text style={styles.cardName} numberOfLines={1}>{lookName}</Text>
                         <Text style={styles.cardDate}>{fmtDate(date)}</Text>
                     </View>
+
+                    {/* Shimmer sweep */}
+                    <Animated.View
+                        style={[
+                            StyleSheet.absoluteFill,
+                            { transform: [{ translateX: shimmerX }] },
+                        ]}
+                        pointerEvents="none"
+                    >
+                        <LinearGradient
+                            colors={[
+                                'rgba(255,255,255,0)',
+                                'rgba(255,255,255,0.06)',
+                                'rgba(255,255,255,0.18)',
+                                'rgba(255,255,255,0.06)',
+                                'rgba(255,255,255,0)',
+                            ]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={{ width: CARD_W * 0.55, height: '100%' }}
+                        />
+                    </Animated.View>
+
+                    {/* Gloss overlay at top */}
+                    <LinearGradient
+                        colors={['rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']}
+                        style={styles.glossOverlay}
+                        pointerEvents="none"
+                    />
                 </View>
             </View>
 
@@ -379,6 +437,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        height: CARD_H + 20,
     },
     cardOuter: {
         width: CARD_W,
@@ -386,6 +445,52 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         overflow: 'hidden',
         padding: 20,
+        position: 'absolute',
+    },
+    /* 3D stacked depth layers — offset down-right to fake Z-depth */
+    cardDepth3: {
+        backgroundColor: '#06060C',
+        transform: [{ translateX: 9 }, { translateY: 9 }],
+        borderRadius: 22,
+        opacity: 0.5,
+    },
+    cardDepth2: {
+        backgroundColor: '#0A0A14',
+        transform: [{ translateX: 6 }, { translateY: 6 }],
+        borderRadius: 21,
+        opacity: 0.7,
+    },
+    cardDepth1: {
+        backgroundColor: '#0D0D1C',
+        transform: [{ translateX: 3 }, { translateY: 3 }],
+        borderRadius: 20,
+        opacity: 0.85,
+    },
+    cardMain: {
+        /* top card sits at 0,0 — shadow via elevation */
+        transform: [{ translateX: 0 }, { translateY: 0 }],
+        borderWidth: 1,
+        borderColor: 'rgba(180,130,160,0.28)',
+        elevation: 24,
+        shadowColor: '#A0627A',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.55,
+        shadowRadius: 24,
+    },
+    cardTopEdge: {
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        height: 2,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+    },
+    glossOverlay: {
+        position: 'absolute',
+        top: 0, left: 0, right: 0,
+        height: CARD_H * 0.45,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
     },
     blobTR: {
         position: 'absolute', top: -50, right: -50,

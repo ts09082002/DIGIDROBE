@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { logEvent, logScreenView } from '../../services/analytics';
 import {
     View,
     Text,
@@ -97,6 +99,10 @@ export default function TravelScreen() {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    useFocusEffect(useCallback(() => {
+        logScreenView('Travel', 'TravelScreen');
+    }, []));
 
     // Refresh selected trip from trips array
     useEffect(() => {

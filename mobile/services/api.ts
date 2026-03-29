@@ -133,6 +133,18 @@ class ApiService {
     private async fetch(url: string, init?: RequestInit): Promise<Response> {
         const headers = new Headers(init?.headers);
         headers.set('Bypass-Tunnel-Reminder', 'true');
+
+        // VULN-02 Fix: Include Bearer token if user is signed in
+        try {
+            const { getIdToken } = require('./auth');
+            const token = await getIdToken();
+            if (token) {
+                headers.set('Authorization', `Bearer ${token}`);
+            }
+        } catch (err) {
+            console.warn('Could not get auth token for request:', err);
+        }
+
         return fetch(url, { ...init, headers });
     }
 
@@ -191,10 +203,8 @@ class ApiService {
             const result: ApiResponse<UploadResult> = await response.json();
             return result.data;
         } catch (error: any) {
-            if (error?.message?.includes('Network request failed')) {
-                throw new Error(
-                    `Cannot reach backend at ${this.baseUrl}. Make sure backend is running and phone/emulator can access this IP.`,
-                );
+            if (__DEV__ && error?.message?.includes('Network request failed')) {
+                console.error(`Cannot reach backend at ${this.baseUrl}.`);
             }
             throw error;
         }
@@ -250,10 +260,8 @@ class ApiService {
             const result: ApiResponse<UploadResult> = await response.json();
             return result.data;
         } catch (error: any) {
-            if (error?.message?.includes('Network request failed')) {
-                throw new Error(
-                    `Cannot reach backend at ${this.baseUrl}. Make sure backend is running and phone/emulator can access this IP.`,
-                );
+            if (__DEV__ && error?.message?.includes('Network request failed')) {
+                console.error(`Cannot reach backend at ${this.baseUrl}.`);
             }
             throw error;
         }

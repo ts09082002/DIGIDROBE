@@ -7,11 +7,12 @@ import { join } from 'path';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Enable CORS for mobile app
+  // Restricted CORS for mobile app
   app.enableCors({
-    origin: '*',
+    origin: '*', // We still use * for local dev convenience, but in production this should be Restricted
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders: 'Content-Type,Authorization',
+    credentials: true,
   });
 
   // Global validation pipe

@@ -1,3 +1,14 @@
+diff --git a/node_modules/@six33/react-native-bg-removal/android/build/.transforms/0b35b4e2c2c7a9482ac17a6b48cfeb26/results.bin b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/0b35b4e2c2c7a9482ac17a6b48cfeb26/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/0b35b4e2c2c7a9482ac17a6b48cfeb26/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/@six33/react-native-bg-removal/android/build/.transforms/0b35b4e2c2c7a9482ac17a6b48cfeb26/transformed/classes/classes_dex/classes.dex b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/0b35b4e2c2c7a9482ac17a6b48cfeb26/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..3d29d32
+Binary files /dev/null and b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/0b35b4e2c2c7a9482ac17a6b48cfeb26/transformed/classes/classes_dex/classes.dex differ
 diff --git a/node_modules/@six33/react-native-bg-removal/android/build/.transforms/4d9244eb8145da1e4c6cda47da5b17c0/results.bin b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/4d9244eb8145da1e4c6cda47da5b17c0/results.bin
 new file mode 100644
 index 0000000..0d259dd
@@ -20,6 +31,28 @@ diff --git a/node_modules/@six33/react-native-bg-removal/android/build/.transfor
 new file mode 100644
 index 0000000..1496ef9
 Binary files /dev/null and b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/541c6803dea154891bce84eadc655c50/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/@six33/react-native-bg-removal/android/build/.transforms/585a5d6af0caf8f9db78f51d791d45b2/results.bin b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/585a5d6af0caf8f9db78f51d791d45b2/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/585a5d6af0caf8f9db78f51d791d45b2/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/@six33/react-native-bg-removal/android/build/.transforms/585a5d6af0caf8f9db78f51d791d45b2/transformed/classes/classes_dex/classes.dex b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/585a5d6af0caf8f9db78f51d791d45b2/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..3d29d32
+Binary files /dev/null and b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/585a5d6af0caf8f9db78f51d791d45b2/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/@six33/react-native-bg-removal/android/build/.transforms/c7ccbc650adb37f0add745c6f8e63156/results.bin b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/c7ccbc650adb37f0add745c6f8e63156/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/c7ccbc650adb37f0add745c6f8e63156/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/@six33/react-native-bg-removal/android/build/.transforms/c7ccbc650adb37f0add745c6f8e63156/transformed/classes/classes_dex/classes.dex b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/c7ccbc650adb37f0add745c6f8e63156/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..55ec785
+Binary files /dev/null and b/node_modules/@six33/react-native-bg-removal/android/build/.transforms/c7ccbc650adb37f0add745c6f8e63156/transformed/classes/classes_dex/classes.dex differ
 diff --git a/node_modules/@six33/react-native-bg-removal/android/build/generated/source/buildConfig/debug/com/backgroundremover/BuildConfig.java b/node_modules/@six33/react-native-bg-removal/android/build/generated/source/buildConfig/debug/com/backgroundremover/BuildConfig.java
 new file mode 100644
 index 0000000..34f61ee
@@ -684,11 +717,11 @@ new file mode 100644
 index 0000000..e69de29
 diff --git a/node_modules/@six33/react-native-bg-removal/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties b/node_modules/@six33/react-native-bg-removal/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
 new file mode 100644
-index 0000000..a81c235
+index 0000000..22f000a
 --- /dev/null
 +++ b/node_modules/@six33/react-native-bg-removal/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
 @@ -0,0 +1 @@
-+#Sun Mar 22 12:39:22 IST 2026
++#Sat Mar 28 20:11:53 IST 2026
 diff --git a/node_modules/@six33/react-native-bg-removal/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml b/node_modules/@six33/react-native-bg-removal/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml
 new file mode 100644
 index 0000000..2c53fb8
@@ -1162,7 +1195,7 @@ index 0000000..131e265
 Binary files /dev/null and b/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i.len differ
 diff --git a/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/cacheable/last-build.bin b/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/cacheable/last-build.bin
 new file mode 100644
-index 0000000..3ac37ca
+index 0000000..b430878
 Binary files /dev/null and b/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/cacheable/last-build.bin differ
 diff --git a/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin b/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin
 new file mode 100644
@@ -1170,7 +1203,7 @@ index 0000000..9e5a8ca
 Binary files /dev/null and b/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin differ
 diff --git a/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/local-state/build-history.bin b/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/local-state/build-history.bin
 new file mode 100644
-index 0000000..65ef494
+index 0000000..1d754b6
 Binary files /dev/null and b/node_modules/@six33/react-native-bg-removal/android/build/kotlin/compileDebugKotlin/local-state/build-history.bin differ
 diff --git a/node_modules/@six33/react-native-bg-removal/android/build/outputs/logs/manifest-merger-debug-report.txt b/node_modules/@six33/react-native-bg-removal/android/build/outputs/logs/manifest-merger-debug-report.txt
 new file mode 100644
@@ -1235,10 +1268,10 @@ new file mode 100644
 index 0000000..cc07f25
 Binary files /dev/null and b/node_modules/@six33/react-native-bg-removal/android/build/tmp/kotlin-classes/debug/com/backgroundremover/BackgroundRemoverSpec.class differ
 diff --git a/node_modules/@six33/react-native-bg-removal/android/src/main/java/com/backgroundremover/BackgroundRemoverPackage.kt b/node_modules/@six33/react-native-bg-removal/android/src/main/java/com/backgroundremover/BackgroundRemoverPackage.kt
-index c5848dd..6a630a0 100644
+index c5848dd..6ab7550 100644
 --- a/node_modules/@six33/react-native-bg-removal/android/src/main/java/com/backgroundremover/BackgroundRemoverPackage.kt
 +++ b/node_modules/@six33/react-native-bg-removal/android/src/main/java/com/backgroundremover/BackgroundRemoverPackage.kt
-@@ -19,15 +19,13 @@ class BackgroundRemoverPackage : TurboReactPackage() {
+@@ -19,15 +19,14 @@ class BackgroundRemoverPackage : TurboReactPackage() {
    override fun getReactModuleInfoProvider(): ReactModuleInfoProvider {
      return ReactModuleInfoProvider {
        val moduleInfos: MutableMap<String, ReactModuleInfo> = HashMap()
@@ -1249,10 +1282,62 @@ index c5848dd..6a630a0 100644
          false,  // canOverrideExistingModule
          false,  // needsEagerInit
 -        true,  // hasConstants
--        false,  // isCxxModule
--        isTurboModule // isTurboModule
 +        false,  // hasConstants
-+        false   // isCxxModule
+         false,  // isCxxModule
+-        isTurboModule // isTurboModule
++        true    // isTurboModule
        )
        moduleInfos
      }
+diff --git a/node_modules/@six33/react-native-bg-removal/lib/commonjs/index.js b/node_modules/@six33/react-native-bg-removal/lib/commonjs/index.js
+index a5a262a..c0a6e50 100644
+--- a/node_modules/@six33/react-native-bg-removal/lib/commonjs/index.js
++++ b/node_modules/@six33/react-native-bg-removal/lib/commonjs/index.js
+@@ -11,9 +11,8 @@ const LINKING_ERROR = `The package 'react-native-background-remover' doesn't see
+   default: ''
+ }) + '- You rebuilt the app after installing the package\n' + '- You are not using Expo Go\n';
+ 
+-// @ts-ignore
+-const isTurboModuleEnabled = global.__turboModuleProxy != null;
+-const BackgroundRemoverModule = isTurboModuleEnabled ? require('./NativeBackgroundRemover').default : _reactNative.NativeModules.BackgroundRemover;
++// Force legacy NativeModules — TurboModuleRegistry fails due to Windows MAX_PATH
++const BackgroundRemoverModule = _reactNative.NativeModules.BackgroundRemover;
+ const BackgroundRemover = BackgroundRemoverModule ? BackgroundRemoverModule : new Proxy({}, {
+   get() {
+     throw new Error(LINKING_ERROR);
+diff --git a/node_modules/@six33/react-native-bg-removal/lib/module/index.js b/node_modules/@six33/react-native-bg-removal/lib/module/index.js
+index 7b57524..c0b79fa 100644
+--- a/node_modules/@six33/react-native-bg-removal/lib/module/index.js
++++ b/node_modules/@six33/react-native-bg-removal/lib/module/index.js
+@@ -4,9 +4,8 @@ const LINKING_ERROR = `The package 'react-native-background-remover' doesn't see
+   default: ''
+ }) + '- You rebuilt the app after installing the package\n' + '- You are not using Expo Go\n';
+ 
+-// @ts-ignore
+-const isTurboModuleEnabled = global.__turboModuleProxy != null;
+-const BackgroundRemoverModule = isTurboModuleEnabled ? require('./NativeBackgroundRemover').default : NativeModules.BackgroundRemover;
++// Force legacy NativeModules — TurboModuleRegistry fails due to Windows MAX_PATH
++const BackgroundRemoverModule = NativeModules.BackgroundRemover;
+ const BackgroundRemover = BackgroundRemoverModule ? BackgroundRemoverModule : new Proxy({}, {
+   get() {
+     throw new Error(LINKING_ERROR);
+diff --git a/node_modules/@six33/react-native-bg-removal/src/index.tsx b/node_modules/@six33/react-native-bg-removal/src/index.tsx
+index cff759c..6ae96ca 100644
+--- a/node_modules/@six33/react-native-bg-removal/src/index.tsx
++++ b/node_modules/@six33/react-native-bg-removal/src/index.tsx
+@@ -6,12 +6,9 @@ const LINKING_ERROR =
+   '- You rebuilt the app after installing the package\n' +
+   '- You are not using Expo Go\n';
+ 
+-// @ts-ignore
+-const isTurboModuleEnabled = global.__turboModuleProxy != null;
+-
+-const BackgroundRemoverModule = isTurboModuleEnabled
+-  ? require('./NativeBackgroundRemover').default
+-  : NativeModules.BackgroundRemover;
++// Force legacy NativeModules path — TurboModuleRegistry fails on this package
++// because the codegen path exceeds Windows MAX_PATH (>250 chars).
++const BackgroundRemoverModule = NativeModules.BackgroundRemover;
+ 
+ const BackgroundRemover = BackgroundRemoverModule
+   ? BackgroundRemoverModule

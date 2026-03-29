@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { logScreenView } from '../../services/analytics';
 import {
     ActivityIndicator,
     ScrollView,
@@ -115,6 +117,10 @@ export default function CalendarScreen() {
     useEffect(() => {
         loadData(year, month);
     }, [year, month, loadData]);
+
+    useFocusEffect(useCallback(() => {
+        logScreenView('Calendar', 'CalendarScreen');
+    }, []));
 
     // ---------- Helpers ----------
 

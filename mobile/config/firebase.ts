@@ -8,7 +8,7 @@
  * Download these from Firebase Console (project: digidrobe-backend).
  */
 
-import auth from '@react-native-firebase/auth';
+import { getAuth } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // Configure Google Sign-In with the web client ID from Firebase Console.
@@ -19,4 +19,5 @@ GoogleSignin.configure({
     offlineAccess: true,
 });
 
+const auth = getAuth();
 export { auth };

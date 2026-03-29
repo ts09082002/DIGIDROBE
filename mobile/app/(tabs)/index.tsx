@@ -27,6 +27,7 @@ import { fetchLocationAndWeather, getTimeOfDayForGreeting, type WeatherInfo } fr
 import { generateStyleOfDayForWardrobe } from '../../engine';
 import type { RecommendationContext, StyleOfTheDayResult } from '../../engine/types';
 import { normalizeCategory } from '../../constants/categories';
+import { logScreenView } from '../../services/analytics';
 
 const { width, height } = Dimensions.get('window');
 const BODY_PHOTO_KEY = '@vibecheck_body_photo_url';
@@ -76,6 +77,7 @@ export default function HomeScreen() {
     useFocusEffect(
         useCallback(() => {
             fetchItems();
+            logScreenView('Home', 'HomeScreen');
         }, [fetchItems])
     );
 

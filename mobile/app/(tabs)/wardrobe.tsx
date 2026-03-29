@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
     View,
     Text,
@@ -38,9 +39,7 @@ import ScreenContainer from '../../components/ui/ScreenContainer';
 import { SkeletonGrid } from '../../components/ui/SkeletonLoader';
 import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { enqueueAssets } from '../../services/processing-queue';
-const logEvent = (name: string, params?: Record<string, any>) => {
-    try { require('@react-native-firebase/analytics').default().logEvent(name, params); } catch (_) {}
-};
+import { logEvent, logScreenView } from '../../services/analytics';
 import ProcessingProgressBar from '../../components/ProcessingProgressBar';
 
 const { width } = Dimensions.get('window');
@@ -419,8 +418,11 @@ export default function WardrobeScreen() {
 
     useEffect(() => {
         loadItems();
-        logEvent('screen_view', { screen_name: 'wardrobe', screen_class: 'WardrobeScreen' });
     }, [loadItems]);
+
+    useFocusEffect(useCallback(() => {
+        logScreenView('Wardrobe', 'WardrobeScreen');
+    }, []));
 
     const invalidateCache = useCallback(() => {
         itemsCache.current.clear();

@@ -6,6 +6,7 @@
 
 import { Platform } from 'react-native';
 import { auth } from '../config/firebase';
+import { GoogleAuthProvider, AppleAuthProvider } from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
@@ -30,8 +31,8 @@ export async function signInWithGoogle() {
     }
 
     // Create Firebase credential and sign in
-    const credential = auth.GoogleAuthProvider.credential(idToken);
-    const userCredential = await auth().signInWithCredential(credential);
+    const credential = GoogleAuthProvider.credential(idToken);
+    const userCredential = await auth.signInWithCredential(credential);
 
     // Persist profile info for the profile screen
     await syncProfileFromFirebase(userCredential.user);
@@ -71,8 +72,8 @@ export async function signInWithApple() {
     }
 
     // Create Firebase credential with the raw nonce
-    const credential = auth.AppleAuthProvider.credential(identityToken, rawNonce);
-    const userCredential = await auth().signInWithCredential(credential);
+    const credential = AppleAuthProvider.credential(identityToken, rawNonce);
+    const userCredential = await auth.signInWithCredential(credential);
 
     // Apple may provide fullName only on first sign-in; merge if available
     const user = userCredential.user;
@@ -115,7 +116,7 @@ export async function signOut(): Promise<void> {
     }
 
     // Sign out of Firebase
-    await auth().signOut();
+    await auth.signOut();
 
     // Clear guest and profile keys
     await AsyncStorage.multiRemove([GUEST_KEY, PROFILE_NAME_KEY, PROFILE_EMAIL_KEY]);
@@ -135,7 +136,7 @@ async function syncProfileFromFirebase(user: { displayName?: string | null; emai
 
 /** Get a Firebase ID token for backend API calls (future use). */
 export async function getIdToken(): Promise<string | null> {
-    const currentUser = auth().currentUser;
+    const currentUser = auth.currentUser;
     if (!currentUser) return null;
     return currentUser.getIdToken();
 }

@@ -9,18 +9,31 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const serve_static_1 = require("@nestjs/serve-static");
+const throttler_1 = require("@nestjs/throttler");
+const core_1 = require("@nestjs/core");
 const path_1 = require("path");
 const upload_module_1 = require("./upload/upload.module");
 const wardrobe_module_1 = require("./wardrobe/wardrobe.module");
 const calendar_module_1 = require("./calendar/calendar.module");
 const packing_module_1 = require("./packing/packing.module");
 const sync_module_1 = require("./sync/sync.module");
+const firebase_auth_middleware_1 = require("./middleware/firebase-auth.middleware");
 let AppModule = class AppModule {
+    configure(consumer) {
+        consumer
+            .apply(firebase_auth_middleware_1.FirebaseAuthMiddleware)
+            .exclude({ path: 'uploads/(.*)', method: common_1.RequestMethod.GET })
+            .forRoutes('*');
+    }
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            throttler_1.ThrottlerModule.forRoot([{
+                    ttl: 60000,
+                    limit: 100,
+                }]),
             serve_static_1.ServeStaticModule.forRoot({
                 rootPath: (0, path_1.join)(__dirname, '..', 'uploads'),
                 serveRoot: '/uploads',
@@ -30,6 +43,12 @@ exports.AppModule = AppModule = __decorate([
             calendar_module_1.CalendarModule,
             packing_module_1.PackingModule,
             sync_module_1.SyncModule,
+        ],
+        providers: [
+            {
+                provide: core_1.APP_GUARD,
+                useClass: throttler_1.ThrottlerGuard,
+            },
         ],
     })
 ], AppModule);

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
     View,
     Text,
@@ -33,10 +34,7 @@ import { applyOnlineUpdate } from '../../engine/personalization';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import { SkeletonGrid } from '../../components/ui/SkeletonLoader';
 import EmptyState from '../../components/ui/EmptyState';
-import ShareOutfitModal from '../../components/share/ShareOutfitModal';
-const logEvent = (name: string, params?: Record<string, any>) => {
-    try { require('@react-native-firebase/analytics').default().logEvent(name, params); } catch (_) {}
-};
+import { logEvent, logScreenView } from '../../services/analytics';
 
 const TABS = ['My Looks', 'AI Stylist'];
 
@@ -232,8 +230,6 @@ function DraggableCanvasItem({
 }
 
 
-import { useRouter } from 'expo-router';
-
 export default function OutfitsScreen() {
     const { isDarkMode } = useTheme();
     const tc = useThemeColors();
@@ -247,7 +243,6 @@ export default function OutfitsScreen() {
     const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
     const [looksLoading, setLooksLoading] = useState(false);
     const [expandedLookId, setExpandedLookId] = useState<string | null>(null);
-    const [shareLook, setShareLook] = useState<{ lookName: string; items: WardrobeItem[]; date: string } | null>(null);
     const [savingLook, setSavingLook] = useState(false);
     const [profileStep, setProfileStep] = useState(1);
     const [styleProfile, setStyleProfile] = useState<StyleProfile>({
@@ -264,6 +259,8 @@ export default function OutfitsScreen() {
     const [manuallySwappedItems, setManuallySwappedItems] = useState<Record<string, WardrobeItem>>({});
     const [selectorModalVisible, setSelectorModalVisible] = useState(false);
     const [swappingCategory, setSwappingCategory] = useState<string | null>(null);
+    // Ref so occasion chips and shuffle always have fresh wardrobe data (avoids stale closure)
+    const wardrobeItemsRef = useRef<WardrobeItem[]>([]);
 
     const [styleContext, setStyleContext] = useState<RecommendationContext>({
         temperatureC: 24,
@@ -291,13 +288,13 @@ export default function OutfitsScreen() {
                 wardrobeLocal.getAllItems(),
             ]);
             setSavedLooks(looks);
-            setWardrobeItems(
-                allItems.map((item) => ({
-                    ...item,
-                    category: normalizeCategory(item.category),
-                })),
-            );
-            await generateOfflineStyleOfDay(allItems);
+            const normalizedItems = allItems.map((item) => ({
+                ...item,
+                category: normalizeCategory(item.category),
+            }));
+            setWardrobeItems(normalizedItems);
+            wardrobeItemsRef.current = normalizedItems;
+            await generateOfflineStyleOfDay(normalizedItems);
         } catch (e) {
             console.warn('Failed to load saved looks:', e);
         } finally {
@@ -341,7 +338,7 @@ export default function OutfitsScreen() {
         logEvent('use_ai_suggestion', { occasion: styleContext.occasion });
         setManuallySwappedItems({});
         const topId = styleOfDayItems.find(it => normalizeCategory(it.category) === 'topwear')?.id;
-        await generateOfflineStyleOfDay(wardrobeItems, undefined, topId ? [topId] : []);
+        await generateOfflineStyleOfDay(wardrobeItemsRef.current, undefined, topId ? [topId] : []);
     };
 
     const generateOfflineStyleOfDay = async (items: WardrobeItem[], overrideContext?: RecommendationContext, lockedIds?: string[]) => {
@@ -368,6 +365,10 @@ export default function OutfitsScreen() {
         loadData();
         loadLooks();
     }, []);
+
+    useFocusEffect(useCallback(() => {
+        logScreenView('Outfits', 'OutfitsScreen');
+    }, []));
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -770,7 +771,7 @@ export default function OutfitsScreen() {
                                                 onPress={() => {
                                                     const nextContext = { ...styleContext, occasion: occ };
                                                     setStyleContext(nextContext);
-                                                    generateOfflineStyleOfDay(wardrobeItems, nextContext);
+                                                    generateOfflineStyleOfDay(wardrobeItemsRef.current, nextContext);
                                                 }}
                                             >
                                                 <Text style={[styles.occasionChipText, isActive ? styles.occasionChipTextActive : { color: tc.textSecondary }]}>
@@ -1015,17 +1016,6 @@ export default function OutfitsScreen() {
                                                             {items.length} items · {day} {month}
                                                         </Text>
                                                     </View>
-                                                    {/* Share button */}
-                                                    <TouchableOpacity
-                                                        style={[styles.lookOotdBtn, { borderColor: tc.accent }]}
-                                                        onPress={(e) => {
-                                                            e.stopPropagation?.();
-                                                            setShareLook({ lookName: look.name || `Look ${index + 1}`, items, date: look.createdAt?.split('T')[0] ?? new Date().toISOString().split('T')[0] });
-                                                        }}
-                                                    >
-                                                        <Ionicons name="share-outline" size={11} color={tc.accent} />
-                                                        <Text style={[styles.lookOotdText, { color: tc.accent }]}>Share</Text>
-                                                    </TouchableOpacity>
                                                 </View>
                                             </TouchableOpacity>
                                         );
@@ -1219,15 +1209,6 @@ export default function OutfitsScreen() {
                 </SafeAreaView>
             </Modal>
 
-            {shareLook && (
-                <ShareOutfitModal
-                    visible={!!shareLook}
-                    lookName={shareLook.lookName}
-                    items={shareLook.items}
-                    date={shareLook.date}
-                    onClose={() => setShareLook(null)}
-                />
-            )}
         </ScreenContainer>
     );
 }

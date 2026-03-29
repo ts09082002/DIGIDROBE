@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { logScreenView } from '../../services/analytics';
 import {
     View,
     Text,
@@ -287,6 +289,10 @@ export default function ProfileScreen() {
     const [privacyVisible, setPrivacyVisible] = useState(false);
     const [storageVisible, setStorageVisible] = useState(false);
     const [helpVisible, setHelpVisible] = useState(false);
+
+    useFocusEffect(useCallback(() => {
+        logScreenView('Profile', 'ProfileScreen');
+    }, []));
 
     useEffect(() => {
         (async () => {
