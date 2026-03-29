@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, Animated, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, Animated, Dimensions, Image } from 'react-native';
 import { Colors, FontFamily } from '../../constants/theme';
 import { useFonts, Cormorant_600SemiBold, Cormorant_700Bold } from '@expo-google-fonts/cormorant';
 import { Montserrat_400Regular, Montserrat_500Medium } from '@expo-google-fonts/montserrat';
@@ -83,10 +83,13 @@ export default function AnimatedSplashScreen({ onFinish }: Props) {
     return (
         <Animated.View style={[styles.container, { opacity: screenOpacity }]} pointerEvents="auto">
 
-            {/* Top diamond icon */}
+            {/* App logo */}
             <Animated.View style={[styles.iconWrap, { opacity: logoOpacity }]}>
-                <View style={styles.diamond} />
-                <Text style={styles.diamondText}>V</Text>
+                <Image
+                    source={require('../../assets/splash.png')}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                />
             </Animated.View>
 
             {/* Brand name block */}
@@ -132,27 +135,15 @@ const styles = StyleSheet.create({
         zIndex: 9999,
     },
 
-    /* Diamond icon */
+    /* Logo */
     iconWrap: {
-        width: 52,
-        height: 52,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 28,
     },
-    diamond: {
-        position: 'absolute',
-        width: 38,
-        height: 38,
-        backgroundColor: ACCENT,
-        transform: [{ rotate: '45deg' }],
-        borderRadius: 4,
-    },
-    diamondText: {
-        color: Colors.white,
-        fontFamily: FontFamily.heading,
-        fontSize: 22,
-        fontWeight: '700',
+    logoImage: {
+        width: 160,
+        height: 160,
     },
 
     /* Brand block */
