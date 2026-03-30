@@ -337,8 +337,9 @@ export default function OutfitsScreen() {
         await recordOutfitInteraction(styleOfDay, 'skip');
         logEvent('use_ai_suggestion', { occasion: styleContext.occasion });
         setManuallySwappedItems({});
-        const topId = styleOfDayItems.find(it => normalizeCategory(it.category) === 'topwear')?.id;
-        await generateOfflineStyleOfDay(wardrobeItemsRef.current, undefined, topId ? [topId] : []);
+        // Exclude all currently shown items so shuffle always gives a fresh outfit
+        const currentIds = styleOfDayItems.map(it => it.id).filter(Boolean);
+        await generateOfflineStyleOfDay(wardrobeItemsRef.current, undefined, currentIds);
     };
 
     const generateOfflineStyleOfDay = async (items: WardrobeItem[], overrideContext?: RecommendationContext, lockedIds?: string[]) => {

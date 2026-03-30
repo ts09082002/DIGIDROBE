@@ -79,10 +79,10 @@ export function generateStyleOfTheDay(
         for (const cat of template.requiredCategories) {
             let pool = byCategory[cat];
 
-            if (pool) {
-                const lockedInCat = pool.filter(item => lockedItems.has(item.id));
-                if (lockedInCat.length > 0) {
-                    pool = lockedInCat;
+            if (pool && lockedItems.size > 0) {
+                const excluded = pool.filter(item => !lockedItems.has(item.id));
+                if (excluded.length > 0) {
+                    pool = excluded;
                 }
             }
 
