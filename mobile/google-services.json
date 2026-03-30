@@ -7,26 +7,26 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:838322575800:android:0fcf64f2b63369aa9cd74d",
+        "mobilesdk_app_id": "1:838322575800:android:9c54e2620849ffce9cd74d",
         "android_client_info": {
-          "package_name": "com.dgdorde.app"
+          "package_name": "com.vibecheck.app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "838322575800-au1a31ko5ntkpb9gtkdb09oabqaqhe1s.apps.googleusercontent.com",
+          "client_id": "838322575800-4n6gg3j9jt33lfh2e619joetcu730run.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.dgdorde.app",
-            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+            "package_name": "com.vibecheck.app",
+            "certificate_hash": "402489de4eeae674a9f6e68fce2feb7344002873"
           }
         },
         {
-          "client_id": "838322575800-k0aj71r3eito42vgc0bk87b1iggv6afv.apps.googleusercontent.com",
+          "client_id": "838322575800-srpito7ast5kl1ckq79l087ohl004s0n.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.dgdorde.app",
-            "certificate_hash": "402489de4eeae674a9f6e68fce2feb7344002873"
+            "package_name": "com.vibecheck.app",
+            "certificate_hash": "0fff4b17293cbede96e75f1a7aaf28475f00fcb1"
           }
         },
         {

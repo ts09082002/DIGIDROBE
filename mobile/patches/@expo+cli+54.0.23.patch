@@ -1,15 +1,16 @@
 diff --git a/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js b/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js
-index fb459dd..ed4da2b 100644
+index fb459dd..3bd34f0 100644
 --- a/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js
 +++ b/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js
-@@ -73,10 +73,10 @@ async function assembleAsync(androidProjectPath, { variant, port, appName, build
-         'lint',
+@@ -74,9 +74,12 @@ async function assembleAsync(androidProjectPath, { variant, port, appName, build
          // ignore tests
          '-x',
--        'test',
+         'test',
 -        '--configure-on-demand'
-+        'test'
 +        // '--configure-on-demand' removed — causes transform race condition on Windows
++        // Force single-threaded serial execution — prevents Windows NTFS rename race on transforms cache
++        '--no-daemon',
++        '--max-workers', '1',
      ];
 -    if (buildCache) args.push('--build-cache');
 +    // '--build-cache' removed — causes transform race condition on Windows
