@@ -126,7 +126,15 @@ async function runWorker(): Promise<void> {
         job.status = 'processing';
 
         try {
-            const item = await processJob(job);
+            // Force garbage collection if available before starting a heavy job
+            // Using type assertion to avoid TypeScript error on global
+            if (typeof (global as any).gc === 'function') {
+                (global as any).gc();
+            }
+
+            // Enable low memory mode if processing a large batch (> 10 items)
+            const isLowMemoryMode = batchTotal > 10;
+            const item = await processJob(job, isLowMemoryMode);
             job.status = 'done';
             processedCount++;
             completedItems.push(item);
@@ -141,8 +149,8 @@ async function runWorker(): Promise<void> {
             callbacks?.onProgress(processedCount, batchTotal);
         }
 
-        // 300 ms pause to let GC reclaim memory between jobs
-        await sleep(300);
+        // 800 ms pause to let GC aggressively reclaim memory between heavy jobs
+        await sleep(800);
     }
 
     isRunning = false;
@@ -153,10 +161,10 @@ async function runWorker(): Promise<void> {
     }
 }
 
-async function processJob(job: ProcessingJob): Promise<WardrobeItem> {
-    console.log(`[Queue] Processing job ${job.id}: ${job.filename}`);
+async function processJob(job: ProcessingJob, lowMemoryMode: boolean = false): Promise<WardrobeItem> {
+    console.log(`[Queue] Processing job ${job.id}: ${job.filename} (Low mem mode: ${lowMemoryMode})`);
 
-    const result = await processClothingImageOnDevice(job.originalUri);
+    const result = await processClothingImageOnDevice(job.originalUri, lowMemoryMode);
 
     let finalCategory = job.preferredCategory;
     if (

@@ -42,8 +42,14 @@ export interface BackgroundRemovalResult {
  */
 export async function removeBackgroundOnDevice(
     imageUri: string,
+    lowMemoryMode: boolean = false
 ): Promise<BackgroundRemovalResult> {
     try {
+        if (lowMemoryMode) {
+            console.log('[BgRemoval] Low memory mode enabled, skipping multi-pass pipeline');
+            return await singlePassFallback(imageUri, true);
+        }
+
         console.log('[BgRemoval] Starting Pro multi-pass pipeline…');
 
         // ── Pass 1: Detection pass ──────────────────────────────────────
@@ -146,7 +152,7 @@ export async function removeBackgroundOnDevice(
     } catch (err) {
         console.warn('[BgRemoval] Pro pipeline failed, trying single-pass fallback:', err);
         try {
-            return await singlePassFallback(imageUri);
+            return await singlePassFallback(imageUri, lowMemoryMode);
         } catch (err2) {
             console.warn('[BgRemoval] Single-pass also failed, returning original:', err2);
             return await originalFallback(imageUri);
@@ -158,9 +164,22 @@ export async function removeBackgroundOnDevice(
 
 async function singlePassFallback(
     imageUri: string,
+    lowMemoryMode: boolean = false
 ): Promise<BackgroundRemovalResult> {
     console.log('[BgRemoval] Running single-pass segmentation…');
-    const resultUri = await removeBackground(imageUri, { trim: true });
+    
+    // In low memory mode, downscale the image significantly before running segmentation
+    let processUri = imageUri;
+    if (lowMemoryMode) {
+        const resized = await ImageManipulator.manipulateAsync(
+            imageUri,
+            [{ resize: { width: 768 } }], // smaller than max output
+            { format: ImageManipulator.SaveFormat.PNG },
+        );
+        processUri = resized.uri;
+    }
+
+    const resultUri = await removeBackground(processUri, { trim: true });
     const pixels = await decodePngPixels(resultUri);
 
     // Still apply edge refinement even in single-pass mode

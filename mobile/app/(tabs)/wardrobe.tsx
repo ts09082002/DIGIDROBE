@@ -41,6 +41,7 @@ import FullScreenLoader from '../../components/ui/FullScreenLoader';
 import { enqueueAssets } from '../../services/processing-queue';
 import { logEvent, logScreenView } from '../../services/analytics';
 import ProcessingProgressBar from '../../components/ProcessingProgressBar';
+import OnboardingOverlay from '../../components/ui/OnboardingOverlay';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - Spacing.xl * 2 - Spacing.md) / 2;

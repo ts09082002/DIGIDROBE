@@ -8,6 +8,7 @@ import { DatabaseProvider } from '../db/DatabaseProvider';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── Global font default ───────────────────────────────────────────────────────
 // Any Text that doesn't explicitly set fontFamily will use Montserrat Regular.
@@ -34,13 +35,28 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (!navigationState?.key || isLoading) return;
 
-        const inAuthGroup = segments[0] === '(auth)';
+        const checkOnboardingAndRedirect = async () => {
+            const inAuthGroup = segments[0] === '(auth)';
 
-        if (!isAuthenticated && !inAuthGroup) {
-            setTimeout(() => router.replace('/(auth)/login'), 10);
-        } else if (isAuthenticated && (inAuthGroup || !segments[0])) {
-            setTimeout(() => router.replace('/(tabs)'), 10);
-        }
+            if (!isAuthenticated && !inAuthGroup) {
+                setTimeout(() => router.replace('/(auth)/login'), 10);
+            } else if (isAuthenticated && (inAuthGroup || !segments[0])) {
+                try {
+                    const hasSeenOnboarding = await AsyncStorage.getItem('@vibecheck_has_seen_onboarding');
+                    if (hasSeenOnboarding !== 'true') {
+                        // First time -> go straight to wardrobe to see the tutorial overlay
+                        setTimeout(() => router.replace('/(tabs)/wardrobe'), 10);
+                    } else {
+                        // Returning user -> go to home screen
+                        setTimeout(() => router.replace('/(tabs)'), 10);
+                    }
+                } catch (e) {
+                    setTimeout(() => router.replace('/(tabs)'), 10);
+                }
+            }
+        };
+
+        checkOnboardingAndRedirect();
     }, [isAuthenticated, isLoading, segments, router, navigationState]);
 
     return <>{children}</>;

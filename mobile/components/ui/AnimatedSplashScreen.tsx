@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, Animated, Dimensions, Image } from 'react-native';
+import { StyleSheet, View, Text, Animated, Dimensions } from 'react-native';
 import { Colors, FontFamily } from '../../constants/theme';
 import { useFonts, Cormorant_600SemiBold, Cormorant_700Bold } from '@expo-google-fonts/cormorant';
 import { Montserrat_400Regular, Montserrat_500Medium } from '@expo-google-fonts/montserrat';
@@ -83,13 +83,9 @@ export default function AnimatedSplashScreen({ onFinish }: Props) {
     return (
         <Animated.View style={[styles.container, { opacity: screenOpacity }]} pointerEvents="auto">
 
-            {/* App logo */}
+            {/* App logo — elegant text icon */}
             <Animated.View style={[styles.iconWrap, { opacity: logoOpacity }]}>
-                <Image
-                    source={require('../../assets/splash.png')}
-                    style={styles.logoImage}
-                    resizeMode="contain"
-                />
+                <Text style={styles.logoGlyph}>✦</Text>
             </Animated.View>
 
             {/* Brand name block */}
@@ -109,7 +105,7 @@ export default function AnimatedSplashScreen({ onFinish }: Props) {
                 </View>
                 <Animated.View style={[styles.subtitleRow, { opacity: subtitleOpacity }]}>
                     <View style={styles.subtitleLine} />
-                    <Text style={styles.subtitleText}>THE DIGITAL WARDROBE</Text>
+                    <Text style={styles.subtitleText}>YOUR SMART WARDROBE</Text>
                     <View style={styles.subtitleLine} />
                 </Animated.View>
             </Animated.View>
@@ -117,7 +113,7 @@ export default function AnimatedSplashScreen({ onFinish }: Props) {
             {/* Footer */}
             <Animated.View style={[styles.footer, { opacity: footerOpacity }]}>
                 <View style={styles.footerLine} />
-                <Text style={styles.footerText}>CURATED BY AI</Text>
+                <Text style={styles.footerText}>POWERED BY AI</Text>
                 <Text style={styles.footerGlyph}>✦</Text>
             </Animated.View>
         </Animated.View>
@@ -141,9 +137,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 28,
     },
-    logoImage: {
-        width: 160,
-        height: 160,
+    logoGlyph: {
+        fontSize: 64,
+        color: Colors.gold,
+        opacity: 0.85,
     },
 
     /* Brand block */

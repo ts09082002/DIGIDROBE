@@ -102,11 +102,12 @@ function classifyByShape(
  */
 export async function processClothingImageOnDevice(
     imageUri: string,
+    lowMemoryMode: boolean = false,
 ): Promise<OnDeviceProcessingResult> {
     // Run classification and background removal in parallel
     const [classification, bgResult] = await Promise.all([
         classifyClothing(imageUri),
-        removeBackgroundOnDevice(imageUri),
+        removeBackgroundOnDevice(imageUri, lowMemoryMode),
     ]);
 
     // Extract colors from the background-removed image
@@ -116,17 +117,17 @@ export async function processClothingImageOnDevice(
         bgResult.height,
     );
 
-    // Release the large pixel buffer so GC can reclaim memory before the next job
-    (bgResult as any).rgbaPixels = null;
-
     // If ML Kit returned unclassified and we have good bg-removal pixels,
-    // fall back to shape-based classification
+    // fall back to shape-based classification (must happen BEFORE we null pixels)
     let finalClassification = classification;
     const hasBgRemoval = bgResult.width > 1 && bgResult.height > 1;
     if (classification.category === 'unclassified' && hasBgRemoval) {
         finalClassification = classifyByShape(bgResult.rgbaPixels, bgResult.width, bgResult.height);
         console.log(`[ImageProcessor] ML Kit unavailable, shape-based fallback: ${finalClassification.category}/${finalClassification.subCategory}`);
     }
+
+    // Release the large pixel buffer so GC can reclaim memory before the next job
+    (bgResult as any).rgbaPixels = null;
 
     const isFallback = !hasBgRemoval;
     if (isFallback) {

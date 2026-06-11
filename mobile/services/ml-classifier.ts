@@ -13,18 +13,25 @@ const CATEGORY_LABEL_MAP: Record<string, string[]> = {
         'Tank top', 'Vest', 'Jerseys', 'Jersey', 'Sweater', 'Sweatshirt',
         'Hoodie', 'Pullover', 'Knitwear', 'Cardigan', 'Turtleneck', 'Dress shirt',
         'Formal shirt', 'Tube top', 'Crop top', 'Halter', 'Long sleeve',
+        // Generic ML Kit labels that indicate topwear
+        'Sleeve', 'Collar', 'Active shirt', 'Sportswear', 'Jersey (clothing)',
+        'Undershirt', 'Button', 'Neck', 'Clothes hanger',
     ],
     bottomwear: [
         'Jeans', 'Denim', 'Trousers', 'Pants', 'Chinos', 'Shorts',
         'Skirt', 'Leggings', 'Joggers', 'Sweatpants', 'Cargo pants',
         'Track pants', 'Culottes', 'Palazzo', 'Mini skirt', 'Midi skirt',
         'Maxi skirt', 'Capri', 'Khakis', 'Lower', 'Lowers',
+        // Generic ML Kit labels
+        'Bermuda shorts', 'Board short', 'Pocket', 'Waist', 'Trunks',
     ],
     outerwear: [
         'Jacket', 'Coat', 'Blazer', 'Outerwear', 'Overcoat', 'Parka',
         'Windbreaker', 'Trench coat', 'Leather jacket', 'Denim jacket',
         'Bomber jacket', 'Raincoat', 'Down jacket', 'Puffer jacket',
         'Anorak', 'Fleece', 'Vest jacket',
+        // Generic ML Kit labels
+        'Hood', 'Zipper', 'Fur',
     ],
     footwear: [
         'Shoe', 'Shoes', 'Sneakers', 'Sneaker', 'Boot', 'Boots',
@@ -32,18 +39,28 @@ const CATEGORY_LABEL_MAP: Record<string, string[]> = {
         'Flip-flops', 'Slipper', 'Slippers', 'Trainers', 'Running shoe',
         'Athletic shoe', 'Formal shoes', 'Oxford', 'Mule', 'Wedge', 'Stiletto',
         'Ankle boot', 'Knee-high boot', 'Flat shoes',
+        // Generic ML Kit labels
+        'Walking shoe', 'Outdoor shoe', 'Plimsoll shoe', 'Skate shoe',
+        'Tennis shoe', 'Cross training shoe', 'Cleat (shoe)', 'Sole',
     ],
     accessories: [
         'Belt', 'Hat', 'Cap', 'Beanie', 'Baseball cap', 'Scarf', 'Bag',
         'Sunglasses', 'Glasses', 'Necklace', 'Bracelet', 'Earring',
         'Ring', 'Tie', 'Bow tie', 'Gloves', 'Umbrella',
+        // Generic ML Kit labels
+        'Fashion accessory', 'Jewellery', 'Hair accessory', 'Headgear',
+        'Goggles', 'Wrist',
     ],
     bags: [
         'Bag', 'Handbag', 'Backpack', 'Purse', 'Tote', 'Wallet', 'Clutch', 'Sling bag',
+        // Generic ML Kit labels
+        'Luggage and bags', 'Luggage', 'Shoulder bag',
     ],
     dresses: [
         'Dress', 'Gown', 'Frock', 'Jumpsuit', 'Romper', 'Playsuit',
         'Maxi dress', 'Mini dress', 'Midi dress', 'Evening gown',
+        // Generic ML Kit labels
+        'Day dress', 'Cocktail dress', 'One-piece garment',
     ],
 };
 
@@ -184,7 +201,7 @@ export async function classifyClothing(imageUri: string): Promise<ClothingClassi
         let bestScore = 0;
 
         for (const label of labels) {
-            if (label.confidence < 0.3) continue; // skip low-confidence labels
+            if (label.confidence < 0.15) continue; // skip very low-confidence labels
             const category = mapLabelToCategory(label.text);
             if (category && label.confidence > bestScore) {
                 bestScore = label.confidence;
