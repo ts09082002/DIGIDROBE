@@ -22,6 +22,22 @@
           }
         },
         {
+          "client_id": "838322575800-bbntarqj320h9na64it3ihr4sbpkeb6r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vibecheck.app",
+            "certificate_hash": "6619cc9ff06d4011e957e6ac75073d495ea71203"
+          }
+        },
+        {
+          "client_id": "838322575800-lnuvgi1gvnt5pv3hhmpvl7iqr9uklq3b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vibecheck.app",
+            "certificate_hash": "93cf2646c303e4082c8472f20d04d623550a8ed6"
+          }
+        },
+        {
           "client_id": "838322575800-srpito7ast5kl1ckq79l087ohl004s0n.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

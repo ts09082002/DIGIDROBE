@@ -7,37 +7,96 @@
 import { Platform } from 'react-native';
 import { auth } from '../config/firebase';
 import { GoogleAuthProvider, AppleAuthProvider } from '@react-native-firebase/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { configureGoogleSignIn } from '../config/google-signin';
 
 const GUEST_KEY = '@vibecheck_auth_guest';
 const PROFILE_NAME_KEY = '@vibecheck_profile_name';
 const PROFILE_EMAIL_KEY = '@vibecheck_profile_email';
 
+const DEVELOPER_ERROR_MESSAGE =
+    'Google Sign-In is not configured for this APK build. ' +
+    'Add your EAS release SHA-1 to Firebase Console, re-download google-services.json, and rebuild. ' +
+    'Run: npm run android:firebase-sha';
+
 // ─── Google Sign-In ─────────────────────────────────────────────────────────
 
-export async function signInWithGoogle() {
-    // Ensure Google Play Services are available (Android)
-    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+async function clearStaleGoogleSession(): Promise<void> {
+    try {
+        await GoogleSignin.signOut();
+    } catch {
+        // Ignore — no active Google session
+    }
+}
 
-    // Trigger the Google sign-in flow
-    const signInResult = await GoogleSignin.signIn();
-    const idToken = signInResult?.data?.idToken;
+function isDeveloperError(error: unknown): boolean {
+    const code = (error as { code?: string | number })?.code;
+    return code === '10' || code === 10 || code === 'DEVELOPER_ERROR';
+}
 
-    if (!idToken) {
-        throw new Error('Google Sign-In failed — no ID token returned.');
+function mapGoogleSignInError(error: unknown): Error {
+    if (isDeveloperError(error)) {
+        return new Error(DEVELOPER_ERROR_MESSAGE);
     }
 
-    // Create Firebase credential and sign in
+    const code = (error as { code?: string | number })?.code;
+    if (code === statusCodes.SIGN_IN_CANCELLED || code === '12501') {
+        const cancelled = new Error('Sign-in cancelled');
+        (cancelled as { code?: string }).code = String(code);
+        return cancelled;
+    }
+
+    if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        return new Error('Google Play Services are not available on this device.');
+    }
+
+    const message = (error as { message?: string })?.message;
+    return new Error(message || 'Google sign-in failed. Please try again.');
+}
+
+async function requestGoogleIdToken(): Promise<string> {
+    configureGoogleSignIn();
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    await clearStaleGoogleSession();
+
+    let signInResult;
+    try {
+        signInResult = await GoogleSignin.signIn();
+    } catch (error) {
+        throw mapGoogleSignInError(error);
+    }
+
+    let idToken = signInResult?.data?.idToken;
+    if (idToken) return idToken;
+
+    // Retry once after clearing cached Google credentials (common after long idle)
+    await GoogleSignin.revokeAccess().catch(() => undefined);
+    await clearStaleGoogleSession();
+
+    try {
+        const retryResult = await GoogleSignin.signIn();
+        idToken = retryResult?.data?.idToken;
+    } catch (error) {
+        throw mapGoogleSignInError(error);
+    }
+
+    if (!idToken) {
+        throw new Error('Google Sign-In failed — no ID token returned. Please try again.');
+    }
+
+    return idToken;
+}
+
+export async function signInWithGoogle() {
+    const idToken = await requestGoogleIdToken();
+
     const credential = GoogleAuthProvider.credential(idToken);
     const userCredential = await auth.signInWithCredential(credential);
 
-    // Persist profile info for the profile screen
     await syncProfileFromFirebase(userCredential.user);
-
-    // Clear guest flag
     await AsyncStorage.removeItem(GUEST_KEY);
 
     return userCredential.user;
@@ -50,14 +109,12 @@ export async function signInWithApple() {
         throw new Error('Apple Sign-In is only available on iOS.');
     }
 
-    // Generate a cryptographic nonce for security
     const rawNonce = generateNonce(32);
     const hashedNonce = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
         rawNonce,
     );
 
-    // Trigger the Apple sign-in dialog
     const appleCredential = await AppleAuthentication.signInAsync({
         requestedScopes: [
             AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -71,11 +128,9 @@ export async function signInWithApple() {
         throw new Error('Apple Sign-In failed — no identity token returned.');
     }
 
-    // Create Firebase credential with the raw nonce
     const credential = AppleAuthProvider.credential(identityToken, rawNonce);
     const userCredential = await auth.signInWithCredential(credential);
 
-    // Apple may provide fullName only on first sign-in; merge if available
     const user = userCredential.user;
     if (appleCredential.fullName) {
         const { givenName, familyName } = appleCredential.fullName;
@@ -88,7 +143,7 @@ export async function signInWithApple() {
     await syncProfileFromFirebase(user);
     await AsyncStorage.removeItem(GUEST_KEY);
 
-    return user;
+    return userCredential.user;
 }
 
 // ─── Guest Mode ─────────────────────────────────────────────────────────────
@@ -106,7 +161,7 @@ export async function isGuestMode(): Promise<boolean> {
 
 export async function signOut(): Promise<void> {
     try {
-        // Sign out of Google if signed in
+        configureGoogleSignIn();
         const isGoogleSignedIn = await GoogleSignin.getCurrentUser();
         if (isGoogleSignedIn) {
             await GoogleSignin.signOut();
@@ -115,16 +170,12 @@ export async function signOut(): Promise<void> {
         // Ignore Google sign-out errors
     }
 
-    // Sign out of Firebase
     await auth.signOut();
-
-    // Clear guest and profile keys
     await AsyncStorage.multiRemove([GUEST_KEY, PROFILE_NAME_KEY, PROFILE_EMAIL_KEY]);
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Sync Firebase user info to AsyncStorage for the profile screen. */
 async function syncProfileFromFirebase(user: { displayName?: string | null; email?: string | null }) {
     if (user.displayName) {
         await AsyncStorage.setItem(PROFILE_NAME_KEY, user.displayName);
@@ -134,19 +185,17 @@ async function syncProfileFromFirebase(user: { displayName?: string | null; emai
     }
 }
 
-/** Get a Firebase ID token for backend API calls (future use). */
-export async function getIdToken(): Promise<string | null> {
+/** Get a Firebase ID token for backend API calls. Force refresh after long idle. */
+export async function getIdToken(forceRefresh = false): Promise<string | null> {
     const currentUser = auth.currentUser;
     if (!currentUser) return null;
-    return currentUser.getIdToken();
+    return currentUser.getIdToken(forceRefresh);
 }
 
-/** Generate a random alphanumeric nonce string. */
 function generateNonce(length: number): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     const randomValues = new Uint8Array(length);
-    // Use Math.random as a fallback — the nonce is hashed anyway
     for (let i = 0; i < length; i++) {
         randomValues[i] = Math.floor(Math.random() * 256);
     }

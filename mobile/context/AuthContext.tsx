@@ -90,8 +90,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(firebaseUser);
             setIsGuest(false);
         } catch (error: any) {
-            // Don't alert on user cancellation
-            if (error?.code === 'SIGN_IN_CANCELLED' || error?.code === '12501') return;
+            const code = error?.code;
+            if (code === 'SIGN_IN_CANCELLED' || code === '12501') return;
+            if (code === '10' || code === 10 || code === 'DEVELOPER_ERROR') {
+                Alert.alert(
+                    'Google Sign-In Setup Required',
+                    error?.message ||
+                        'This APK was signed with a certificate that Firebase does not recognize. Add the EAS SHA-1 fingerprint in Firebase Console and rebuild.',
+                );
+                return;
+            }
             Alert.alert('Sign-In Error', error?.message || 'Google sign-in failed. Please try again.');
         }
     }, []);

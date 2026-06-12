@@ -130,22 +130,32 @@ export interface TryOnPreviewResult {
 }
 
 class ApiService {
-    private async fetch(url: string, init?: RequestInit): Promise<Response> {
-        const headers = new Headers(init?.headers);
-        headers.set('Bypass-Tunnel-Reminder', 'true');
-
-        // VULN-02 Fix: Include Bearer token if user is signed in
+    private async attachAuthHeader(headers: Headers, forceRefresh = false): Promise<void> {
         try {
             const { getIdToken } = require('./auth');
-            const token = await getIdToken();
+            const token = await getIdToken(forceRefresh);
             if (token) {
                 headers.set('Authorization', `Bearer ${token}`);
             }
         } catch (err) {
             console.warn('Could not get auth token for request:', err);
         }
+    }
 
-        return fetch(url, { ...init, headers });
+    private async fetch(url: string, init?: RequestInit): Promise<Response> {
+        const headers = new Headers(init?.headers);
+        headers.set('Bypass-Tunnel-Reminder', 'true');
+
+        await this.attachAuthHeader(headers);
+
+        let response = await fetch(url, { ...init, headers });
+
+        if (response.status === 401) {
+            await this.attachAuthHeader(headers, true);
+            response = await fetch(url, { ...init, headers });
+        }
+
+        return response;
     }
 
     private baseUrl: string;

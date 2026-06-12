@@ -1,5 +1,6 @@
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import 'expo-keep-awake';
 import { Colors } from '../constants/theme';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -22,8 +23,7 @@ import { Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Mo
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AnimatedSplashScreen from '../components/ui/AnimatedSplashScreen';
 import { useDailyNotifications } from '../hooks/useDailyNotifications';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-
+SplashScreen.preventAutoHideAsync();
 
 /** Auth gate — redirects based on auth state using Expo Router segments. */
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -65,15 +65,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
     const [showStartupSplash, setShowStartupSplash] = useState(true);
 
-    // Configure Google Sign-In once on mount and clear any stale session
-    useEffect(() => {
-        GoogleSignin.configure({
-            webClientId: '838322575800-lluotvoiimbfrftp44bphkrtmge8i2ii.apps.googleusercontent.com',
-            offlineAccess: true,
-            scopes: ['profile', 'email'],
-        });
-    }, []);
-
     // Initialize daily occasion notifications
     useDailyNotifications();
 
@@ -86,8 +77,14 @@ export default function RootLayout() {
         Montserrat_700Bold,
     });
 
+    useEffect(() => {
+        if (fontsLoaded) {
+            SplashScreen.hideAsync();
+        }
+    }, [fontsLoaded]);
+
     if (!fontsLoaded) {
-        return <View style={{ flex: 1, backgroundColor: Colors.warmGray }} />;
+        return <View style={{ flex: 1, backgroundColor: Colors.cream }} />;
     }
 
     return (

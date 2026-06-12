@@ -6,15 +6,19 @@
     "build": {
         "development": {
             "developmentClient": true,
-            "distribution": "internal"
+            "distribution": "internal",
+            "prebuildCommand": "node scripts/check-google-signin-sha.js"
         },
         "preview": {
             "distribution": "internal",
+            "prebuildCommand": "node scripts/check-google-signin-sha.js",
             "android": {
                 "buildType": "apk"
             }
         },
-        "production": {}
+        "production": {
+            "prebuildCommand": "node scripts/check-google-signin-sha.js"
+        }
     },
     "submit": {
         "production": {}

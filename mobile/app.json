@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "VibeCheck",
-    "slug": "vibecheck",
+    "slug": "digidrobe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/splash.png",
@@ -14,9 +14,7 @@
       "fallbackToCacheTimeout": 0
     },
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F2E8E1"
+      "backgroundColor": "#F8F7F4"
     },
     "ios": {
       "supportsTablet": true,
@@ -31,8 +29,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F2E8E1"
+        "foregroundImage": "./assets/splash.png",
+        "backgroundColor": "#000000"
       },
       "package": "com.vibecheck.app",
       "googleServicesFile": "./google-services.json",
