@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "838322575800-dgqar8ohkbk3090lgclnsbhti3jds10q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vibecheck.app",
+            "certificate_hash": "6d2f153736a66bd032f24dffbdc5ff7d5fd245bb"
+          }
+        },
+        {
           "client_id": "838322575800-lnuvgi1gvnt5pv3hhmpvl7iqr9uklq3b.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

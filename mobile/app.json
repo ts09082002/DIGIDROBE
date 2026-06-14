@@ -73,7 +73,8 @@
             "newArchEnabled": true
           }
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "extra": {
       "router": {},
