@@ -18,25 +18,25 @@ const sanitizeStringArray = (raw: any): string[] => {
 export class WardrobeItemModel extends Model {
     static table = 'wardrobe_items';
 
-    @text('original_image_path') originalImagePath!: string;
-    @text('processed_image_path') processedImagePath!: string;
-    @text('thumbnail_path') thumbnailPath!: string;
-    @text('category') category!: string;
-    @text('sub_category') subCategory!: string;
-    @text('name') name!: string;
-    @text('brand') brand!: string;
-    @text('color') color!: string;
-    @text('season_json') seasonJson!: string;
-    @text('occasion_json') occasionJson!: string;
-    @field('is_favorite') isFavorite!: boolean;
-    @text('mime_type') mimeType!: string;
-    @field('file_size') fileSize!: number;
-    @text('status') status!: string;
-    @field('is_low_confidence') isLowConfidence!: boolean;
-    @text('color_palette_json') colorPaletteJson!: string;
-    @text('ml_labels_json') mlLabelsJson!: string;
-    @readonly @date('created_at') createdAt!: Date;
-    @readonly @date('updated_at') updatedAt!: Date;
+    @text('original_image_path') originalImagePath: string = '';
+    @text('processed_image_path') processedImagePath: string = '';
+    @text('thumbnail_path') thumbnailPath: string = '';
+    @text('category') category: string = '';
+    @text('sub_category') subCategory: string = '';
+    @text('name') name: string = '';
+    @text('brand') brand: string = '';
+    @text('color') color: string = '';
+    @text('season_json') seasonJson: string = '';
+    @text('occasion_json') occasionJson: string = '';
+    @field('is_favorite') isFavorite: boolean = false;
+    @text('mime_type') mimeType: string = '';
+    @field('file_size') fileSize: number = 0;
+    @text('status') status: string = '';
+    @field('is_low_confidence') isLowConfidence: boolean = false;
+    @text('color_palette_json') colorPaletteJson: string = '';
+    @text('ml_labels_json') mlLabelsJson: string = '';
+    @readonly @date('created_at') createdAt: Date = new Date(0);
+    @readonly @date('updated_at') updatedAt: Date = new Date(0);
 
     /** Parsed season array */
     get season(): string[] {
