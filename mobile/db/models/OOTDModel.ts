@@ -9,11 +9,11 @@ import type { OOTD } from '../../services/api';
 export class OOTDModel extends Model {
     static table = 'ootd_entries';
 
-    @text('date') dateStr: string = '';           // YYYY-MM-DD
-    @text('item_ids_json') itemIdsJson: string = '';
-    @text('notes') notes: string = '';
-    @readonly @date('created_at') createdAt: Date = new Date(0);
-    @readonly @date('updated_at') updatedAt: Date = new Date(0);
+    @text('date') declare dateStr: string;           // YYYY-MM-DD
+    @text('item_ids_json') declare itemIdsJson: string;
+    @text('notes') declare notes: string;
+    @readonly @date('created_at') declare createdAt: Date;
+    @readonly @date('updated_at') declare updatedAt: Date;
 
     /** Parsed item IDs */
     get itemIds(): string[] {

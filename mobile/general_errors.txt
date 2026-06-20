@@ -1,0 +1,108 @@
+1437: 06-20 15:27:11.475  2195 32367 E CameraDeviceClient: notifyError: pid=14200, errorCode=4, errorStreamId=0, frameNumber=3385
+1438: 06-20 15:27:11.475  2195 32367 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1445: 06-20 15:27:11.478  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=4, errorStreamId=0, frameNumber=3380
+1446: 06-20 15:27:11.478  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1449: 06-20 15:27:11.478  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=4, errorStreamId=0, frameNumber=3381
+1450: 06-20 15:27:11.478  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1453: 06-20 15:27:11.479  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=4, errorStreamId=0, frameNumber=3382
+1454: 06-20 15:27:11.479  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1457: 06-20 15:27:11.479  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=4, errorStreamId=0, frameNumber=3383
+1458: 06-20 15:27:11.479  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1475: 06-20 15:27:11.480  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=0, frameNumber=3380
+1476: 06-20 15:27:11.480  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1478: 06-20 15:27:11.480  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=1, frameNumber=3380
+1479: 06-20 15:27:11.480  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1493: 06-20 15:27:11.480  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=1, frameNumber=3381
+1494: 06-20 15:27:11.480  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1495: 06-20 15:27:11.481  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=0, frameNumber=3381
+1496: 06-20 15:27:11.481  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1508: 06-20 15:27:11.481  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=1, frameNumber=3382
+1509: 06-20 15:27:11.481  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1510: 06-20 15:27:11.481  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=0, frameNumber=3382
+1511: 06-20 15:27:11.481  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1512: 06-20 15:27:11.481  2195  4086 E CameraDeviceClient: notifyError: pid=14200, errorCode=4, errorStreamId=0, frameNumber=3384
+1513: 06-20 15:27:11.481  2195  4086 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1529: 06-20 15:27:11.482  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=1, frameNumber=3383
+1530: 06-20 15:27:11.482  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1532: 06-20 15:27:11.482  2195 11956 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=0, frameNumber=3383
+1533: 06-20 15:27:11.482  2195 11956 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1554: 06-20 15:27:11.483  2195  4086 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=0, frameNumber=3384
+1555: 06-20 15:27:11.483  2195  4086 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1556: 06-20 15:27:11.483  2195  4086 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=1, frameNumber=3384
+1557: 06-20 15:27:11.483  2195  4086 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1560: 06-20 15:27:11.483  2195  4086 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=0, frameNumber=3385
+1561: 06-20 15:27:11.483  2195  4086 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1562: 06-20 15:27:11.483  2195  4086 E CameraDeviceClient: notifyError: pid=14200, errorCode=5, errorStreamId=1, frameNumber=3385
+1563: 06-20 15:27:11.483  2195  4086 E CameraDeviceClient: notifyError: pid=14200, skipClientNotification=false
+1888: 06-20 15:27:11.536  1762  2052 E vendor.samsung.hardware.camera.provider-service_64: vendor/qcom/proprietary/adsprpc/src/rpcmem_android.c:469::error: 0xffffffff: mfree
+3088: 06-20 15:27:11.793 14200 32373 W LegacyMessageQueue: java.lang.IllegalStateException: Handler (X.JTY) {1f4f444} sending message to a Handler on a dead thread
+3207: 06-20 15:27:11.843 14010 14146 W IgMetaConfig: java.lang.RuntimeException: Could not obtain MC, call-site will receive default values
+3937: 06-20 15:27:12.096 14010 23008 E fatal   : runForegroundReporters
+6991: 06-20 15:27:12.827  1854 11959 I AudioPolicyEffectException: MySpaceHandler::checkDetachCondition media 1, ring 0, mp 0
+6992: 06-20 15:27:12.827  1854 11959 I AudioPolicyEffectException: MySpace detach value 1
+7824: 06-20 15:27:12.987 14010  2139 W LegacyMessageQueue: java.lang.IllegalStateException: Handler (android.os.Handler) {eae9ec9} sending message to a Handler on a dead thread
+7844: 06-20 15:27:12.987 14010  2139 W LegacyMessageQueue: java.lang.IllegalStateException: Handler (android.os.Handler) {23220ef} sending message to a Handler on a dead thread
+8185: 06-20 15:27:13.090  2358  2358 I SoundAssistantManager: sound assistant is not installed, android.content.pm.PackageManager$NameNotFoundException: com.samsung.android.soundassistant
+8186: 06-20 15:27:13.090  2358  2358 I SoundAssistantManager: sound assistant is not installed, android.content.pm.PackageManager$NameNotFoundException: com.samsung.android.soundassistant
+10100: 06-20 15:27:14.646 14010  2182 W LegacyMessageQueue: java.lang.IllegalStateException: Handler (android.os.Handler) {18d9f9} sending message to a Handler on a dead thread
+10119: 06-20 15:27:14.647 14010  2182 W LegacyMessageQueue: java.lang.IllegalStateException: Handler (android.os.Handler) {2bf479f} sending message to a Handler on a dead thread
+11210: 06-20 15:27:18.090 14010 14146 W IgMetaConfig: java.lang.RuntimeException: Could not obtain MC, call-site will receive default values
+12181: 06-20 15:27:20.494 14860  5408 E fb4a.msys: E[N MQTT]onReadError(657)=>Read Error: AsyncSocketException: recv() failed (peer=57.144.146.144:443), type = Internal error, errno = 103 (Software caused connection abort)
+12233: 06-20 15:27:20.576 14860  5406 E fb4a.msys: E[N WCCConnectionMEM]_WCCConnectionMEMShouldSendOrErrorCreate(741)=>connection/send should-send error: not connected, internalState=0
+12234: 06-20 15:27:20.577 14860  5406 E fb4a.msys: E[N WCCConnectionMEM]_WCCConnectionMEMSendSyncWithFlags(790)=>connection/send should-send error: Error Domain=WCCConnectionSendErrorDomain Code=7 UserInfo=0x214364c100 {MCFErrorDirectDescriptionKey=not connected, }
+12238: 06-20 15:27:20.585 14860  5406 E fb4a.msys: E[N WA]_WCSConnectionSendCompletion(404)=>connection/send connection-id -1 send error: Error Domain=WhatsAppCoreFoundation Code=-1062207485 UserInfo=0x214364c140 {MCFErrorDirectDescriptionKey=Connection error: not connected}
+12480: 06-20 15:27:20.897  2792  9549 W DevicePolicyManager: android.accounts.AuthenticatorException: java.lang.UnsupportedOperationException: hasFeatures not supported
+12490: 06-20 15:27:20.897  2792  9549 W DevicePolicyManager: Caused by: java.lang.UnsupportedOperationException: hasFeatures not supported
+12491: 06-20 15:27:20.897  2792  9549 W DevicePolicyManager: 	at android.accounts.AccountManager.convertErrorToException(AccountManager.java:2627)
+12492: 06-20 15:27:20.897  2792  9549 W DevicePolicyManager: 	at android.accounts.AccountManager.-$$Nest$mconvertErrorToException(AccountManager.java:0)
+12521: 06-20 15:27:20.933  2792  9549 W DevicePolicyManager: android.accounts.AuthenticatorException: java.lang.UnsupportedOperationException: hasFeatures not supported
+12531: 06-20 15:27:20.933  2792  9549 W DevicePolicyManager: Caused by: java.lang.UnsupportedOperationException: hasFeatures not supported
+12532: 06-20 15:27:20.933  2792  9549 W DevicePolicyManager: 	at android.accounts.AccountManager.convertErrorToException(AccountManager.java:2627)
+12533: 06-20 15:27:20.933  2792  9549 W DevicePolicyManager: 	at android.accounts.AccountManager.-$$Nest$mconvertErrorToException(AccountManager.java:0)
+12547: 06-20 15:27:20.944  2792  9549 W DevicePolicyManager: android.accounts.AuthenticatorException: java.lang.UnsupportedOperationException: hasFeatures not supported
+12557: 06-20 15:27:20.944  2792  9549 W DevicePolicyManager: Caused by: java.lang.UnsupportedOperationException: hasFeatures not supported
+12558: 06-20 15:27:20.944  2792  9549 W DevicePolicyManager: 	at android.accounts.AccountManager.convertErrorToException(AccountManager.java:2627)
+12559: 06-20 15:27:20.944  2792  9549 W DevicePolicyManager: 	at android.accounts.AccountManager.-$$Nest$mconvertErrorToException(AccountManager.java:0)
+12566: 06-20 15:27:20.948 14860 22128 W fb4a.RtiGracefulSystemMethodHelper: [AI] Failed to start service due to IllegalStateException on Android O
+12567: 06-20 15:27:20.948 14860 22128 W fb4a.RtiGracefulSystemMethodHelper: android.app.BackgroundServiceStartNotAllowedException: Not allowed to start service Intent { xflg=0x4 cmp=com.facebook.katana/com.facebook.mqtt.service.MqttServiceV2 (has extras) }: app is in background uid UidRecord{17bd546 u0a345 CAC  bg:+7m15s261ms idle change:cached|procstate|procadj procs:0 seq(1152281,1152281)} caps=--------
+12594: 06-20 15:27:20.959  2792  9549 W DevicePolicyManager: android.accounts.AuthenticatorException: java.lang.UnsupportedOperationException: hasFeatures not supported
+12604: 06-20 15:27:20.959  2792  9549 W DevicePolicyManager: Caused by: java.lang.UnsupportedOperationException: hasFeatures not supported
+12605: 06-20 15:27:20.959  2792  9549 W DevicePolicyManager: 	at android.accounts.AccountManager.convertErrorToException(AccountManager.java:2627)
+12606: 06-20 15:27:20.959  2792  9549 W DevicePolicyManager: 	at android.accounts.AccountManager.-$$Nest$mconvertErrorToException(AccountManager.java:0)
+13434: 06-20 15:27:22.416 30489  2857 W AsyncOperation: OperationException[Status{statusCode=Stale snapshot for com.google.android.libraries.personalization.footprints#com.google.android.apps.maps(new configuration available), resolution=null}]
+14159: 06-20 15:27:23.528  2839  3043 E GoogleApiManager: java.lang.SecurityException: Unknown calling package name 'com.google.android.gms'.
+14160: 06-20 15:27:23.528  2839  3043 E GoogleApiManager: 	at android.os.Parcel.createExceptionOrNull(Parcel.java:3354)
+14161: 06-20 15:27:23.528  2839  3043 E GoogleApiManager: 	at android.os.Parcel.createException(Parcel.java:3338)
+14162: 06-20 15:27:23.528  2839  3043 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:3321)
+14163: 06-20 15:27:23.528  2839  3043 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:3263)
+14223: 06-20 15:27:23.558  2839  3042 W FlagStore: java.util.concurrent.ExecutionException: gmlw: 17: 17: API: Phenotype.API is not available on this device. Connection failed with: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+14867: 06-20 15:27:24.755  3520  3520 I [SC]SamsungCloudApp: time elapsed to initialize ExceptionFilterInitializer: 0
+14912: 06-20 15:27:24.781  3520  3735 W Bundle  : Attempt to cast generated internal exception:
+14913: 06-20 15:27:24.781  3520  3735 W Bundle  : java.lang.ClassCastException: java.lang.Float cannot be cast to java.lang.String
+15485: 06-20 15:27:25.796 14860  5408 E fb4a.msys: E[N MQTT]onReadError(657)=>Read Error: AsyncSocketException: recv() failed (peer=31.13.64.21:443), type = Internal error, errno = 103 (Software caused connection abort)
+16184: 06-20 15:27:26.410  4122  4122 E DocsApplication: java.lang.IllegalStateException
+16754: 06-20 15:27:26.828  2792  3742 E ConnectivityService: RemoteException caught trying to send a callback msg for NetworkRequest [ LISTEN id=16586, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED&NOT_BANDWIDTH_CONSTRAINED Uid: 10266 RequestorUid: 10266 RequestorPkg: com.android.vending UnderlyingNetworks: Null] ]
+17113: 06-20 15:27:27.175  4122  4639 E GoogleApiManager: java.lang.SecurityException: Unknown calling package name 'com.google.android.gms'.
+17114: 06-20 15:27:27.175  4122  4639 E GoogleApiManager: 	at android.os.Parcel.createExceptionOrNull(Parcel.java:3354)
+17115: 06-20 15:27:27.175  4122  4639 E GoogleApiManager: 	at android.os.Parcel.createException(Parcel.java:3338)
+17116: 06-20 15:27:27.175  4122  4639 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:3321)
+17117: 06-20 15:27:27.175  4122  4639 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:3263)
+17163: 06-20 15:27:27.181  4122  4641 W FlagStore: java.util.concurrent.ExecutionException: gmlw: 17: 17: API: Phenotype.API is not available on this device. Connection failed with: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+17596: 06-20 15:27:27.770  4286  4286 W RegisteredComponentCache: org.xmlpull.v1.XmlPullParserException: No android.nfc.action.TECH_DISCOVERED meta-data
+17614: 06-20 15:27:27.770  4286  4286 W RegisteredComponentCache: org.xmlpull.v1.XmlPullParserException: No android.nfc.action.TECH_DISCOVERED meta-data
+17630: 06-20 15:27:27.771  4286  4286 W RegisteredComponentCache: org.xmlpull.v1.XmlPullParserException: No android.nfc.action.TECH_DISCOVERED meta-data
+17646: 06-20 15:27:27.771  4286  4286 W RegisteredComponentCache: org.xmlpull.v1.XmlPullParserException: No android.nfc.action.TECH_DISCOVERED meta-data
+17662: 06-20 15:27:27.771  4286  4286 W RegisteredComponentCache: org.xmlpull.v1.XmlPullParserException: No android.nfc.action.TECH_DISCOVERED meta-data
+17678: 06-20 15:27:27.771  4286  4286 W RegisteredComponentCache: org.xmlpull.v1.XmlPullParserException: No android.nfc.action.TECH_DISCOVERED meta-data
+17694: 06-20 15:27:27.771  4286  4286 W RegisteredComponentCache: org.xmlpull.v1.XmlPullParserException: No android.nfc.action.TECH_DISCOVERED meta-data
+18171: 06-20 15:27:28.278  4973  4973 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: ERROR_PACKAGE_NOT_FOUND: package android.xr cannot be found on the device
+20397: 06-20 15:27:33.441  2839  3043 E GoogleApiManager: java.lang.SecurityException: Unknown calling package name 'com.google.android.gms'.
+20398: 06-20 15:27:33.441  2839  3043 E GoogleApiManager: 	at android.os.Parcel.createExceptionOrNull(Parcel.java:3354)
+20399: 06-20 15:27:33.441  2839  3043 E GoogleApiManager: 	at android.os.Parcel.createException(Parcel.java:3338)
+20400: 06-20 15:27:33.441  2839  3043 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:3321)
+20401: 06-20 15:27:33.441  2839  3043 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:3263)
+21292: 06-20 15:27:36.941  4122  4639 E GoogleApiManager: java.lang.SecurityException: Unknown calling package name 'com.google.android.gms'.
+21293: 06-20 15:27:36.941  4122  4639 E GoogleApiManager: 	at android.os.Parcel.createExceptionOrNull(Parcel.java:3354)
+21294: 06-20 15:27:36.941  4122  4639 E GoogleApiManager: 	at android.os.Parcel.createException(Parcel.java:3338)
+21295: 06-20 15:27:36.941  4122  4639 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:3321)
+21296: 06-20 15:27:36.941  4122  4639 E GoogleApiManager: 	at android.os.Parcel.readException(Parcel.java:3263)

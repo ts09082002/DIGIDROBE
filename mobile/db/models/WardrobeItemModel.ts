@@ -18,25 +18,25 @@ const sanitizeStringArray = (raw: any): string[] => {
 export class WardrobeItemModel extends Model {
     static table = 'wardrobe_items';
 
-    @text('original_image_path') originalImagePath: string = '';
-    @text('processed_image_path') processedImagePath: string = '';
-    @text('thumbnail_path') thumbnailPath: string = '';
-    @text('category') category: string = '';
-    @text('sub_category') subCategory: string = '';
-    @text('name') name: string = '';
-    @text('brand') brand: string = '';
-    @text('color') color: string = '';
-    @text('season_json') seasonJson: string = '';
-    @text('occasion_json') occasionJson: string = '';
-    @field('is_favorite') isFavorite: boolean = false;
-    @text('mime_type') mimeType: string = '';
-    @field('file_size') fileSize: number = 0;
-    @text('status') status: string = '';
-    @field('is_low_confidence') isLowConfidence: boolean = false;
-    @text('color_palette_json') colorPaletteJson: string = '';
-    @text('ml_labels_json') mlLabelsJson: string = '';
-    @readonly @date('created_at') createdAt: Date = new Date(0);
-    @readonly @date('updated_at') updatedAt: Date = new Date(0);
+    @text('original_image_path') declare originalImagePath: string;
+    @text('processed_image_path') declare processedImagePath: string;
+    @text('thumbnail_path') declare thumbnailPath: string;
+    @text('category') declare category: string;
+    @text('sub_category') declare subCategory: string;
+    @text('name') declare name: string;
+    @text('brand') declare brand: string;
+    @text('color') declare color: string;
+    @text('season_json') declare seasonJson: string;
+    @text('occasion_json') declare occasionJson: string;
+    @field('is_favorite') declare isFavorite: boolean;
+    @text('mime_type') declare mimeType: string;
+    @field('file_size') declare fileSize: number;
+    @text('status') declare status: string;
+    @field('is_low_confidence') declare isLowConfidence: boolean;
+    @text('color_palette_json') declare colorPaletteJson: string;
+    @text('ml_labels_json') declare mlLabelsJson: string;
+    @readonly @date('created_at') declare createdAt: Date;
+    @readonly @date('updated_at') declare updatedAt: Date;
 
     /** Parsed season array */
     get season(): string[] {

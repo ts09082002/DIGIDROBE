@@ -16,11 +16,11 @@ export interface SavedLook {
 export class SavedLookModel extends Model {
     static table = 'saved_looks';
 
-    @text('name') name: string = '';
-    @text('item_ids_json') itemIdsJson: string = '';
-    @text('source') source: string = '';           // 'ai' | 'manual'
-    @readonly @date('created_at') createdAt: Date = new Date(0);
-    @readonly @date('updated_at') updatedAt: Date = new Date(0);
+    @text('name') declare name: string;
+    @text('item_ids_json') declare itemIdsJson: string;
+    @text('source') declare source: string;           // 'ai' | 'manual'
+    @readonly @date('created_at') declare createdAt: Date;
+    @readonly @date('updated_at') declare updatedAt: Date;
 
     /** Parsed item IDs */
     get itemIds(): string[] {
