@@ -22,6 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
+import { useOnboarding } from '../../context/OnboardingContext';
 import { api, BodyPhotoUploadResult, StyleProfilePayload, StylistSuggestion, TryOnPreviewResult, WardrobeItem } from '../../services/api';
 import * as wardrobeLocal from '../../services/wardrobe-local';
 import { SavedLook, getSavedLooks, saveLook } from '../../services/saved-looks-local';
@@ -234,6 +235,8 @@ export default function OutfitsScreen() {
     const { isDarkMode } = useTheme();
     const tc = useThemeColors();
     const router = useRouter();
+    const { registerAnchor, currentStep } = useOnboarding();
+    const swiperRef = useRef<View>(null);
     const [activeTab, setActiveTab] = useState('AI Stylist');
     const [suggestion, setSuggestion] = useState<StylistSuggestion | null>(null);
     const [loading, setLoading] = useState(true);
@@ -726,13 +729,24 @@ export default function OutfitsScreen() {
             ) : (
                 <ScrollView
                     showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tc.accent} />}
+refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tc.accent} />}
                     contentContainerStyle={styles.scrollContent}
                 >
                     {activeTab === 'AI Stylist' ? (
                         <>
                             {/* Style of the Day (offline) */}
-                            <View style={[styles.stylistBanner, { backgroundColor: tc.card, borderColor: tc.accent }]}>
+                            <View
+                                ref={swiperRef}
+                                collapsable={false}
+                                onLayout={() => {
+                                    swiperRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                                        if (width > 0 && height > 0) {
+                                            registerAnchor('outfits_swiper', { x, y, width, height });
+                                        }
+                                    });
+                                }}
+                                style={[styles.stylistBanner, { backgroundColor: tc.card, borderColor: tc.accent }]}
+                            >
                                 <View style={styles.bannerRow}>
                                     <View style={styles.bannerIcon}>
                                         <Ionicons name="sparkles" size={22} color={Colors.gold} />

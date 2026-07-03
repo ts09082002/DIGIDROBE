@@ -23,6 +23,8 @@ import { Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Mo
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AnimatedSplashScreen from '../components/ui/AnimatedSplashScreen';
 import { useDailyNotifications } from '../hooks/useDailyNotifications';
+import { OnboardingProvider } from '../context/OnboardingContext';
+import OnboardingOverlay from '../components/ui/OnboardingOverlay';
 SplashScreen.preventAutoHideAsync();
 
 /** Auth gate — redirects based on auth state using Expo Router segments. */
@@ -92,25 +94,29 @@ export default function RootLayout() {
         <DatabaseProvider>
         <ThemeProvider>
         <AuthProvider>
-            <StatusBar style="auto" />
-            <GestureHandlerRootView style={styles.root}>
-                <AuthGate>
-                    <Stack
-                        screenOptions={{
-                            headerShown: false,
-                            contentStyle: { backgroundColor: Colors.warmGray },
-                            animation: 'slide_from_right',
-                        }}
-                    >
-                        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                    </Stack>
-                </AuthGate>
-                
-                {showStartupSplash && (
-                    <AnimatedSplashScreen onFinish={() => setShowStartupSplash(false)} />
-                )}
-            </GestureHandlerRootView>
+            <OnboardingProvider>
+                <StatusBar style="auto" />
+                <GestureHandlerRootView style={styles.root}>
+                    <AuthGate>
+                        <Stack
+                            screenOptions={{
+                                headerShown: false,
+                                contentStyle: { backgroundColor: Colors.warmGray },
+                                animation: 'slide_from_right',
+                            }}
+                        >
+                            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                        </Stack>
+                    </AuthGate>
+                    
+                    <OnboardingOverlay />
+
+                    {showStartupSplash && (
+                        <AnimatedSplashScreen onFinish={() => setShowStartupSplash(false)} />
+                    )}
+                </GestureHandlerRootView>
+            </OnboardingProvider>
         </AuthProvider>
         </ThemeProvider>
         </DatabaseProvider>

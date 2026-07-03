@@ -1,563 +1,552 @@
-/**
- * ShareOutfitModal — Spotify-style outfit share card
- *
- * Generates the branded card using a hidden WebView canvas (pure JS, works in Expo Go).
- * Flow:
- *   1. Download outfit images → encode as base64 data-URIs
- *   2. Hidden WebView draws them on an HTML canvas with VibeCheck branding
- *   3. Canvas posts back a PNG base64 string via onMessage
- *   4. We write it to FileSystem cache and open expo-sharing
- */
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Dimensions,
-    Image,
-    Share,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
+    Modal,
     View,
-    StatusBar,
+    Text,
+    StyleSheet,
+    Image,
+    TouchableOpacity,
+    Dimensions,
+    SafeAreaView,
+    ScrollView,
+    Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { WebView } from 'react-native-webview';
-import * as FileSystem from 'expo-file-system/legacy';
+import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FontFamily } from '../../constants/theme';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeColors } from '../../context/ThemeContext';
 import type { WardrobeItem } from '../../services/api';
+import AvatarOutfitLayer from './AvatarOutfitLayer';
 
-const { width: SW } = Dimensions.get('window');
-const CARD_W = SW - 48;
-const CARD_H = CARD_W + 80;
+const { width } = Dimensions.get('window');
+const CARD_W = Math.min(width - 32, 380);
 
-/* Canvas dimensions (fixed — independent of screen size) */
-const C_W = 400;
-const C_H = 533;
-
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function fmtDate(s: string) {
-    const d = new Date(s + 'T00:00:00');
-    return `${MONTHS[d.getMonth()].toUpperCase()} ${d.getDate()}, ${d.getFullYear()}`;
-}
-
-/* ── HTML canvas card builder ── */
-function buildCardHTML(b64Images: string[], lookName: string, dateStr: string): string {
-    const count = b64Images.length;
-
-    function pos(i: number) {
-        if (count === 1) return { x: 20, y: 50, w: 360, h: 390 };
-        if (count === 2) return { x: i === 0 ? 5 : 202, y: 65, w: 193, h: 330 };
-        if (count === 3) return { x: i * 130 + 5, y: 75, w: 124, h: 280 };
-        const col = i % 2, row = Math.floor(i / 2);
-        return { x: col * 198 + 2, y: 50 + row * 200, w: 196, h: 196 };
-    }
-
-    const drawCode = b64Images.map((_, i) => {
-        const p = pos(i);
-        return `loadImg(${i}, ${p.x}, ${p.y}, ${p.w}, ${p.h});`;
-    }).join('\n        ');
-
-    const safeName = lookName.replace(/\\/g, '\\\\').replace(/'/g, "\\'").substring(0, 28);
-
-    return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-  * { margin: 0; padding: 0; }
-  body { width: ${C_W}px; height: ${C_H}px; overflow: hidden; background: #0D0D18; }
-  canvas { display: block; }
-</style>
-</head>
-<body>
-<canvas id="c" width="${C_W}" height="${C_H}"></canvas>
-<script>
-var cv = document.getElementById('c');
-var ctx = cv.getContext('2d');
-var srcs = ${JSON.stringify(b64Images)};
-var total = srcs.length === 0 ? 1 : srcs.length;
-var done = 0;
-
-function finish() {
-    /* Brand */
-    ctx.fillStyle = '#A0627A';
-    ctx.font = 'bold 14px Arial';
-    ctx.fillText('+ VibeCheck', 20, 36);
-
-    /* Look name */
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'italic bold 22px Georgia, serif';
-    ctx.fillText('${safeName}', 20, 480);
-
-    /* Date */
-    ctx.fillStyle = 'rgba(255,255,255,0.38)';
-    ctx.font = '13px Arial';
-    ctx.fillText('${dateStr}', 20, 502);
-
-    var b64 = cv.toDataURL('image/png').split(',')[1];
-    window.ReactNativeWebView.postMessage(b64);
-}
-
-function tick() { if (++done >= total) finish(); }
-
-function loadImg(idx, x, y, w, h) {
-    var img = new Image();
-    img.onload = function() {
-        /* Draw image scaled to fill slot (object-fit: contain style) */
-        var scale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
-        var dw = img.naturalWidth * scale;
-        var dh = img.naturalHeight * scale;
-        var dx = x + (w - dw) / 2;
-        var dy = y + (h - dh) / 2;
-        ctx.drawImage(img, dx, dy, dw, dh);
-        tick();
-    };
-    img.onerror = function() { tick(); };
-    img.src = srcs[idx];
-}
-
-/* Background */
-ctx.fillStyle = '#0D0D18';
-ctx.fillRect(0, 0, ${C_W}, ${C_H});
-
-/* Glow blobs */
-var g1 = ctx.createRadialGradient(370, 30, 0, 370, 30, 130);
-g1.addColorStop(0, 'rgba(160,98,122,0.22)');
-g1.addColorStop(1, 'rgba(160,98,122,0)');
-ctx.fillStyle = g1; ctx.fillRect(0, 0, ${C_W}, ${C_H});
-
-var g2 = ctx.createRadialGradient(20, 490, 0, 20, 490, 110);
-g2.addColorStop(0, 'rgba(107,74,128,0.2)');
-g2.addColorStop(1, 'rgba(107,74,128,0)');
-ctx.fillStyle = g2; ctx.fillRect(0, 0, ${C_W}, ${C_H});
-
-${count === 0 ? `
-ctx.fillStyle = 'rgba(255,255,255,0.15)';
-ctx.font = '60px Arial';
-ctx.fillText('?', 175, 300);
-finish();
-` : drawCode}
-</script>
-</body>
-</html>`;
-}
-
-type Props = {
+interface ShareOutfitModalProps {
     visible: boolean;
-    lookName: string;
-    items: WardrobeItem[];
-    date: string;
     onClose: () => void;
-};
-
-function OutfitCollage({ items, size }: { items: WardrobeItem[]; size: number }) {
-    const urls = items.map(i => i.processedUrl || i.originalUrl).filter(Boolean).slice(0, 4);
-    if (urls.length === 0) {
-        return (
-            <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="shirt-outline" size={56} color="rgba(255,255,255,0.2)" />
-            </View>
-        );
-    }
-    if (urls.length === 1) {
-        return <Image source={{ uri: urls[0] }} style={{ width: size, height: size }} resizeMode="contain" />;
-    }
-    if (urls.length === 2) {
-        const w = size / 2 - 4;
-        return (
-            <View style={{ width: size, height: size, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
-                {urls.map((u, i) => <Image key={i} source={{ uri: u }} style={{ width: w, height: size - 8 }} resizeMode="contain" />)}
-            </View>
-        );
-    }
-    if (urls.length === 3) {
-        const w = size / 3 - 4;
-        return (
-            <View style={{ width: size, height: size, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
-                {urls.map((u, i) => <Image key={i} source={{ uri: u }} style={{ width: w, height: size * 0.85 }} resizeMode="contain" />)}
-            </View>
-        );
-    }
-    const half = size / 2 - 4;
-    return (
-        <View style={{ width: size, height: size, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {urls.map((u, i) => <Image key={i} source={{ uri: u }} style={{ width: half, height: half }} resizeMode="contain" />)}
-        </View>
-    );
+    topItem: WardrobeItem | null;
+    bottomItem: WardrobeItem | null;
+    shoeItem: WardrobeItem | null;
 }
 
-export default function ShareOutfitModal({ visible, lookName, items, date, onClose }: Props) {
-    const { isDarkMode } = useTheme();
-    const insets = useSafeAreaInsets();
-    const [sharing, setSharing] = useState(false);
-    const [cardHtml, setCardHtml] = useState<string | null>(null);
-    const inProgress = useRef(false);
+export default function ShareOutfitModal({
+    visible,
+    onClose,
+    topItem,
+    bottomItem,
+    shoeItem,
+}: ShareOutfitModalProps) {
+    const tc = useThemeColors();
+    const viewShotRef = useRef<ViewShot>(null);
+    const [selectedGender, setSelectedGender] = useState<'girl' | 'boy'>('girl');
 
-    // Shimmer sweep animation
-    const shimmerX = useRef(new Animated.Value(-CARD_W * 1.5)).current;
-    useEffect(() => {
-        const loop = Animated.loop(
-            Animated.sequence([
-                Animated.timing(shimmerX, {
-                    toValue: CARD_W * 1.5,
-                    duration: 2200,
-                    useNativeDriver: true,
-                }),
-                Animated.delay(1600),
-            ])
-        );
-        loop.start();
-        return () => loop.stop();
-    }, []);
-
-    const startShare = useCallback(async () => {
-        if (inProgress.current) return;
-        inProgress.current = true;
-        setSharing(true);
+    const handleShare = async () => {
         try {
-            /* Download every outfit image and encode as base64 data-URI */
-            const b64List = await Promise.all(
-                items.slice(0, 4).map(async (item) => {
-                    const url = item.processedUrl || item.originalUrl;
-                    if (!url) return '';
-                    try {
-                        if (url.startsWith('file://')) {
-                            /* Already local — read directly */
-                            const b64 = await FileSystem.readAsStringAsync(url, {
-                                encoding: FileSystem.EncodingType.Base64,
-                            });
-                            const mime = url.endsWith('.png') ? 'image/png' : 'image/jpeg';
-                            return `data:${mime};base64,${b64}`;
-                        } else {
-                            /* Remote URL — download first */
-                            const dest = `${FileSystem.cacheDirectory}vc_img_${item.id}.jpg`;
-                            await FileSystem.downloadAsync(url, dest);
-                            const b64 = await FileSystem.readAsStringAsync(dest, {
-                                encoding: FileSystem.EncodingType.Base64,
-                            });
-                            return `data:image/jpeg;base64,${b64}`;
-                        }
-                    } catch {
-                        return '';
-                    }
-                })
-            );
-
-            const validImages = b64List.filter(Boolean);
-            setCardHtml(buildCardHTML(validImages, lookName, fmtDate(date)));
-            /* sharing flag stays true until onWebViewMessage resolves */
-        } catch (e: any) {
-            inProgress.current = false;
-            setSharing(false);
-            Alert.alert('Could not prepare card', e?.message ?? 'Unknown error.');
-        }
-    }, [items, lookName, date]);
-
-    const onWebViewMessage = useCallback(async (base64Png: string) => {
-        setCardHtml(null);
-        try {
-            const dest = `${FileSystem.cacheDirectory}vibecheck_card.png`;
-            await FileSystem.writeAsStringAsync(dest, base64Png, {
-                encoding: FileSystem.EncodingType.Base64,
-            });
-            const canShare = await Sharing.isAvailableAsync();
-            if (canShare) {
-                await Sharing.shareAsync(dest, {
-                    mimeType: 'image/png',
-                    dialogTitle: `${lookName} — VibeCheck`,
-                    UTI: 'public.png',
+            if (!viewShotRef.current?.capture) {
+                Alert.alert('Error', 'Share card not ready yet.');
+                return;
+            }
+            const uri = await viewShotRef.current.capture();
+            const shareable = await Sharing.isAvailableAsync();
+            if (shareable) {
+                await Sharing.shareAsync(uri, {
+                    mimeType: 'image/jpeg',
+                    dialogTitle: 'Share today\'s vibe!',
                 });
             } else {
-                await Share.share({ url: dest, title: `${lookName} — VibeCheck` });
+                Alert.alert('Sharing unavailable', 'Could not open share dialogue.');
             }
-        } catch (e: any) {
-            Alert.alert('Could not share', e?.message ?? 'Unknown error.');
-        } finally {
-            inProgress.current = false;
-            setSharing(false);
+        } catch (error) {
+            console.error('Failed to share card:', error);
+            Alert.alert('Error', 'Failed to generate shareable card.');
         }
-    }, [lookName]);
-
-    if (!visible) return null;
-
-    const sheet = isDarkMode ? '#16161E' : '#FFFFFF';
+    };
 
     return (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0D0D18', zIndex: 999 }]}>
-            <StatusBar barStyle="light-content" backgroundColor="#0D0D18" />
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+            <View style={styles.modalOverlay}>
+                <SafeAreaView style={styles.safeContainer}>
+                    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                        {/* Card Container for ViewShot Capture */}
+                        <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.95 }} style={styles.viewShotContainer}>
+                            <View style={styles.cardContainer}>
+                                {/* Top Header Bar */}
+                                <View style={styles.cardHeader}>
+                                    <View style={styles.sparkleContainer}>
+                                        <Ionicons name="sparkles" size={16} color="#E7C693" />
+                                    </View>
+                                    <View style={styles.headerTextContainer}>
+                                        <Text style={styles.titleText}>vibe check</Text>
+                                        <Text style={styles.subtitleText}>your daily outfit inspo</Text>
+                                    </View>
+                                    <View style={styles.sparkleContainer}>
+                                        <Ionicons name="sparkles" size={16} color="#E7C693" />
+                                    </View>
+                                    <View style={styles.headerActionIcons}>
+                                        <TouchableOpacity style={styles.shareHeaderBtn} onPress={handleShare}>
+                                            <Ionicons name="share-social" size={16} color="#2C2B29" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.closeCardBtn} onPress={onClose}>
+                                            <Ionicons name="close" size={16} color="#2C2B29" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
 
-            {/* Hidden WebView — off-screen, renders canvas card and posts PNG base64 */}
-            {cardHtml !== null && (
-                <WebView
-                    source={{ html: cardHtml }}
-                    style={styles.hiddenWebView}
-                    javaScriptEnabled
-                    originWhitelist={['*']}
-                    onMessage={e => onWebViewMessage(e.nativeEvent.data)}
-                />
-            )}
+                                {/* Main Body Layout */}
+                                <View style={styles.cardBody}>
+                                    {/* Left Column */}
+                                    <View style={styles.leftColumn}>
+                                        <Text style={styles.greetingText}>hey, pretty! ♡</Text>
+                                        <Text style={styles.vibeLabelText}>today's vibe is</Text>
+                                        <View style={styles.vibeValueContainer}>
+                                            <Text style={styles.vibeValueText}>soft girl</Text>
+                                            <Ionicons name="flower" size={18} color="#C78B80" style={styles.flowerIcon} />
+                                        </View>
 
-            {/* Header */}
-            <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
-                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                    <Ionicons name="close" size={20} color="#E0E0F0" />
-                </TouchableOpacity>
-                <Text style={styles.topTitle}>Share Outfit</Text>
-                <View style={{ width: 40 }} />
-            </View>
+                                        {/* Weather Widget */}
+                                        <View style={styles.weatherWidget}>
+                                            <View style={styles.weatherRow}>
+                                                <Ionicons name="sunny" size={16} color="#E7C693" />
+                                                <Text style={styles.weatherText}>29°C sunny</Text>
+                                            </View>
+                                            <View style={styles.weatherRow}>
+                                                <Ionicons name="cafe" size={16} color="#8E7E73" />
+                                                <Text style={styles.weatherText}>perfect for brunch</Text>
+                                            </View>
+                                        </View>
 
-            {/* Card preview — 3D + shine */}
-            <View style={styles.cardWrap}>
-                {/* 3D depth shadow layers */}
-                <View style={[styles.cardOuter, styles.cardDepth3]} />
-                <View style={[styles.cardOuter, styles.cardDepth2]} />
-                <View style={[styles.cardOuter, styles.cardDepth1]} />
+                                        {/* Pink Sticky Note */}
+                                        <View style={styles.stickyNoteContainer}>
+                                            <View style={styles.tape} />
+                                            <Text style={styles.stickyText}>{"this fit =\ngood mood :)"}</Text>
+                                            <Text style={styles.stickyHeart}>♡</Text>
+                                        </View>
+                                    </View>
 
-                {/* Main card */}
-                <View style={[styles.cardOuter, styles.cardMain]}>
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0D0D18' }]} />
-                    <View style={styles.blobTR} />
-                    <View style={styles.blobBL} />
+                                    {/* Right Column */}
+                                    <View style={styles.rightColumn}>
+                                        {/* Polaroid Frame */}
+                                        <View style={styles.polaroidFrame}>
+                                            <View style={styles.polaroidTape} />
+                                            <View style={styles.girlImageContainer}>
+                                                 <AvatarOutfitLayer
+                                                     currentVibe={selectedGender === 'girl' ? 'soft_girl' : 'boss_chic'}
+                                                     outfitColors={{
+                                                         top: topItem?.color && topItem.color.startsWith('#') ? topItem.color : '#F5F5DC',
+                                                         bottom: bottomItem?.color && bottomItem.color.startsWith('#') ? bottomItem.color : '#4682B4',
+                                                         shoes: shoeItem?.color && shoeItem.color.startsWith('#') ? shoeItem.color : '#111111',
+                                                     }}
+                                                 />
+                                            </View>
+                                            {/* Circular Sticker Overlay */}
+                                            <View style={styles.stickerCircle}>
+                                                <Text style={styles.stickerText}>{"be you,\ndo you\n♡"}</Text>
+                                            </View>
+                                        </View>
 
-                    {/* Top edge highlight — glass rim */}
-                    <View style={styles.cardTopEdge} />
+                                        {/* Speech Bubble Annotation */}
+                                        <View style={styles.speechBubble}>
+                                            <Text style={styles.speechText}>{"you look\namazing\ntoday! ♡"}</Text>
+                                        </View>
+                                    </View>
+                                </View>
 
-                    <View style={styles.cardTop}>
-                        <Text style={styles.cardBrand}>✦ VibeCheck</Text>
-                    </View>
-                    <View style={styles.collageWrap}>
-                        <OutfitCollage items={items} size={CARD_W - 48} />
-                    </View>
-                    <View style={styles.cardBottom}>
-                        <Text style={styles.cardName} numberOfLines={1}>{lookName}</Text>
-                        <Text style={styles.cardDate}>{fmtDate(date)}</Text>
-                    </View>
+                                {/* Gender Choice Selectors */}
+                                <Text style={styles.vibeForText}>♡ who's this vibe for? ♡</Text>
+                                <View style={styles.genderRow}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.genderButton,
+                                            selectedGender === 'girl' && styles.genderButtonSelected,
+                                        ]}
+                                        onPress={() => setSelectedGender('girl')}
+                                    >
+                                        <Image
+                                            source={require('../../assets/model-placeholder.png')}
+                                            style={styles.genderAvatar}
+                                            resizeMode="cover"
+                                        />
+                                        <Text style={styles.genderButtonText}>girl</Text>
+                                        {selectedGender === 'girl' && (
+                                            <View style={styles.checkBadge}>
+                                                <Ionicons name="checkmark" size={10} color="#FFF" />
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
 
-                    {/* Shimmer sweep */}
-                    <Animated.View
-                        style={[
-                            StyleSheet.absoluteFill,
-                            { transform: [{ translateX: shimmerX }] },
-                        ]}
-                        pointerEvents="none"
-                    >
-                        <LinearGradient
-                            colors={[
-                                'rgba(255,255,255,0)',
-                                'rgba(255,255,255,0.06)',
-                                'rgba(255,255,255,0.18)',
-                                'rgba(255,255,255,0.06)',
-                                'rgba(255,255,255,0)',
-                            ]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={{ width: CARD_W * 0.55, height: '100%' }}
-                        />
-                    </Animated.View>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.genderButton,
+                                            selectedGender === 'boy' && styles.genderButtonSelected,
+                                        ]}
+                                        onPress={() => setSelectedGender('boy')}
+                                    >
+                                        <Image
+                                            source={require('../../assets/model-placeholder.png')}
+                                            style={styles.genderAvatar}
+                                            resizeMode="cover"
+                                        />
+                                        <Text style={styles.genderButtonText}>boy</Text>
+                                        {selectedGender === 'boy' && (
+                                            <View style={styles.checkBadge}>
+                                                <Ionicons name="checkmark" size={10} color="#FFF" />
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
 
-                    {/* Gloss overlay at top */}
-                    <LinearGradient
-                        colors={['rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']}
-                        style={styles.glossOverlay}
-                        pointerEvents="none"
-                    />
-                </View>
-            </View>
+                                {/* Action Buttons Row */}
+                                <View style={styles.actionRow}>
+                                    <TouchableOpacity style={styles.auxButton}>
+                                        <Ionicons name="shuffle" size={16} color="#4C4641" />
+                                        <Text style={styles.auxButtonText}>another vibe</Text>
+                                    </TouchableOpacity>
 
-            {/* Bottom share sheet */}
-            <View style={[styles.sheet, { backgroundColor: sheet, paddingBottom: insets.bottom + 24 }]}>
-                <Text style={[styles.sheetLabel, { color: isDarkMode ? '#4A4A7A' : '#C0BDB8' }]}>
-                    SHARE TO
-                </Text>
-                <View style={styles.platformRow}>
-                    {([
-                        { icon: 'logo-instagram',             label: 'Instagram', color: '#C13584' },
-                        { icon: 'logo-whatsapp',              label: 'WhatsApp',  color: '#25D366' },
-                        { icon: 'logo-facebook',              label: 'Facebook',  color: '#1877F2' },
-                        { icon: 'ellipsis-horizontal-circle', label: 'More',      color: '#8888AA' },
-                    ] as const).map(p => (
-                        <TouchableOpacity
-                            key={p.label}
-                            style={styles.platformBtn}
-                            onPress={startShare}
-                            disabled={sharing}
-                            activeOpacity={0.7}
-                        >
-                            <View style={[styles.platformIcon, { backgroundColor: p.color + '22' }]}>
-                                {sharing
-                                    ? <ActivityIndicator size="small" color={p.color} />
-                                    : <Ionicons name={p.icon} size={26} color={p.color} />}
+                                    <TouchableOpacity style={styles.primaryLoveButton} onPress={handleShare}>
+                                        <Ionicons name="heart" size={16} color="#FFF" />
+                                        <Text style={styles.loveButtonText}>love it</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={styles.auxButton}>
+                                        <Ionicons name="calendar" size={16} color="#4C4641" />
+                                        <Text style={styles.auxButtonText}>wear today</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            <Text style={[styles.platformLabel, { color: isDarkMode ? '#C0C0D8' : '#555' }]}>
-                                {p.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                        </ViewShot>
+                    </ScrollView>
+                </SafeAreaView>
             </View>
-        </View>
+        </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    hiddenWebView: {
-        position: 'absolute',
-        width: C_W,
-        height: C_H,
-        top: -2000,
-        left: -2000,
-        opacity: 0,
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    topBar: {
+    safeContainer: {
+        width: '100%',
+        maxHeight: '95%',
+    },
+    scrollContent: {
+        alignItems: 'center',
+        paddingVertical: 20,
+    },
+    viewShotContainer: {
+        borderRadius: 24,
+        overflow: 'hidden',
+    },
+    cardContainer: {
+        width: CARD_W,
+        backgroundColor: '#FAF6F0',
+        borderRadius: 24,
+        padding: 20,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E9E3D9',
+    },
+    cardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingBottom: 12,
-    },
-    closeBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: '#2A2A38',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    topTitle: {
-        fontSize: 18,
-        fontFamily: FontFamily.heading,
-        fontStyle: 'italic',
-        fontWeight: '700',
-        color: '#F0F0F0',
-    },
-    cardWrap: {
-        flex: 1,
-        alignItems: 'center',
         justifyContent: 'center',
-        height: CARD_H + 20,
+        width: '100%',
+        marginBottom: 16,
+        position: 'relative',
     },
-    cardOuter: {
-        width: CARD_W,
-        height: CARD_H,
-        borderRadius: 20,
-        overflow: 'hidden',
-        padding: 20,
-        position: 'absolute',
+    sparkleContainer: {
+        marginHorizontal: 8,
     },
-    /* 3D stacked depth layers — offset down-right to fake Z-depth */
-    cardDepth3: {
-        backgroundColor: '#06060C',
-        transform: [{ translateX: 9 }, { translateY: 9 }],
-        borderRadius: 22,
-        opacity: 0.5,
-    },
-    cardDepth2: {
-        backgroundColor: '#0A0A14',
-        transform: [{ translateX: 6 }, { translateY: 6 }],
-        borderRadius: 21,
-        opacity: 0.7,
-    },
-    cardDepth1: {
-        backgroundColor: '#0D0D1C',
-        transform: [{ translateX: 3 }, { translateY: 3 }],
-        borderRadius: 20,
-        opacity: 0.85,
-    },
-    cardMain: {
-        /* top card sits at 0,0 — shadow via elevation */
-        transform: [{ translateX: 0 }, { translateY: 0 }],
-        borderWidth: 1,
-        borderColor: 'rgba(180,130,160,0.28)',
-        elevation: 24,
-        shadowColor: '#A0627A',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.55,
-        shadowRadius: 24,
-    },
-    cardTopEdge: {
-        position: 'absolute',
-        top: 0, left: 0, right: 0,
-        height: 2,
-        backgroundColor: 'rgba(255,255,255,0.18)',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-    },
-    glossOverlay: {
-        position: 'absolute',
-        top: 0, left: 0, right: 0,
-        height: CARD_H * 0.45,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-    },
-    blobTR: {
-        position: 'absolute', top: -50, right: -50,
-        width: 160, height: 160, borderRadius: 80,
-        backgroundColor: 'rgba(160,98,122,0.18)',
-    },
-    blobBL: {
-        position: 'absolute', bottom: -30, left: -30,
-        width: 120, height: 120, borderRadius: 60,
-        backgroundColor: 'rgba(107,74,128,0.18)',
-    },
-    cardTop: { marginBottom: 6 },
-    cardBrand: {
-        color: '#A0627A',
-        fontSize: 12,
-        fontFamily: FontFamily.heading,
-        letterSpacing: 1.5,
-        fontWeight: '600',
-    },
-    collageWrap: {
-        flex: 1,
+    headerTextContainer: {
         alignItems: 'center',
-        justifyContent: 'center',
     },
-    cardBottom: { marginTop: 6 },
-    cardName: {
-        color: '#FFFFFF',
-        fontSize: 20,
-        fontFamily: FontFamily.heading,
+    titleText: {
+        fontFamily: 'Cormorant_700Bold',
+        fontSize: 30,
         fontStyle: 'italic',
-        fontWeight: '700',
+        color: '#2C2B29',
+        textAlign: 'center',
     },
-    cardDate: {
-        color: 'rgba(255,255,255,0.4)',
-        fontSize: 11,
-        fontFamily: FontFamily.body,
-        letterSpacing: 0.5,
+    subtitleText: {
+        fontFamily: 'Montserrat_500Medium',
+        fontSize: 10,
+        color: '#8A857F',
+        letterSpacing: 1.2,
+        textTransform: 'uppercase',
         marginTop: 2,
     },
-    sheet: {
-        paddingTop: 24,
-        paddingHorizontal: 24,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-    },
-    sheetLabel: {
-        fontSize: 10,
-        fontFamily: FontFamily.bodySemiBold,
-        fontWeight: '600',
-        letterSpacing: 1.5,
-        marginBottom: 20,
-    },
-    platformRow: {
+    headerActionIcons: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
         flexDirection: 'row',
-        justifyContent: 'space-around',
-    },
-    platformBtn: {
-        alignItems: 'center',
         gap: 8,
     },
-    platformIcon: {
-        width: 62, height: 62, borderRadius: 31,
-        alignItems: 'center', justifyContent: 'center',
+    shareHeaderBtn: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#EBE5DC',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    platformLabel: {
+    closeCardBtn: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#EBE5DC',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cardBody: {
+        flexDirection: 'row',
+        width: '100%',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    leftColumn: {
+        width: '45%',
+        justifyContent: 'flex-start',
+    },
+    greetingText: {
+        fontFamily: 'Cormorant_600SemiBold',
+        fontSize: 15,
+        fontStyle: 'italic',
+        color: '#8E7E73',
+        marginBottom: 4,
+    },
+    vibeLabelText: {
+        fontFamily: 'Montserrat_600SemiBold',
+        fontSize: 13,
+        color: '#4B4641',
+    },
+    vibeValueContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 2,
+        marginBottom: 12,
+    },
+    vibeValueText: {
+        fontFamily: 'Cormorant_700Bold',
+        fontSize: 28,
+        fontStyle: 'italic',
+        color: '#C78B80',
+    },
+    flowerIcon: {
+        marginLeft: 6,
+    },
+    weatherWidget: {
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E9E3D9',
+        borderRadius: 12,
+        padding: 8,
+        gap: 6,
+        marginBottom: 16,
+    },
+    weatherRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    weatherText: {
+        fontFamily: 'Montserrat_400Regular',
+        fontSize: 10,
+        color: '#8E7E73',
+    },
+    stickyNoteContainer: {
+        backgroundColor: '#FCEEEB',
+        borderRadius: 8,
+        padding: 10,
+        alignItems: 'center',
+        position: 'relative',
+        shadowColor: '#C78B80',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    tape: {
+        width: 32,
+        height: 10,
+        backgroundColor: '#EADCD4',
+        position: 'absolute',
+        top: -5,
+        opacity: 0.8,
+    },
+    stickyText: {
+        fontFamily: 'Cormorant_700Bold',
+        fontSize: 13,
+        fontStyle: 'italic',
+        color: '#7C5D53',
+        textAlign: 'center',
+        lineHeight: 16,
+    },
+    stickyHeart: {
         fontSize: 12,
-        fontFamily: FontFamily.body,
-        fontWeight: '500',
+        color: '#C78B80',
+        marginTop: 4,
+    },
+    rightColumn: {
+        width: '50%',
+        alignItems: 'center',
+    },
+    polaroidFrame: {
+        backgroundColor: '#FFFFFF',
+        padding: 8,
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowOffset: { width: 0, height: 4 },
+        shadowRadius: 8,
+        elevation: 3,
+        position: 'relative',
+        alignItems: 'center',
+    },
+    polaroidTape: {
+        width: 36,
+        height: 12,
+        backgroundColor: '#EADCD4',
+        position: 'absolute',
+        top: -6,
+        opacity: 0.85,
+    },
+    girlImageContainer: {
+        width: 140,
+        height: 180,
+        borderRadius: 8,
+        backgroundColor: '#FAF6F0',
+        overflow: 'hidden',
+    },
+    stickerCircle: {
+        position: 'absolute',
+        bottom: -15,
+        right: -10,
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#EADCD4',
+        borderWidth: 1,
+        borderColor: '#D8C8BE',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    stickerText: {
+        fontFamily: 'Montserrat_500Medium',
+        fontSize: 7,
+        color: '#7A6A60',
+        textAlign: 'center',
+        lineHeight: 9,
+    },
+    speechBubble: {
+        marginTop: 20,
+        padding: 8,
+        backgroundColor: '#FFF',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E9E3D9',
+    },
+    speechText: {
+        fontFamily: 'Cormorant_700Bold',
+        fontSize: 11,
+        fontStyle: 'italic',
+        color: '#4C4641',
+        textAlign: 'center',
+        lineHeight: 14,
+    },
+    vibeForText: {
+        fontFamily: 'Cormorant_700Bold',
+        fontSize: 12,
+        fontStyle: 'italic',
+        color: '#8C8176',
+        marginVertical: 10,
+        textAlign: 'center',
+    },
+    genderRow: {
+        flexDirection: 'row',
+        width: '100%',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+        gap: 12,
+    },
+    genderButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E9E3D9',
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        gap: 8,
+        position: 'relative',
+    },
+    genderButtonSelected: {
+        borderColor: '#C78B80',
+        backgroundColor: '#FCEEEB',
+    },
+    genderAvatar: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+    },
+    genderButtonText: {
+        fontFamily: 'Montserrat_500Medium',
+        fontSize: 13,
+        color: '#4C4641',
+    },
+    checkBadge: {
+        position: 'absolute',
+        right: 8,
+        bottom: 8,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        backgroundColor: '#C78B80',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    actionRow: {
+        flexDirection: 'row',
+        width: '100%',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    auxButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E9E3D9',
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        gap: 4,
+    },
+    auxButtonText: {
+        fontFamily: 'Montserrat_500Medium',
+        fontSize: 10,
+        color: '#4C4641',
+    },
+    primaryLoveButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#C78B80',
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        gap: 6,
+        flex: 1.2,
+        justifyContent: 'center',
+    },
+    loveButtonText: {
+        fontFamily: 'Montserrat_600SemiBold',
+        fontSize: 12,
+        color: '#FFFFFF',
     },
 });

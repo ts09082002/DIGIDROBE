@@ -33,6 +33,7 @@ import * as wardrobeLocal from '../../services/wardrobe-local';
 import * as ootdLocal from '../../services/ootd-local';
 
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
+import { useOnboarding } from '../../context/OnboardingContext';
 import { Toast } from '../../components/Toast';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import ScreenContainer from '../../components/ui/ScreenContainer';
@@ -112,6 +113,9 @@ const SECTION_SUGGESTIONS: Record<CanonicalCategory, SuggestionItem[]> = {
 export default function WardrobeScreen() {
     const { isDarkMode } = useTheme();
     const tc = useThemeColors();
+    const { registerAnchor, currentStep } = useOnboarding();
+    const fabRef = useRef<any>(null);
+    const processingRef = useRef<View>(null);
     const [items, setItems] = useState<WardrobeItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState('All Items');
     const [loading, setLoading] = useState(false);
@@ -976,12 +980,24 @@ export default function WardrobeScreen() {
             <FullScreenLoader visible={isDeleting} message="Deleting item..." />
 
             {/* Sequential queue progress bar */}
-            {queueProgress && (
-                <ProcessingProgressBar
-                    current={queueProgress.current}
-                    total={queueProgress.total}
-                    done={queueProgress.done}
-                />
+            {(queueProgress || currentStep === 2) && (
+                <View
+                    ref={processingRef}
+                    collapsable={false}
+                    onLayout={() => {
+                        processingRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                            if (width > 0 && height > 0) {
+                                registerAnchor('wardrobe_processing', { x, y, width, height });
+                            }
+                        });
+                    }}
+                >
+                    <ProcessingProgressBar
+                        current={queueProgress?.current ?? 1}
+                        total={queueProgress?.total ?? 1}
+                        done={queueProgress?.done ?? false}
+                    />
+                </View>
             )}
 
             {/* Items Grid */}
@@ -1062,6 +1078,14 @@ export default function WardrobeScreen() {
 
             {/* FAB */}
             <TouchableOpacity
+                ref={fabRef}
+                onLayout={() => {
+                    fabRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                        if (width > 0 && height > 0) {
+                            registerAnchor('wardrobe_add', { x, y, width, height });
+                        }
+                    });
+                }}
                 style={[styles.fab, { backgroundColor: tc.accent }]}
                 onPress={showUploadOptions}
                 accessibilityRole="button"

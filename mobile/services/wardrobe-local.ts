@@ -4,7 +4,6 @@
  * Replaces backend API calls with WatermelonDB operations.
  * Every method returns the same WardrobeItem interface from api.ts
  * so existing UI code and the recommendation engine work unchanged.
- * add
  */
 
 import { Q } from '@nozbe/watermelondb';
@@ -25,6 +24,58 @@ import { addNotification } from './notifications';
 const itemsCollection = database.get<WardrobeItemModel>('wardrobe_items');
 
 /**
+ * FEATURE: BATCH INGESTION CONTROLLER FOR MAGIC WARDROBE EXTRACTOR
+ * Iterates through processed on-body segments and logs them cleanly into WatermelonDB.
+ * Uses existing saveProcessedImage pipeline to bypass TS asset compilation mismatches.
+ */
+export async function addMagicExtractedItemsToWardrobe(
+    extractedItems: OnDeviceProcessingResult[],
+    originalFullBodyPath: string
+): Promise<void> {
+    console.log(`[BatchIngestion] Initiating db injection for ${extractedItems.length} elements.`);
+
+    await database.write(async () => {
+        const itemsToCreate = await Promise.all(
+            extractedItems.map(async (item, index) => {
+                // Generate a temporary execution pseudo-ID for file alignment rules
+                const pseudoId = `magic_${Date.now()}_${index}`;
+                
+                // Existing saveProcessedImage framework converts string cache references to stable app storage paths
+                const permanentlyStoredUri = await saveProcessedImage(
+                    item.processedImageUri, 
+                    pseudoId
+                );
+
+                // Prepare schema model bindings matched strictly to your active Watermelon DB fields
+                return itemsCollection.prepareCreate((record) => {
+                    record.originalImagePath = originalFullBodyPath; 
+                    record.processedImagePath = permanentlyStoredUri;
+                    record.thumbnailPath = ''; 
+                    record.category = item.classification.category || 'unclassified';
+                    record.subCategory = item.classification.subCategory || '';
+                    record.name = `${item.classification.subCategory || 'Clothing'} (${item.colors.dominantName})`;
+                    record.brand = 'Extracted Look';
+                    record.color = item.colors.dominantName;
+                    record.seasonJson = JSON.stringify([]);
+                    record.occasionJson = JSON.stringify([]);
+                    record.isFavorite = false;
+                    record.mimeType = 'image/png';
+                    record.fileSize = 0; 
+                    record.status = 'processed';
+                    record.isLowConfidence = item.classification.isLowConfidence || false;
+                    record.colorPaletteJson = item.colors.palette ? JSON.stringify(item.colors.palette) : '';
+                    record.mlLabelsJson = item.classification.mlLabels ? JSON.stringify(item.classification.mlLabels) : '';
+                });
+            })
+        );
+
+        // SQLite processing atomic batch injection sequence
+        await database.batch(...itemsToCreate);
+        console.log(`[BatchIngestion] Successfully committed ${itemsToCreate.length} records to local database.`);
+    });
+}
+
+/**
  * Add a new clothing item: save images locally, insert into WatermelonDB.
  */
 export async function addClothingItem(
@@ -33,15 +84,13 @@ export async function addClothingItem(
     filename: string,
     preferredCategory?: string,
 ): Promise<WardrobeItem> {
-    // Generate a temporary ID to use for file naming (WatermelonDB will assign the real one)
     const record = await database.write(async () => {
         const newRecord = await itemsCollection.create((item) => {
-            // These will be overwritten after file save, but we set placeholders
             item.originalImagePath = '';
             item.processedImagePath = '';
             item.category = preferredCategory || processedResult.classification.category;
             item.subCategory = processedResult.classification.subCategory || '';
-            item.name = filename.replace(/\.[^.]+$/, ''); // Strip extension
+            item.name = filename.replace(/\.[^.]+$/, '');
             item.brand = '';
             item.color = processedResult.colors.dominantName;
             item.seasonJson = JSON.stringify([]);
@@ -51,23 +100,17 @@ export async function addClothingItem(
             item.fileSize = 0;
             item.status = 'done';
             item.isLowConfidence = processedResult.classification.isLowConfidence || false;
-            item.colorPaletteJson = processedResult.colors.palette
-                ? JSON.stringify(processedResult.colors.palette)
-                : '';
-            item.mlLabelsJson = processedResult.classification.mlLabels
-                ? JSON.stringify(processedResult.classification.mlLabels)
-                : '';
+            item.colorPaletteJson = processedResult.colors.palette ? JSON.stringify(processedResult.colors.palette) : '';
+            item.mlLabelsJson = processedResult.classification.mlLabels ? JSON.stringify(processedResult.classification.mlLabels) : '';
         });
         return newRecord;
     });
 
-    // Save images using the WatermelonDB record ID
     const [originalPath, processedPath] = await Promise.all([
         saveOriginalImage(originalUri, record.id),
         saveProcessedImage(processedResult.processedImageUri, record.id),
     ]);
 
-    // Generate thumbnail for potential cloud sync
     let thumbnailPath = '';
     try {
         thumbnailPath = await generateThumbnail(processedPath, record.id);
@@ -75,10 +118,8 @@ export async function addClothingItem(
         // Non-critical — skip thumbnail
     }
 
-    // Get file size
     const fileSize = await getLocalFileSize(processedPath);
 
-    // Update record with final paths
     await database.write(async () => {
         await record.update((item) => {
             item.originalImagePath = originalPath;
@@ -109,7 +150,6 @@ export async function getAllItems(params?: {
     const conditions: Q.Clause[] = [];
 
     if (params?.category && params.category !== 'all') {
-        // Backend uses 'tops', 'bottoms' etc. — match both backend and canonical forms
         conditions.push(Q.where('category', params.category));
     }
     if (params?.favorite === 'true') {
@@ -118,7 +158,6 @@ export async function getAllItems(params?: {
 
     let records = await itemsCollection.query(...conditions).fetch();
 
-    // Client-side text search (WatermelonDB SQLite LIKE is limited)
     if (params?.search) {
         const searchLower = params.search.toLowerCase();
         records = records.filter(
@@ -130,7 +169,6 @@ export async function getAllItems(params?: {
         );
     }
 
-    // Sort by created_at descending (newest first)
     records.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
 
     return records.map((r) => r.toApiShape());
@@ -190,10 +228,8 @@ export async function toggleFavorite(id: string): Promise<WardrobeItem> {
 export async function deleteItem(id: string): Promise<void> {
     const record = await itemsCollection.find(id);
 
-    // Delete image files first
     await deleteImages(id);
 
-    // Then remove the database record
     await database.write(async () => {
         await record.markAsDeleted();
     });
@@ -207,7 +243,6 @@ export async function deleteItem(id: string): Promise<void> {
 
 /**
  * Create a wardrobe item manually (e.g. from a suggestion with a remote image URL).
- * Images stay as external URLs — not downloaded to local storage.
  */
 export async function createItemManual(
     data: Partial<import('./api').WardrobeItem>,

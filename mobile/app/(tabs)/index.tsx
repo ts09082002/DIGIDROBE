@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
+import { useOnboarding } from '../../context/OnboardingContext';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { api, WardrobeItem } from '../../services/api';
 import * as wardrobeLocal from '../../services/wardrobe-local';
@@ -23,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import OutfitCanvas, { type OutfitCanvasHandle } from '../../components/home/OutfitCanvas';
 import OutfitDetailsModal from '../../components/home/OutfitDetailsModal';
+import ShareOutfitModal from '../../components/share/ShareOutfitModal';
 import { fetchLocationAndWeather, getTimeOfDayForGreeting, type WeatherInfo } from '../../services/weather';
 import { generateStyleOfDayForWardrobe } from '../../engine';
 import type { RecommendationContext, StyleOfTheDayResult } from '../../engine/types';
@@ -39,6 +41,8 @@ export default function HomeScreen() {
     const { isDarkMode, toggleTheme } = useTheme();
     const tc = useThemeColors();
     const router = useRouter();
+    const { registerAnchor, currentStep } = useOnboarding();
+    const sotdRef = useRef<any>(null);
     const params = useLocalSearchParams<{ viewOutfit?: string; topId?: string; bottomId?: string; shoeId?: string }>();
 
     // Canvas ref — exposes zoomIn / zoomOut for the +/- buttons
@@ -59,6 +63,7 @@ export default function HomeScreen() {
     const [weatherLoading, setWeatherLoading] = useState(true);
     const [styleOfDay, setStyleOfDay] = useState<StyleOfTheDayResult | null>(null);
     const [outfitDetailsOpen, setOutfitDetailsOpen] = useState(false);
+    const [shareVisible, setShareVisible] = useState(false);
 
     // Fetch wardrobe
     const fetchItems = useCallback(async () => {
@@ -335,6 +340,14 @@ export default function HomeScreen() {
                         <Ionicons name="notifications-outline" size={18} color={tc.textPrimary} />
                         <View style={[styles.badge, { backgroundColor: tc.accent, borderColor: tc.background, top: -2, right: -2 }]}><Text style={styles.badgeText}>2</Text></View>
                     </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} 
+                        onPress={() => setShareVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Share outfit"
+                    >
+                        <Ionicons name="share-social-outline" size={18} color={tc.textPrimary} />
+                    </TouchableOpacity>
                     <TouchableOpacity style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} onPress={() => router.push('/(tabs)/profile')}>
                         <Ionicons name="person-outline" size={18} color={tc.textPrimary} />
                     </TouchableOpacity>
@@ -470,7 +483,19 @@ export default function HomeScreen() {
                         }}
                     />
 
-                    <TouchableOpacity style={[styles.aiButton, { backgroundColor: tc.accent }]} onPress={handleSuggestAI} activeOpacity={0.8}>
+                    <TouchableOpacity
+                        ref={sotdRef}
+                        onLayout={() => {
+                            sotdRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                                if (width > 0 && height > 0) {
+                                    registerAnchor('home_sotd', { x, y, width, height });
+                                }
+                            });
+                        }}
+                        style={[styles.aiButton, { backgroundColor: tc.accent }]}
+                        onPress={handleSuggestAI}
+                        activeOpacity={0.8}
+                    >
                         <Text style={styles.aiButtonText}>✨ See AI Outfit Suggestions</Text>
                     </TouchableOpacity>
                 </View>
@@ -489,6 +514,14 @@ export default function HomeScreen() {
                 bottomItem={selectedBottom}
                 shoeItem={selectedShoe}
                 accessoryItems={selectedAccessories}
+            />
+
+            <ShareOutfitModal
+                visible={shareVisible}
+                onClose={() => setShareVisible(false)}
+                topItem={selectedTop}
+                bottomItem={selectedBottom}
+                shoeItem={selectedShoe}
             />
         </ScreenContainer>
     );
