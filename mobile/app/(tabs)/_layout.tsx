@@ -68,7 +68,6 @@ export default function TabLayout() {
             <Tabs.Screen name="travel" options={{ title: 'Travel' }} />
 
             <Tabs.Screen name="profile" options={{ href: null }} />
-            <Tabs.Screen name="styling" options={{ href: null }} />
             <Tabs.Screen name="upload" options={{ href: null }} />
         </Tabs>
     );

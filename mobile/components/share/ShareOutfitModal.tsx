@@ -58,7 +58,7 @@ export default function ShareOutfitModal({
                 onPress={onClose}
             >
                 <ImageBackground
-                    source={require('../../assets/share_bg_girl.png')}
+                    source={require('../../assets/share_bg_girl.webp')}
                     blurRadius={20}
                     style={styles.modalOverlay}
                     resizeMode="cover"
@@ -113,7 +113,7 @@ export default function ShareOutfitModal({
                                                 {/* Central square photo */}
                                                 <View style={styles.girlImageContainer}>
                                                     <Image
-                                                        source={require('../../assets/avatar_pixar_girl.png')}
+                                                        source={require('../../assets/avatar_pixar_girl.webp')}
                                                         style={styles.avatarImage}
                                                         resizeMode="cover"
                                                     />
@@ -145,7 +145,7 @@ export default function ShareOutfitModal({
                                     <View style={styles.toggleContainer}>
                                         <View style={styles.capsuleToggle}>
                                             <Image
-                                                source={require('../../assets/model-placeholder.png')}
+                                                source={require('../../assets/model-placeholder.webp')}
                                                 style={styles.toggleAvatar}
                                                 resizeMode="cover"
                                             />

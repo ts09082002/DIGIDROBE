@@ -25,7 +25,7 @@ async function scheduleDailyNotifications() {
             content: {
                 title: 'Good Morning! ☀️',
                 body: 'Open VibeCheck to put together your perfect outfit for the day!',
-                data: { route: 'styling' },
+                data: { route: 'home' },
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -39,7 +39,7 @@ async function scheduleDailyNotifications() {
             content: {
                 title: 'Good Afternoon! 🌤️',
                 body: 'How is your outfit looking? Need a quick style refresh?',
-                data: { route: 'styling' },
+                data: { route: 'home' },
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -53,7 +53,7 @@ async function scheduleDailyNotifications() {
             content: {
                 title: 'Good Evening! 🌆',
                 body: 'Ready for dinner or a night out? Let’s plan your evening look!',
-                data: { route: 'styling' },
+                data: { route: 'home' },
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DAILY,
