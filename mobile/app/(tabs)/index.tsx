@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { api, WardrobeItem } from '../../services/api';
 import * as wardrobeLocal from '../../services/wardrobe-local';
@@ -35,6 +36,7 @@ const { width, height } = Dimensions.get('window');
 const BODY_PHOTO_KEY = '@vibecheck_body_photo_url';
 
 export default function HomeScreen() {
+    const { unreadCount, fetchNotifications } = useNotifications();
     const [allWardrobeItems, setAllWardrobeItems] = useState<WardrobeItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -82,8 +84,9 @@ export default function HomeScreen() {
     useFocusEffect(
         useCallback(() => {
             fetchItems();
+            fetchNotifications();
             logScreenView('Home', 'HomeScreen');
-        }, [fetchItems])
+        }, [fetchItems, fetchNotifications])
     );
 
     // Fetch current location + temperature
@@ -338,7 +341,11 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                     <TouchableOpacity style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} onPress={() => router.push('/notifications')}>
                         <Ionicons name="notifications-outline" size={18} color={tc.textPrimary} />
-                        <View style={[styles.badge, { backgroundColor: tc.accent, borderColor: tc.background, top: -2, right: -2 }]}><Text style={styles.badgeText}>2</Text></View>
+                        {unreadCount > 0 && (
+                            <View style={[styles.badge, { backgroundColor: tc.accent, borderColor: tc.background, top: -2, right: -2 }]}>
+                                <Text style={styles.badgeText}>{unreadCount}</Text>
+                            </View>
+                        )}
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={[{ width: 36, height: 36, borderRadius: 18, backgroundColor: tc.surface, alignItems: 'center', justifyContent: 'center', ...Shadows.sm }]} 
@@ -445,7 +452,7 @@ export default function HomeScreen() {
                         subtitle={tops.length > 0 ? `${tops.length} piece${tops.length !== 1 ? 's' : ''}` : 'Nothing here yet'}
                         items={tops}
                         selectedItem={selectedTop}
-                        onSelect={setSelectedTop}
+                        onSelect={(item) => setSelectedTop(prev => prev?.id === item.id ? null : item)}
                     />
 
                     <CategoryListRow
@@ -454,7 +461,7 @@ export default function HomeScreen() {
                         subtitle={bottoms.length > 0 ? `${bottoms.length} piece${bottoms.length !== 1 ? 's' : ''}` : 'Nothing here yet'}
                         items={bottoms}
                         selectedItem={selectedBottom}
-                        onSelect={setSelectedBottom}
+                        onSelect={(item) => setSelectedBottom(prev => prev?.id === item.id ? null : item)}
                     />
 
                     <CategoryListRow
@@ -463,7 +470,7 @@ export default function HomeScreen() {
                         subtitle={shoes.length > 0 ? `${shoes.length} pair${shoes.length !== 1 ? 's' : ''}` : 'Nothing here yet'}
                         items={shoes}
                         selectedItem={selectedShoe}
-                        onSelect={setSelectedShoe}
+                        onSelect={(item) => setSelectedShoe(prev => prev?.id === item.id ? null : item)}
                     />
 
                     <CategoryListRow

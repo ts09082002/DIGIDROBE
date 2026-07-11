@@ -53,7 +53,7 @@ const SUGGESTIONS_MAX = 120;
 const TARGET_WIDTH = 800;
 const TARGET_ASPECT_RATIO = 4 / 5;
 
-const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Outerwear', 'Footwear', 'Bags', 'Accessories'];
+const CATEGORIES = ['All Items', 'Topwear', 'Bottoms', 'Dresses', 'Footwear', 'Bags', 'Accessories'];
 
 const FILTER_COLORS = ['Black', 'White', 'Blue', 'Red', 'Green', 'Pink', 'Brown', 'Gray', 'Navy', 'Beige', 'Yellow', 'Orange', 'Purple'];
 const FILTER_SEASONS = ['Summer', 'Winter', 'Spring', 'Fall'];
@@ -143,6 +143,7 @@ export default function WardrobeScreen() {
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
     const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [bulkDeleteDialogVisible, setBulkDeleteDialogVisible] = useState(false);
 
     // Sequential processing queue progress
     const [queueProgress, setQueueProgress] = useState<{ current: number; total: number; done: boolean } | null>(null);
@@ -720,7 +721,15 @@ export default function WardrobeScreen() {
         <TouchableOpacity
             style={[
                 styles.card,
-                { backgroundColor: 'transparent', padding: 0, borderWidth: 0, shadowOpacity: 0, elevation: 0 },
+                {
+                    backgroundColor: '#F7F7F8',
+                    borderRadius: 16,
+                    borderWidth: selectionMode && selectedItemIds.includes(item.id) ? 2 : 0,
+                    borderColor: tc.accent,
+                    ...Shadows.sm,
+                    overflow: 'hidden',
+                    position: 'relative',
+                },
             ]}
             onPress={() => {
                 if (selectionMode) {
@@ -735,12 +744,10 @@ export default function WardrobeScreen() {
             <View style={{
                 width: '100%',
                 aspectRatio: 0.82,
-                backgroundColor: tc.surface,
-                borderRadius: 16,
-                overflow: 'hidden',
+                backgroundColor: 'transparent',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: 12,
+                position: 'relative',
             }}>
                 <Image
                     source={{ uri: item.processedUrl || item.originalUrl }}
@@ -749,7 +756,7 @@ export default function WardrobeScreen() {
                 />
                 {!selectionMode && (
                     <TouchableOpacity
-                        style={{ position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 16, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}
+                        style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 22, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
                         onPress={() => handleToggleFavorite(item.id)}
                     >
                         <Ionicons
@@ -760,7 +767,7 @@ export default function WardrobeScreen() {
                     </TouchableOpacity>
                 )}
                 {selectionMode && (
-                    <View style={styles.selectedBadge}>
+                    <View style={[styles.selectedBadge, { zIndex: 10 }]}>
                         <Ionicons
                             name={selectedItemIds.includes(item.id) ? 'checkmark-circle' : 'ellipse-outline'}
                             size={22}
@@ -768,14 +775,6 @@ export default function WardrobeScreen() {
                         />
                     </View>
                 )}
-            </View>
-            <View style={{ marginTop: 12, paddingHorizontal: 4 }}>
-                <Text style={{ fontSize: 9, color: tc.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '700', marginBottom: 2 }} numberOfLines={1}>
-                    {item.brand || item.subCategory || 'AURA STUDIO'}
-                </Text>
-                <Text style={{ fontSize: 13, color: tc.textPrimary, fontWeight: '500' }} numberOfLines={1}>
-                    {item.name || 'Untitled Item'}
-                </Text>
             </View>
         </TouchableOpacity>
     );
@@ -894,7 +893,6 @@ export default function WardrobeScreen() {
                         {item === 'All Items' && <Ionicons name="grid" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
                         {item === 'Topwear' && <Ionicons name="body-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
                         {item === 'Bottoms' && <Ionicons name="shirt-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
-                        {item === 'Outerwear' && <Ionicons name="snow-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
                         {item === 'Dresses' && <Ionicons name="woman-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
                         {item === 'Footwear' && <Ionicons name="footsteps-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
                         {item === 'Bags' && <Ionicons name="bag-outline" size={14} color={selectedCategory === item ? Colors.white : tc.textSecondary} style={{ marginRight: 6 }} />}
@@ -979,26 +977,7 @@ export default function WardrobeScreen() {
             <FullScreenLoader visible={uploading} message="Preparing images..." />
             <FullScreenLoader visible={isDeleting} message="Deleting item..." />
 
-            {/* Sequential queue progress bar */}
-            {(queueProgress || currentStep === 2) && (
-                <View
-                    ref={processingRef}
-                    collapsable={false}
-                    onLayout={() => {
-                        processingRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
-                            if (width > 0 && height > 0) {
-                                registerAnchor('wardrobe_processing', { x, y, width, height });
-                            }
-                        });
-                    }}
-                >
-                    <ProcessingProgressBar
-                        current={queueProgress?.current ?? 1}
-                        total={queueProgress?.total ?? 1}
-                        done={queueProgress?.done ?? false}
-                    />
-                </View>
-            )}
+            {/* Sequential queue progress bar — floating above tab bar */}
 
             {/* Items Grid */}
             {loading ? (
@@ -1190,9 +1169,11 @@ export default function WardrobeScreen() {
                                 </View>
 
                                 <View style={styles.modalInfo}>
-                                    <Text style={[styles.modalBrand, { color: tc.textPrimary }]}>
-                                        {selectedItem.brand || selectedItem.subCategory || selectedItem.category}
-                                    </Text>
+                                    {selectedItem.brand ? (
+                                        <Text style={[styles.modalBrand, { color: tc.textPrimary }]}>
+                                            {selectedItem.brand}
+                                        </Text>
+                                    ) : null}
 
                                     <View style={styles.nameRow}>
                                         {editingName ? (
@@ -1242,7 +1223,16 @@ export default function WardrobeScreen() {
                                         ) : (
                                             <>
                                                 <Text style={[styles.modalName, { color: tc.textSecondary }]} numberOfLines={1}>
-                                                    {selectedItem.name || 'Untitled item'}
+                                                    {(() => {
+                                                        const colorText = selectedItem.color ? selectedItem.color : '';
+                                                        const subCategoryText = selectedItem.subCategory ? selectedItem.subCategory.replace(/_/g, ' ') : (selectedItem.category || 'Item');
+                                                        const combinedName = `${colorText} ${subCategoryText}`.trim();
+                                                        return combinedName
+                                                            .toLowerCase()
+                                                            .split(' ')
+                                                            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                                                            .join(' ') || 'Untitled Item';
+                                                    })()}
                                                 </Text>
                                                 <TouchableOpacity
                                                     style={styles.nameIconBtn}
@@ -1424,7 +1414,59 @@ export default function WardrobeScreen() {
                 }}
             />
 
-            {/* ── Floating Selection Action Bar ── */}
+            <ConfirmDialog
+                visible={bulkDeleteDialogVisible && selectedItemIds.length > 0}
+                title="Delete Selected"
+                description={`Are you sure you want to delete ${selectedItemIds.length} item${selectedItemIds.length !== 1 ? 's' : ''}? This cannot be undone.`}
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                destructive
+                onCancel={() => setBulkDeleteDialogVisible(false)}
+                onConfirm={async () => {
+                    try {
+                        setBulkDeleteDialogVisible(false);
+                        setIsDeleting(true);
+                        const count = selectedItemIds.length;
+                        await Promise.all(selectedItemIds.map(id => wardrobeLocal.deleteItem(id)));
+                        logEvent('delete_item', { count });
+                        setSelectionMode(false);
+                        setSelectedItemIds([]);
+                        invalidateCache();
+                        await loadItems(true);
+                        setToastType('success');
+                        setToastMessage(`${count} items deleted`);
+                        setToastVisible(true);
+                    } catch (err) {
+                        setToastType('error');
+                        setToastMessage('Could not delete items');
+                        setToastVisible(true);
+                    } finally {
+                        setIsDeleting(false);
+                    }
+                }}
+            />
+
+            {/* Floating processing progress bar — positioned above tab bar */}
+            {(queueProgress || currentStep === 2) && (
+                <View
+                    ref={processingRef}
+                    collapsable={false}
+                    style={{ position: 'absolute', bottom: 90, left: 0, right: 0, zIndex: 150 }}
+                    onLayout={() => {
+                        processingRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+                            if (width > 0 && height > 0) {
+                                registerAnchor('wardrobe_processing', { x, y, width, height });
+                            }
+                        });
+                    }}
+                >
+                    <ProcessingProgressBar
+                        current={queueProgress?.current ?? 1}
+                        total={queueProgress?.total ?? 1}
+                        done={queueProgress?.done ?? false}
+                    />
+                </View>
+            )}
             <Animated.View
                 pointerEvents={selectionMode && selectedItemIds.length > 0 ? 'auto' : 'none'}
                 style={[
@@ -1462,40 +1504,7 @@ export default function WardrobeScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.floatingActionBtn, { backgroundColor: Colors.error + '15' }]}
-                        onPress={() => {
-                            // delete all selected
-                            Alert.alert(
-                                'Delete Selected',
-                                `Delete ${selectedItemIds.length} item(s)?`,
-                                [
-                                    { text: 'Cancel', style: 'cancel' },
-                                    {
-                                        text: 'Delete',
-                                        style: 'destructive',
-                                        onPress: async () => {
-                                            try {
-                                                setIsDeleting(true);
-                                                await Promise.all(selectedItemIds.map(id => wardrobeLocal.deleteItem(id)));
-                                                logEvent('delete_item', { count: selectedItemIds.length });
-                                                setSelectionMode(false);
-                                                setSelectedItemIds([]);
-                                                invalidateCache();
-                                                await loadItems(true);
-                                                setToastType('success');
-                                                setToastMessage(`${selectedItemIds.length} items deleted`);
-                                                setToastVisible(true);
-                                            } catch (err) {
-                                                setToastType('error');
-                                                setToastMessage('Could not delete items');
-                                                setToastVisible(true);
-                                            } finally {
-                                                setIsDeleting(false);
-                                            }
-                                        },
-                                    },
-                                ],
-                            );
-                        }}
+                        onPress={() => setBulkDeleteDialogVisible(true)}
                     >
                         <Ionicons name="trash-outline" size={16} color={Colors.error} />
                         <Text style={[styles.floatingActionBtnText, { color: Colors.error }]}>Delete</Text>
@@ -1634,9 +1643,8 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.sm,
     },
     headerTitle: {
+        ...Typography.heading1,
         fontSize: 36,
-        fontWeight: '700',
-        fontFamily: FontFamily.heading,
     },
     headerActions: {
         flexDirection: 'row',
@@ -1648,8 +1656,7 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
     },
     headerTextBtnLabel: {
-        fontSize: 15,
-        fontFamily: FontFamily.bodySemiBold,
+        ...Typography.body,
         fontWeight: '600',
     },
     filterIconBtn: {
@@ -1671,6 +1678,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     filterBadgeText: {
+        ...Typography.caption,
         fontSize: 9,
         fontWeight: '700',
         color: Colors.white,
@@ -1679,22 +1687,20 @@ const styles = StyleSheet.create({
     categoriesContainer: {
         paddingHorizontal: Spacing.xl,
         paddingBottom: Spacing.lg,
-        gap: Spacing.sm,
+        paddingTop: Spacing.sm,
     },
 
     /* ── Floating Selection Bar ── */
     floatingSelectionBar: {
         position: 'absolute',
         bottom: 100,
-        left: Spacing.lg,
-        right: Spacing.lg,
+        left: Spacing.xl,
+        right: Spacing.xl,
+        height: 56,
+        borderRadius: 28,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        borderWidth: 1,
-        gap: 10,
+        paddingHorizontal: Spacing.md,
         zIndex: 200,
         ...Shadows.lg,
     },
@@ -1711,8 +1717,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     floatingCountText: {
-        fontSize: 13,
-        fontFamily: FontFamily.bodySemiBold,
+        ...Typography.bodySmall,
         fontWeight: '600',
     },
     floatingActions: {
@@ -1732,8 +1737,7 @@ const styles = StyleSheet.create({
         minHeight: 38,
     },
     floatingActionBtnText: {
-        fontSize: 13,
-        fontFamily: FontFamily.bodySemiBold,
+        ...Typography.bodySmall,
         fontWeight: '600',
         color: Colors.white,
     },
@@ -1754,13 +1758,10 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.lg,
     },
     filterSheetTitle: {
-        fontSize: 22,
-        fontFamily: FontFamily.heading,
-        fontWeight: '700',
+        ...Typography.heading2,
     },
     filterResetText: {
-        fontSize: 14,
-        fontFamily: FontFamily.bodySemiBold,
+        ...Typography.bodySmall,
         fontWeight: '600',
     },
     filterSectionRow: {
@@ -1771,8 +1772,7 @@ const styles = StyleSheet.create({
         paddingVertical: 4,
     },
     filterSectionTitle: {
-        fontSize: 15,
-        fontFamily: FontFamily.bodySemiBold,
+        ...Typography.body,
         fontWeight: '600',
         marginBottom: Spacing.sm,
         marginTop: Spacing.md,
@@ -1800,8 +1800,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(0,0,0,0.1)',
     },
     filterChipText: {
-        fontSize: 13,
-        fontFamily: FontFamily.bodyMedium,
+        ...Typography.bodySmall,
         fontWeight: '500',
     },
     filterSheetFooter: {
@@ -1818,8 +1817,7 @@ const styles = StyleSheet.create({
         minHeight: 48,
     },
     filterApplyBtnText: {
-        fontSize: 15,
-        fontFamily: FontFamily.bodySemiBold,
+        ...Typography.body,
         fontWeight: '600',
         color: Colors.white,
     },
@@ -1838,8 +1836,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     activeFilterTagText: {
-        fontSize: 12,
-        fontFamily: FontFamily.bodyMedium,
+        ...Typography.caption,
         fontWeight: '500',
     },
     categoryChip: {
@@ -1858,14 +1855,12 @@ const styles = StyleSheet.create({
         borderColor: Colors.gold,
     },
     categoryChipText: {
-        fontSize: 13,
-        fontFamily: FontFamily.bodyMedium,
+        ...Typography.bodySmall,
         fontWeight: '500',
         color: Colors.charcoal,
     },
     categoryChipTextActive: {
         color: Colors.white,
-        fontFamily: FontFamily.bodySemiBold,
         fontWeight: '600',
     },
     uploadBanner: {
@@ -1879,8 +1874,7 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     uploadText: {
-        fontSize: 13,
-        fontFamily: FontFamily.bodyMedium,
+        ...Typography.bodySmall,
         color: Colors.goldDark,
         fontWeight: '500',
     },
@@ -1904,13 +1898,12 @@ const styles = StyleSheet.create({
         marginLeft: Spacing.sm,
     },
     processingTitle: {
-        fontSize: 13,
-        fontFamily: FontFamily.bodySemiBold,
+        ...Typography.bodySmall,
         fontWeight: '600',
         color: Colors.white,
     },
     processingSubtitle: {
-        fontSize: 11,
+        ...Typography.caption,
         color: Colors.mediumGray,
         marginTop: 2,
     },

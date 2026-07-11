@@ -155,6 +155,14 @@ async function runWorker(): Promise<void> {
 
     isRunning = false;
 
+    // Clean up temporary cache files
+    try {
+        const { cleanupTempFiles } = require('./local-image-storage');
+        await cleanupTempFiles();
+    } catch (e) {
+        console.warn('[Queue] Failed to cleanup temp files:', e);
+    }
+
     // All done — fire the completion callback
     if (callbacks && processedCount >= batchTotal) {
         callbacks.onQueueComplete([...completedItems]);

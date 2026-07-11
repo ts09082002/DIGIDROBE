@@ -26,6 +26,15 @@ const MAX_OUTPUT_SIZE = 1024;
 // Padding around the detected subject (fraction of bounding box size)
 const CROP_PADDING_RATIO = 0.08;
 
+async function deleteFileSafe(uri: string): Promise<void> {
+    try {
+        const FileSystem = require('expo-file-system/legacy');
+        await FileSystem.deleteAsync(uri, { idempotent: true });
+    } catch {
+        // ignore
+    }
+}
+
 export interface BackgroundRemovalResult {
     /** URI to the processed PNG with transparent background */
     processedUri: string;
@@ -44,6 +53,9 @@ export async function removeBackgroundOnDevice(
     imageUri: string,
     lowMemoryMode: boolean = false
 ): Promise<BackgroundRemovalResult> {
+    const tempFiles: string[] = [];
+    let pass1Pixels: any = null;
+    let pass2Pixels: any = null;
     try {
         if (lowMemoryMode) {
             console.log('[BgRemoval] Low memory mode enabled, skipping multi-pass pipeline');
@@ -60,9 +72,11 @@ export async function removeBackgroundOnDevice(
             [{ resize: { width: detectionSize } }],
             { format: ImageManipulator.SaveFormat.PNG },
         );
+        tempFiles.push(detectionImage.uri);
 
         const pass1Uri = await removeBackground(detectionImage.uri, { trim: false });
-        const pass1Pixels = await decodePngPixels(pass1Uri);
+        tempFiles.push(pass1Uri);
+        pass1Pixels = await decodePngPixels(pass1Uri);
         console.log(`[BgRemoval] Pass 1 complete: ${pass1Pixels.width}x${pass1Pixels.height}`);
 
         // Find the tight bounding box of the subject in the detection image
@@ -71,6 +85,11 @@ export async function removeBackgroundOnDevice(
             pass1Pixels.width,
             pass1Pixels.height,
         );
+
+        // Nullify Pass 1 pixels immediately after finding bounds to free memory
+        if (pass1Pixels) {
+            pass1Pixels.rgba = null;
+        }
 
         if (!bounds || bounds.w < 10 || bounds.h < 10) {
             console.log('[BgRemoval] No clear subject found in Pass 1, falling back to single-pass');
@@ -87,9 +106,14 @@ export async function removeBackgroundOnDevice(
             [],
             { format: ImageManipulator.SaveFormat.PNG },
         );
+        tempFiles.push(originalInfo.uri);
 
-        const scaleX = originalInfo.width / pass1Pixels.width;
-        const scaleY = originalInfo.height / pass1Pixels.height;
+        // Calculate scales based on original and Pass 1 dimensions
+        const pass1Width = originalInfo.width > originalInfo.height ? 640 : Math.round(640 * (originalInfo.width / originalInfo.height));
+        const pass1Height = originalInfo.width > originalInfo.height ? Math.round(640 * (originalInfo.height / originalInfo.width)) : 640;
+
+        const scaleX = originalInfo.width / pass1Width;
+        const scaleY = originalInfo.height / pass1Height;
 
         // Scale bounds to original resolution with padding
         const padX = Math.round(bounds.w * CROP_PADDING_RATIO * scaleX);
@@ -117,11 +141,13 @@ export async function removeBackgroundOnDevice(
             ],
             { format: ImageManipulator.SaveFormat.PNG },
         );
+        tempFiles.push(cropped.uri);
 
         // Run ML Kit on the focused crop — the model now spends its entire
         // resolution budget on the clothing item instead of the whole scene
         const pass2Uri = await removeBackground(cropped.uri, { trim: true });
-        const pass2Pixels = await decodePngPixels(pass2Uri);
+        tempFiles.push(pass2Uri);
+        pass2Pixels = await decodePngPixels(pass2Uri);
         console.log(`[BgRemoval] Pass 2 complete: ${pass2Pixels.width}x${pass2Pixels.height}`);
 
         // ── Post-process: Edge Refinement ───────────────────────────────
@@ -157,6 +183,15 @@ export async function removeBackgroundOnDevice(
             console.warn('[BgRemoval] Single-pass also failed, returning original:', err2);
             return await originalFallback(imageUri);
         }
+    } finally {
+        if (pass1Pixels) {
+            pass1Pixels.rgba = null;
+        }
+        pass1Pixels = null;
+        pass2Pixels = null;
+        for (const uri of tempFiles) {
+            await deleteFileSafe(uri);
+        }
     }
 }
 
@@ -167,34 +202,43 @@ async function singlePassFallback(
     lowMemoryMode: boolean = false
 ): Promise<BackgroundRemovalResult> {
     console.log('[BgRemoval] Running single-pass segmentation…');
+    const tempFiles: string[] = [];
     
-    // In low memory mode, downscale the image significantly before running segmentation
-    let processUri = imageUri;
-    if (lowMemoryMode) {
-        const resized = await ImageManipulator.manipulateAsync(
-            imageUri,
-            [{ resize: { width: 768 } }], // smaller than max output
-            { format: ImageManipulator.SaveFormat.PNG },
-        );
-        processUri = resized.uri;
+    try {
+        // In low memory mode, downscale the image significantly before running segmentation
+        let processUri = imageUri;
+        if (lowMemoryMode) {
+            const resized = await ImageManipulator.manipulateAsync(
+                imageUri,
+                [{ resize: { width: 768 } }], // smaller than max output
+                { format: ImageManipulator.SaveFormat.PNG },
+            );
+            processUri = resized.uri;
+            tempFiles.push(resized.uri);
+        }
+
+        const resultUri = await removeBackground(processUri, { trim: true });
+        tempFiles.push(resultUri);
+        const pixels = await decodePngPixels(resultUri);
+
+        // Still apply edge refinement even in single-pass mode
+        contrastAlpha(pixels.rgba, pixels.width, pixels.height, 1.4);
+        erodeAlpha(pixels.rgba, pixels.width, pixels.height, 1);
+        featherEdges(pixels.rgba, pixels.width, pixels.height, 2);
+
+        const finalUri = await encodePngToFile(pixels.rgba, pixels.width, pixels.height);
+
+        return {
+            processedUri: finalUri,
+            rgbaPixels: pixels.rgba,
+            width: pixels.width,
+            height: pixels.height,
+        };
+    } finally {
+        for (const uri of tempFiles) {
+            await deleteFileSafe(uri);
+        }
     }
-
-    const resultUri = await removeBackground(processUri, { trim: true });
-    const pixels = await decodePngPixels(resultUri);
-
-    // Still apply edge refinement even in single-pass mode
-    contrastAlpha(pixels.rgba, pixels.width, pixels.height, 1.4);
-    erodeAlpha(pixels.rgba, pixels.width, pixels.height, 1);
-    featherEdges(pixels.rgba, pixels.width, pixels.height, 2);
-
-    const finalUri = await encodePngToFile(pixels.rgba, pixels.width, pixels.height);
-
-    return {
-        processedUri: finalUri,
-        rgbaPixels: pixels.rgba,
-        width: pixels.width,
-        height: pixels.height,
-    };
 }
 
 // ─── Fallback: Return original image (no segmentation) ───────────────────────

@@ -5,7 +5,8 @@ import { useRouter } from 'expo-router';
 import { useThemeColors } from '../context/ThemeContext';
 import { FontFamily, Spacing, BorderRadius, Shadows } from '../constants/theme';
 import ScreenContainer from '../components/ui/ScreenContainer';
-import { getNotifications, markAllRead, AppNotification } from '../services/notifications';
+import { useNotifications } from '../context/NotificationContext';
+import { AppNotification } from '../services/notifications';
 
 const MOCK_NOTIFICATIONS: AppNotification[] = [
     {
@@ -37,23 +38,18 @@ const MOCK_NOTIFICATIONS: AppNotification[] = [
 export default function NotificationsScreen() {
     const router = useRouter();
     const tc = useThemeColors();
-    const [notifications, setNotifications] = useState<AppNotification[]>([]);
+    const { notifications, markAllNotificationsAsRead, fetchNotifications } = useNotifications();
 
     useEffect(() => {
-        const fetchNotifs = async () => {
-            const stored = await getNotifications();
-            if (stored.length === 0) {
-                setNotifications(MOCK_NOTIFICATIONS);
-            } else {
-                setNotifications(stored);
-            }
+        const loadAndRead = async () => {
+            await fetchNotifications();
+            await markAllNotificationsAsRead();
         };
-        fetchNotifs();
-    }, []);
+        loadAndRead();
+    }, [fetchNotifications, markAllNotificationsAsRead]);
 
     const handleMarkAllRead = async () => {
-        await markAllRead();
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        await markAllNotificationsAsRead();
     };
 
     const newNotifs = notifications.filter(n => Date.now() - n.timestamp < 12 * 60 * 60 * 1000);

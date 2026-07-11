@@ -1,79 +1,45 @@
 /**
- * On-device clothing classifier using ML Kit Image Labeling.
- * No API key or internet connection required – runs 100% on-device.
+ * On-device clothing classifier using react-native-fast-tflite.
+ * Runs 100% on-device using custom trained TFLite models.
  */
 
-import ImageLabeling from '@react-native-ml-kit/image-labeling';
+import { loadTensorflowModel, TensorflowModel } from 'react-native-fast-tflite';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import jpeg from 'jpeg-js';
+import { Buffer } from 'buffer';
 
-// ─── Category Mapping ───────────────────────────────────────────────────────
-// Maps ML Kit labels → our internal category taxonomy
-const CATEGORY_LABEL_MAP: Record<string, string[]> = {
-    topwear: [
-        'T-shirt', 'Tshirt', 'T shirt', 'Shirt', 'Blouse', 'Top', 'Polo',
-        'Tank top', 'Vest', 'Jerseys', 'Jersey', 'Sweater', 'Sweatshirt',
-        'Hoodie', 'Pullover', 'Knitwear', 'Cardigan', 'Turtleneck', 'Dress shirt',
-        'Formal shirt', 'Tube top', 'Crop top', 'Halter', 'Long sleeve',
-        // Generic ML Kit labels that indicate topwear
-        'Sleeve', 'Collar', 'Active shirt', 'Sportswear', 'Jersey (clothing)',
-        'Undershirt', 'Button', 'Neck', 'Clothes hanger',
-    ],
-    bottomwear: [
-        'Jeans', 'Denim', 'Trousers', 'Pants', 'Chinos', 'Shorts',
-        'Skirt', 'Leggings', 'Joggers', 'Sweatpants', 'Cargo pants',
-        'Track pants', 'Culottes', 'Palazzo', 'Mini skirt', 'Midi skirt',
-        'Maxi skirt', 'Capri', 'Khakis', 'Lower', 'Lowers',
-        // Generic ML Kit labels
-        'Bermuda shorts', 'Board short', 'Pocket', 'Waist', 'Trunks',
-    ],
-    outerwear: [
-        'Jacket', 'Coat', 'Blazer', 'Outerwear', 'Overcoat', 'Parka',
-        'Windbreaker', 'Trench coat', 'Leather jacket', 'Denim jacket',
-        'Bomber jacket', 'Raincoat', 'Down jacket', 'Puffer jacket',
-        'Anorak', 'Fleece', 'Vest jacket',
-        // Generic ML Kit labels
-        'Hood', 'Zipper', 'Fur',
-    ],
-    footwear: [
-        'Shoe', 'Shoes', 'Sneakers', 'Sneaker', 'Boot', 'Boots',
-        'Sandal', 'Sandals', 'Footwear', 'Heels', 'Loafer', 'Loafers',
-        'Flip-flops', 'Slipper', 'Slippers', 'Trainers', 'Running shoe',
-        'Athletic shoe', 'Formal shoes', 'Oxford', 'Mule', 'Wedge', 'Stiletto',
-        'Ankle boot', 'Knee-high boot', 'Flat shoes',
-        // Generic ML Kit labels
-        'Walking shoe', 'Outdoor shoe', 'Plimsoll shoe', 'Skate shoe',
-        'Tennis shoe', 'Cross training shoe', 'Cleat (shoe)', 'Sole',
-    ],
-    accessories: [
-        'Belt', 'Hat', 'Cap', 'Beanie', 'Baseball cap', 'Scarf', 'Bag',
-        'Sunglasses', 'Glasses', 'Necklace', 'Bracelet', 'Earring',
-        'Ring', 'Tie', 'Bow tie', 'Gloves', 'Umbrella',
-        // Generic ML Kit labels
-        'Fashion accessory', 'Jewellery', 'Hair accessory', 'Headgear',
-        'Goggles', 'Wrist',
-    ],
-    bags: [
-        'Bag', 'Handbag', 'Backpack', 'Purse', 'Tote', 'Wallet', 'Clutch', 'Sling bag',
-        // Generic ML Kit labels
-        'Luggage and bags', 'Luggage', 'Shoulder bag',
-    ],
-    dresses: [
-        'Dress', 'Gown', 'Frock', 'Jumpsuit', 'Romper', 'Playsuit',
-        'Maxi dress', 'Mini dress', 'Midi dress', 'Evening gown',
-        // Generic ML Kit labels
-        'Day dress', 'Cocktail dress', 'One-piece garment',
-    ],
-};
+// ─── TFLite Configuration ──────────────────────────────────────────────────
+const LABELS = ['topwear', 'bottomwear', 'footwear', 'dresses', 'accessories', 'bags', 'unclassified'];
+const CONFIDENCE_THRESHOLD = 0.60;
 
-// Build a reverse lookup: lowercase label → category
-const LABEL_TO_CATEGORY: Record<string, string> = {};
-for (const [category, labels] of Object.entries(CATEGORY_LABEL_MAP)) {
-    for (const label of labels) {
-        LABEL_TO_CATEGORY[label.toLowerCase()] = category;
+let tfliteModel: TensorflowModel | null = null;
+
+async function getOrLoadModel() {
+    if (!tfliteModel) {
+        let lastErr: any = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                tfliteModel = await loadTensorflowModel(require('../assets/model.tflite'), []);
+                if (tfliteModel) {
+                    console.log('[MLClassifier] Successfully loaded TFLite model on attempt', attempt);
+                    break;
+                }
+            } catch (err) {
+                lastErr = err;
+                console.warn(`[MLClassifier] Failed to load custom TFLite model (attempt ${attempt}/3):`, err);
+                if (attempt < 3) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+        }
+        if (!tfliteModel && lastErr) {
+            console.error('[MLClassifier] Critical: TFLite model failed to load after 3 attempts:', lastErr);
+        }
     }
+    return tfliteModel;
 }
 
-// ─── Color Palette Extraction ────────────────────────────────────────────────
-// Named color dictionary for closest-match naming
+// ─── Color Palette Extraction Utilities ─────────────────────────────────────
 const NAMED_COLORS: { name: string; r: number; g: number; b: number }[] = [
     { name: 'Black', r: 0, g: 0, b: 0 },
     { name: 'White', r: 255, g: 255, b: 255 },
@@ -108,9 +74,7 @@ const NAMED_COLORS: { name: string; r: number; g: number; b: number }[] = [
 ];
 
 function colorDistance(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number {
-    return Math.sqrt(
-        (r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2
-    );
+    return Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
 }
 
 export function hexToName(hex: string): string {
@@ -133,104 +97,114 @@ export function rgbToHex(r: number, g: number, b: number): string {
     return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
 }
 
-// ─── ML Kit Classification ───────────────────────────────────────────────────
+// ─── Classification Interface & Inference logic ──────────────────────────────
 export interface ClothingClassification {
     category: string;       // 'topwear' | 'bottomwear' | 'outerwear' | 'footwear' | 'accessories' | 'dresses' | 'unclassified'
     subCategory: string;    // specific item type e.g. 'jeans', 't_shirt'
     confidence: number;     // 0–1
-    mlLabels: string[];     // raw ML Kit labels (for debugging / recommendation engine)
+    mlLabels: string[];     // raw labels (for debugging)
     isLowConfidence: boolean;
 }
 
-function mapLabelToCategory(label: string): string | null {
-    const lower = label.toLowerCase();
-    // Exact match
-    if (LABEL_TO_CATEGORY[lower]) return LABEL_TO_CATEGORY[lower];
-    // Partial match (e.g., "Blue Jeans" → "jeans")
-    for (const [key, cat] of Object.entries(LABEL_TO_CATEGORY)) {
-        if (lower.includes(key) || key.includes(lower)) return cat;
-    }
-    return null;
-}
-
-function labelToSubCategory(label: string, category: string): string {
-    const lower = label.toLowerCase();
-    const SUB_MAP: Record<string, string> = {
-        'jeans': 'jeans', 'denim': 'jeans', 'trousers': 'trousers', 'pants': 'trousers',
-        'chinos': 'trousers', 'shorts': 'shorts', 'skirt': 'skirt', 'leggings': 'leggings',
-        't-shirt': 't_shirt', 'tshirt': 't_shirt', 't shirt': 't_shirt',
-        'shirt': 'shirt', 'polo': 'polo', 'hoodie': 'hoodie', 'sweater': 'sweater',
-        'sweatshirt': 'sweatshirt', 'blouse': 'blouse', 'top': 'top',
-        'tank top': 'tank_top', 'vest': 'vest', 'cardigan': 'cardigan',
-        'jacket': 'jacket', 'coat': 'coat', 'blazer': 'blazer',
-        'raincoat': 'coat', 'parka': 'coat', 'bomber': 'jacket',
-        'sneakers': 'sneakers', 'sneaker': 'sneakers', 'boot': 'boots', 'boots': 'boots',
-        'sandal': 'sandals', 'sandals': 'sandals', 'loafer': 'formal_shoes', 'heels': 'heels',
-        'dress': 'dress', 'gown': 'gown', 'jumpsuit': 'jumpsuit',
-        'bag': 'bag', 'handbag': 'bag', 'backpack': 'backpack', 'belt': 'belt',
-        'hat': 'hat', 'cap': 'hat', 'watch': 'watch', 'sunglasses': 'sunglasses',
-    };
-    for (const [key, sub] of Object.entries(SUB_MAP)) {
-        if (lower.includes(key)) return sub;
-    }
-    // Default sub by main category
+function labelToSubCategory(category: string): string {
     const defaults: Record<string, string> = {
-        topwear: 't_shirt', bottomwear: 'trousers', outerwear: 'jacket',
-        footwear: 'shoes', accessories: 'accessory', bags: 'bag', dresses: 'dress',
+        topwear: 't_shirt',
+        bottomwear: 'trousers',
+        outerwear: 'jacket',
+        footwear: 'shoes',
+        accessories: 'accessory',
+        bags: 'bag',
+        dresses: 'dress',
     };
     return defaults[category] ?? 'other';
 }
 
 /**
- * Classify a clothing image using on-device ML Kit.
- * Accepts a local URI (file:// or content://).
+ * High-performance on-device TFLite classification implementation.
  */
-export async function classifyClothing(imageUri: string): Promise<ClothingClassification> {
+export async function classifyClothingImageOnDevice(imageUri: string): Promise<ClothingClassification> {
+    let manipResult: any = null;
+    let imgBuffer: any = null;
+    let decoded: any = null;
+    let tensorArray: any = null;
+    let result: any = null;
+
     try {
-        const labels = await ImageLabeling.label(imageUri);
-        const mlLabels = labels.map((l: any) => l.text);
+        const model = await getOrLoadModel();
+        
+        let probabilities = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]; // Default fallback to unclassified
+        
+        if (model) {
+            // 1. Resize and convert to base64
+            manipResult = await manipulateAsync(
+                imageUri,
+                [{ resize: { width: 224, height: 224 } }],
+                { format: SaveFormat.JPEG, base64: true }
+            );
 
-        if (labels.length === 0) {
-            console.log('[ML Kit] No labels returned (native module may need EAS build). Using manual category.');
-        } else {
-            console.log(`[ML Kit] Classified: ${labels.length} labels, top: ${labels[0]?.text} (${(labels[0]?.confidence * 100).toFixed(0)}%)`);
-        }
+            if (manipResult.base64) {
+                // 2. Decode Base64 to Buffer
+                imgBuffer = Buffer.from(manipResult.base64, 'base64');
 
-        let bestCategory: string | null = null;
-        let bestLabel = '';
-        let bestScore = 0;
+                // 3. Decode JPEG to raw RGBA pixels
+                decoded = jpeg.decode(imgBuffer, { useTArray: true });
+                
+                // 4. Create Float32Array (224x224x3)
+                tensorArray = new Float32Array(224 * 224 * 3);
+                
+                // 5. Normalize RGB values
+                let tensorIndex = 0;
+                for (let i = 0; i < decoded.data.length; i += 4) {
+                    // decoded.data is RGBA
+                    tensorArray[tensorIndex++] = (decoded.data[i] / 127.5) - 1.0;     // R
+                    tensorArray[tensorIndex++] = (decoded.data[i + 1] / 127.5) - 1.0; // G
+                    tensorArray[tensorIndex++] = (decoded.data[i + 2] / 127.5) - 1.0; // B
+                    // Ignore alpha channel (i + 3)
+                }
 
-        for (const label of labels) {
-            if (label.confidence < 0.15) continue; // skip very low-confidence labels
-            const category = mapLabelToCategory(label.text);
-            if (category && label.confidence > bestScore) {
-                bestScore = label.confidence;
-                bestCategory = category;
-                bestLabel = label.text;
+                // 6. Run Model
+                result = await model.run([tensorArray.buffer]);
+                if (result && result.length > 0) {
+                    // Parse outputs
+                    const floatArray = new Float32Array(result[0]);
+                    probabilities = Array.from(floatArray);
+                }
             }
         }
 
-        if (!bestCategory) {
+        // Find label with highest confidence
+        let maxIndex = 6; // Default to unclassified index
+        let maxConfidence = 0.0;
+
+        for (let i = 0; i < probabilities.length; i++) {
+            const conf = probabilities[i] || 0.0;
+            if (conf > maxConfidence) {
+                maxConfidence = conf;
+                maxIndex = i;
+            }
+        }
+
+        const predictedLabel = LABELS[maxIndex] || 'unclassified';
+
+        if (maxConfidence < CONFIDENCE_THRESHOLD || predictedLabel === 'unclassified') {
             return {
                 category: 'unclassified',
                 subCategory: 'other',
-                confidence: 0,
-                mlLabels,
+                confidence: maxConfidence,
+                mlLabels: [predictedLabel],
                 isLowConfidence: true,
             };
         }
 
-        const subCategory = labelToSubCategory(bestLabel, bestCategory);
-
         return {
-            category: bestCategory,
-            subCategory,
-            confidence: Math.round(bestScore * 1000) / 1000,
-            mlLabels,
-            isLowConfidence: bestScore < 0.5,
+            category: predictedLabel,
+            subCategory: labelToSubCategory(predictedLabel),
+            confidence: Math.round(maxConfidence * 1000) / 1000,
+            mlLabels: [predictedLabel],
+            isLowConfidence: maxConfidence < 0.75,
         };
     } catch (err) {
-        console.warn('[MLClassifier] Failed to classify image:', err);
+        console.warn('[MLClassifier] TFLite inference execution failed:', err);
         return {
             category: 'unclassified',
             subCategory: 'other',
@@ -238,7 +212,28 @@ export async function classifyClothing(imageUri: string): Promise<ClothingClassi
             mlLabels: [],
             isLowConfidence: true,
         };
+    } finally {
+        // Nullify all large intermediate buffers to assist garbage collection
+        imgBuffer = null;
+        decoded = null;
+        tensorArray = null;
+        result = null;
+
+        if (manipResult && manipResult.uri) {
+            try {
+                const FileSystem = require('expo-file-system/legacy');
+                await FileSystem.deleteAsync(manipResult.uri, { idempotent: true });
+            } catch (e) {
+                // ignore
+            }
+        }
+        manipResult = null;
     }
+}
+
+// Alias for upload.tsx / image-processor.ts backward compatibility
+export async function classifyClothing(imageUri: string): Promise<ClothingClassification> {
+    return classifyClothingImageOnDevice(imageUri);
 }
 
 // Canonical → backend category name
@@ -256,4 +251,21 @@ const CATEGORY_TO_BACKEND: Record<string, string> = {
 export function canonicalToBackend(category: string): string | undefined {
     const b = CATEGORY_TO_BACKEND[category];
     return b || undefined;
+}
+
+/**
+ * Explicitly release model resources and free up GPU/CPU memory.
+ */
+export async function releaseModel(): Promise<void> {
+    if (tfliteModel) {
+        try {
+            if (typeof (tfliteModel as any).close === 'function') {
+                await (tfliteModel as any).close();
+            }
+            tfliteModel = null;
+            console.log('[MLClassifier] TFLite model closed and memory released');
+        } catch (err) {
+            console.warn('[MLClassifier] Failed to release TFLite model:', err);
+        }
+    }
 }

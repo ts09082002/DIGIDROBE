@@ -25,7 +25,7 @@ import { useTheme, useThemeColors } from '../../context/ThemeContext';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { api, BodyPhotoUploadResult, StyleProfilePayload, StylistSuggestion, TryOnPreviewResult, WardrobeItem } from '../../services/api';
 import * as wardrobeLocal from '../../services/wardrobe-local';
-import { SavedLook, getSavedLooks, saveLook } from '../../services/saved-looks-local';
+import { SavedLook, getSavedLooks, saveLook, deleteLook } from '../../services/saved-looks-local';
 import { normalizeCategory } from '../../constants/categories';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateStyleOfDayForWardrobe } from '../../engine';
@@ -35,7 +35,9 @@ import { applyOnlineUpdate } from '../../engine/personalization';
 import ScreenContainer from '../../components/ui/ScreenContainer';
 import { SkeletonGrid } from '../../components/ui/SkeletonLoader';
 import EmptyState from '../../components/ui/EmptyState';
+import Button from '../../components/ui/Button';
 import { logEvent, logScreenView } from '../../services/analytics';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 const TABS = ['My Looks', 'AI Stylist'];
 
@@ -264,6 +266,9 @@ export default function OutfitsScreen() {
     const [swappingCategory, setSwappingCategory] = useState<string | null>(null);
     // Ref so occasion chips and shuffle always have fresh wardrobe data (avoids stale closure)
     const wardrobeItemsRef = useRef<WardrobeItem[]>([]);
+
+    const [deleteLookDialogVisible, setDeleteLookDialogVisible] = useState(false);
+    const [lookToDelete, setLookToDelete] = useState<string | null>(null);
 
     const [styleContext, setStyleContext] = useState<RecommendationContext>({
         temperatureC: 24,
@@ -517,8 +522,8 @@ export default function OutfitsScreen() {
             key={label}
             style={[
                 styles.quizChoiceCard,
-                !imageUrl && { backgroundColor: QUIZ_CARD_BACKGROUNDS[index % QUIZ_CARD_BACKGROUNDS.length] },
-                selected && styles.quizChoiceCardActive,
+                !imageUrl && { backgroundColor: isDarkMode ? tc.surfacePressed : QUIZ_CARD_BACKGROUNDS[index % QUIZ_CARD_BACKGROUNDS.length] },
+                selected && [styles.quizChoiceCardActive, { borderColor: tc.accent }],
             ]}
             onPress={onPress}
             activeOpacity={0.9}
@@ -527,7 +532,7 @@ export default function OutfitsScreen() {
                 <Image source={{ uri: imageUrl }} style={styles.quizChoiceImage} resizeMode="cover" />
             ) : (
                 <View style={styles.quizChoiceArtwork}>
-                    <Ionicons name="sparkles-outline" size={34} color="rgba(17,24,39,0.35)" />
+                    <Ionicons name="sparkles-outline" size={34} color={isDarkMode ? 'rgba(255,255,255,0.35)' : 'rgba(17,24,39,0.35)'} />
                 </View>
             )}
             <View style={styles.quizChoiceOverlay} />
@@ -536,7 +541,7 @@ export default function OutfitsScreen() {
                 {subtitle ? <Text style={styles.quizChoiceSubtitle}>{subtitle}</Text> : null}
             </View>
             {selected ? (
-                <View style={styles.quizCheckBadge}>
+                <View style={[styles.quizCheckBadge, { backgroundColor: tc.accent }]}>
                     <Ionicons name="checkmark" size={16} color={Colors.white} />
                 </View>
             ) : null}
@@ -589,31 +594,31 @@ export default function OutfitsScreen() {
                 <>
                     <Text style={styles.quizQuestionTitle}>What is your height?</Text>
                     <View style={styles.quizWeatherList}>
-                        <TouchableOpacity style={styles.quizWeatherCard} onPress={() => updateStyleProfile('height', Math.max(160, styleProfile.height - 2))}>
-                            <View style={styles.quizWeatherIcon}>
-                                <Ionicons name="remove" size={22} color={Colors.goldDark} />
+                        <TouchableOpacity style={[styles.quizWeatherCard, { backgroundColor: tc.surface, borderColor: tc.border }]} onPress={() => updateStyleProfile('height', Math.max(160, styleProfile.height - 2))}>
+                            <View style={[styles.quizWeatherIcon, { backgroundColor: tc.surfacePressed }]}>
+                                <Ionicons name="remove" size={22} color={tc.accent} />
                             </View>
                             <View style={styles.quizWeatherTextWrap}>
-                                <Text style={styles.quizWeatherTitle}>Lower</Text>
-                                <Text style={styles.quizWeatherSubtitle}>Reduce by 2 cm</Text>
+                                <Text style={[styles.quizWeatherTitle, { color: tc.textPrimary }]}>Lower</Text>
+                                <Text style={[styles.quizWeatherSubtitle, { color: tc.textSecondary }]}>Reduce by 2 cm</Text>
                             </View>
                         </TouchableOpacity>
 
-                        <View style={[styles.quizHeightPanel, styles.quizWeatherCardActive]}>
-                            <Text style={styles.quizHeightValue}>{styleProfile.height} cm</Text>
-                            <View style={styles.quizProgressTrack}>
-                                <View style={[styles.quizProgressFill, { width: `${((styleProfile.height - 160) / 30) * 100}%` }]} />
+                        <View style={[styles.quizHeightPanel, { backgroundColor: tc.accentLight, borderColor: tc.accent }]}>
+                            <Text style={[styles.quizHeightValue, { color: tc.accent }]}>{styleProfile.height} cm</Text>
+                            <View style={[styles.quizProgressTrack, { backgroundColor: tc.border }]}>
+                                <View style={[styles.quizProgressFill, { width: `${((styleProfile.height - 160) / 30) * 100}%`, backgroundColor: tc.accent }]} />
                             </View>
-                            <Text style={styles.quizHeightRange}>160cm - 190cm</Text>
+                            <Text style={[styles.quizHeightRange, { color: tc.textMuted }]}>160cm - 190cm</Text>
                         </View>
 
-                        <TouchableOpacity style={styles.quizWeatherCard} onPress={() => updateStyleProfile('height', Math.min(190, styleProfile.height + 2))}>
-                            <View style={styles.quizWeatherIcon}>
-                                <Ionicons name="add" size={22} color={Colors.goldDark} />
+                        <TouchableOpacity style={[styles.quizWeatherCard, { backgroundColor: tc.surface, borderColor: tc.border }]} onPress={() => updateStyleProfile('height', Math.min(190, styleProfile.height + 2))}>
+                            <View style={[styles.quizWeatherIcon, { backgroundColor: tc.surfacePressed }]}>
+                                <Ionicons name="add" size={22} color={tc.accent} />
                             </View>
                             <View style={styles.quizWeatherTextWrap}>
-                                <Text style={styles.quizWeatherTitle}>Higher</Text>
-                                <Text style={styles.quizWeatherSubtitle}>Increase by 2 cm</Text>
+                                <Text style={[styles.quizWeatherTitle, { color: tc.textPrimary }]}>Higher</Text>
+                                <Text style={[styles.quizWeatherSubtitle, { color: tc.textSecondary }]}>Increase by 2 cm</Text>
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -631,19 +636,23 @@ export default function OutfitsScreen() {
                             return (
                                 <TouchableOpacity
                                     key={waistSize}
-                                    style={[styles.quizWeatherCard, selected && styles.quizWeatherCardActive]}
+                                    style={[
+                                        styles.quizWeatherCard,
+                                        { backgroundColor: tc.surface, borderColor: tc.border },
+                                        selected && { backgroundColor: tc.accentLight, borderColor: tc.accent },
+                                    ]}
                                     onPress={() => updateStyleProfile('waistSize', waistSize)}
                                 >
-                                    <View style={[styles.quizWeatherIcon, selected && styles.quizWeatherIconActive]}>
-                                        <Ionicons name="resize-outline" size={22} color={selected ? Colors.white : Colors.goldDark} />
+                                    <View style={[styles.quizWeatherIcon, { backgroundColor: tc.surfacePressed }, selected && { backgroundColor: tc.accent }]}>
+                                        <Ionicons name="resize-outline" size={22} color={selected ? Colors.white : tc.accent} />
                                     </View>
                                     <View style={styles.quizWeatherTextWrap}>
-                                        <Text style={styles.quizWeatherTitle}>{waistSize}</Text>
-                                        <Text style={styles.quizWeatherSubtitle}>Waist size</Text>
+                                        <Text style={[styles.quizWeatherTitle, { color: tc.textPrimary }]}>{waistSize}</Text>
+                                        <Text style={[styles.quizWeatherSubtitle, { color: tc.textSecondary }]}>Waist size</Text>
                                     </View>
                                     {selected ? (
-                                        <View style={styles.quizInlineCheck}>
-                                            <Ionicons name="checkmark" size={16} color={Colors.goldDark} />
+                                        <View style={[styles.quizInlineCheck, { backgroundColor: tc.accentLight }]}>
+                                            <Ionicons name="checkmark" size={16} color={tc.accent} />
                                         </View>
                                     ) : null}
                                 </TouchableOpacity>
@@ -748,8 +757,8 @@ refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} ti
                                 style={[styles.stylistBanner, { backgroundColor: tc.card, borderColor: tc.accent }]}
                             >
                                 <View style={styles.bannerRow}>
-                                    <View style={styles.bannerIcon}>
-                                        <Ionicons name="sparkles" size={22} color={Colors.gold} />
+                                    <View style={[styles.bannerIcon, { backgroundColor: tc.accentLight }]}>
+                                        <Ionicons name="sparkles" size={22} color={tc.accent} />
                                     </View>
                                     <View style={styles.bannerText}>
                                         <Text style={[styles.bannerTitle, { color: tc.textPrimary }]}>Style of the Day</Text>
@@ -758,7 +767,7 @@ refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} ti
                                         </Text>
                                     </View>
                                     <TouchableOpacity
-                                        style={[styles.regenBtn, { backgroundColor: Colors.gold }]}
+                                        style={[styles.regenBtn, { backgroundColor: tc.accent }]}
                                         onPress={regenerateSuggestion}
                                         disabled={styleOfDayLoading}
                                         accessibilityRole="button"
@@ -801,7 +810,7 @@ refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} ti
                                     <View style={styles.emptySuggestion}>
                                         <Ionicons name="shirt-outline" size={36} color={tc.border} />
                                         <Text style={[styles.emptySuggestionText, { color: tc.textSecondary }]}>
-                                            Add at least a top and bottom to generate an outfit
+                                            Add items to your wardrobe to generate outfit suggestions
                                         </Text>
                                     </View>
                                 ) : (
@@ -841,11 +850,11 @@ refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} ti
                                                             {normalizeCategory(item.category).toUpperCase()}
                                                         </Text>
                                                         <TouchableOpacity
-                                                            style={[styles.swapBtn, { backgroundColor: isDarkMode ? tc.surfacePressed : '#FFF3D6' }]}
+                                                            style={[styles.swapBtn, { backgroundColor: tc.accentLight }]}
                                                             onPress={() => openSelector(normalizeCategory(item.category))}
                                                         >
-                                                            <Ionicons name="swap-horizontal" size={14} color={Colors.goldDark} />
-                                                            <Text style={styles.swapBtnText}>Swap</Text>
+                                                            <Ionicons name="swap-horizontal" size={14} color={tc.accent} />
+                                                            <Text style={[styles.swapBtnText, { color: tc.accent }]}>Swap</Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
@@ -987,6 +996,10 @@ refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} ti
                                                 key={look.id}
                                                 activeOpacity={0.88}
                                                 onPress={() => setExpandedLookId(look.id)}
+                                                onLongPress={() => {
+                                                    setLookToDelete(look.id);
+                                                    setDeleteLookDialogVisible(true);
+                                                }}
                                                 style={[
                                                     styles.lookCard,
                                                     isWide ? styles.lookCardWide : styles.lookCardNarrow,
@@ -994,7 +1007,7 @@ refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} ti
                                                 ]}
                                             >
                                                 {/* Collage image area */}
-                                                <View style={[styles.lookCollage, { backgroundColor: isDarkMode ? '#1C1C24' : '#F2F0EC' }]}>
+                                                <View style={[styles.lookCollage, { backgroundColor: tc.background }]}>
                                                     {/* Index badge */}
                                                     <View style={[styles.lookIndexBadge, { backgroundColor: tc.accent }]}>
                                                         <Text style={styles.lookIndexText}>{String(index + 1).padStart(2, '0')}</Text>
@@ -1039,6 +1052,31 @@ refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} ti
                             )}
                         </>
                     )}
+
+                    <ConfirmDialog
+                        visible={deleteLookDialogVisible && !!lookToDelete}
+                        title="Delete this outfit?"
+                        description="Are you sure you want to remove this outfit from your collection?"
+                        confirmLabel="Delete"
+                        cancelLabel="Cancel"
+                        destructive
+                        onCancel={() => {
+                            setDeleteLookDialogVisible(false);
+                            setLookToDelete(null);
+                        }}
+                        onConfirm={async () => {
+                            if (!lookToDelete) return;
+                            try {
+                                setDeleteLookDialogVisible(false);
+                                await deleteLook(lookToDelete);
+                                logEvent('delete_outfit', { look_id: lookToDelete });
+                                setLookToDelete(null);
+                                await loadLooks();
+                            } catch (err) {
+                                console.warn('Failed to delete look:', err);
+                            }
+                        }}
+                    />
 
                     <View style={{ height: 100 }} />
                 </ScrollView>
@@ -1123,62 +1161,64 @@ refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} ti
                 presentationStyle="pageSheet"
                 onRequestClose={closeQuiz}
             >
-                <View style={styles.quizModalScreen}>
-                    <View style={styles.quizModalHeader}>
+                <View style={[styles.quizModalScreen, { backgroundColor: tc.background }]}>
+                    <View style={[styles.quizModalHeader, { borderBottomColor: tc.border }]}>
                         <TouchableOpacity style={styles.quizCloseBtn} onPress={closeQuiz} accessibilityRole="button" accessibilityLabel="Close style quiz">
-                            <Ionicons name="close" size={28} color={Colors.charcoal} />
+                            <Ionicons name="close" size={28} color={tc.textPrimary} />
                         </TouchableOpacity>
-                        <Text style={styles.quizModalTitle}>Style Quiz</Text>
+                        <Text style={[styles.quizModalTitle, { color: tc.textPrimary }]}>Style Quiz</Text>
                         <View style={styles.quizCloseBtnSpacer} />
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.quizModalContent}>
                         <View style={styles.quizIntroRow}>
                             <View>
-                                <Text style={styles.quizStepEyebrow}>STEP {String(profileStep).padStart(2, '0')}</Text>
-                                <Text style={styles.quizIntroTitle}>Your Style Profile</Text>
+                                <Text style={[styles.quizStepEyebrow, { color: tc.accent }]}>STEP {String(profileStep).padStart(2, '0')}</Text>
+                                <Text style={[styles.quizIntroTitle, { color: tc.textPrimary }]}>Your Style Profile</Text>
                             </View>
-                            <Text style={styles.quizIntroCount}>{profileStep}/5</Text>
+                            <Text style={[styles.quizIntroCount, { color: tc.textSecondary }]}>{profileStep}/5</Text>
                         </View>
 
-                        <View style={styles.quizProgressTrack}>
-                            <View style={[styles.quizProgressFill, { width: `${(profileStep / 5) * 100}%` }]} />
+                        <View style={[styles.quizProgressTrack, { backgroundColor: tc.surfacePressed }]}>
+                            <View style={[styles.quizProgressFill, { width: `${(profileStep / 5) * 100}%`, backgroundColor: tc.accent }]} />
                         </View>
 
                         {renderQuizStepContent()}
 
                         <View style={styles.quizBottomActions}>
                             {profileStep > 1 ? (
-                                <TouchableOpacity style={styles.quizSecondaryBtn} onPress={previousProfileStep}>
-                                    <Text style={styles.quizSecondaryBtnText}>Back</Text>
-                                </TouchableOpacity>
+                                <Button
+                                    title="Back"
+                                    onPress={previousProfileStep}
+                                    variant="ghost"
+                                    size="sm"
+                                />
                             ) : (
                                 <View />
                             )}
 
                             {profileStep < 5 ? (
-                                <TouchableOpacity
-                                    style={[styles.quizPrimaryBtn, !isCurrentStepReady && styles.profileNavBtnDisabled]}
+                                <Button
+                                    title="Next Step"
                                     onPress={nextProfileStep}
+                                    variant="primary"
+                                    size="sm"
                                     disabled={!isCurrentStepReady}
-                                >
-                                    <Text style={styles.quizPrimaryBtnText}>Next Step</Text>
-                                </TouchableOpacity>
+                                    style={{ minWidth: 210 }}
+                                />
                             ) : (
-                                <TouchableOpacity
-                                    style={[styles.quizPrimaryBtn, !isCurrentStepReady && styles.profileNavBtnDisabled]}
+                                <Button
+                                    title="Show Outfits"
                                     onPress={async () => {
                                         await regenerateSuggestion();
                                         closeQuiz();
                                     }}
-                                    disabled={!isCurrentStepReady || suggestionLoading}
-                                >
-                                    {suggestionLoading ? (
-                                        <ActivityIndicator size="small" color={Colors.white} />
-                                    ) : (
-                                        <Text style={styles.quizPrimaryBtnText}>Show Outfits</Text>
-                                    )}
-                                </TouchableOpacity>
+                                    variant="primary"
+                                    size="sm"
+                                    loading={suggestionLoading}
+                                    disabled={!isCurrentStepReady}
+                                    style={{ minWidth: 210 }}
+                                />
                             )}
                         </View>
                     </ScrollView>
@@ -2049,8 +2089,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         minWidth: 70,
     },
-    catNum: { fontSize: 22, fontWeight: '700' },
-    catLabel: { fontSize: 11, textTransform: 'capitalize', marginTop: 2 },
+    catNum: { ...Typography.heading2 },
+    catLabel: { ...Typography.caption, fontSize: 11, textTransform: 'capitalize', marginTop: 2 },
     // Favorites / My Looks empty state
     emptyFavs: {
         flex: 1,
@@ -2059,8 +2099,8 @@ const styles = StyleSheet.create({
         gap: 12,
         paddingHorizontal: 40,
     },
-    emptyFavsTitle: { fontSize: 18, fontWeight: '700', fontFamily: FontFamily.bodySemiBold },
-    emptyFavsSub: { fontSize: 14, textAlign: 'center', fontFamily: FontFamily.body },
+    emptyFavsTitle: { ...Typography.heading3 },
+    emptyFavsSub: { ...Typography.bodySmall, textAlign: 'center' },
     // ── My Looks grid ──────────────────────────────────────────────────────────
     looksList: {
         paddingHorizontal: Spacing.lg,

@@ -7,7 +7,7 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 export const GOOGLE_WEB_CLIENT_ID =
-    '838322575800-lluotvoiimbfrftp44bphkrtmge8i2ii.apps.googleusercontent.com';
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 
 let configured = false;
 

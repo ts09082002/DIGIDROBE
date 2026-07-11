@@ -21,7 +21,9 @@ const DEFAULT_TEMPLATES: OutfitTemplate[] = [
     // Fallback templates for smaller wardrobes
     { id: 'top_bottom', requiredCategories: ['topwear', 'bottomwear'] },
     { id: 'dress_only', requiredCategories: ['dresses'] },
-    { id: 'top_only', requiredCategories: ['topwear'] }, // absolute last resort
+    { id: 'top_only', requiredCategories: ['topwear'] },
+    { id: 'bottom_only', requiredCategories: ['bottomwear'] },
+    { id: 'outerwear_only', requiredCategories: ['outerwear'] },
 ];
 
 function buildCategoryIndex(items: EngineWardrobeItem[]): Record<string, EngineWardrobeItem[]> {

@@ -1,0 +1,7 @@
+0 Topwear
+1 Bottomwear
+2 Footwear
+3 Dress
+4 Accessories
+5 Bags
+6 Unclassified

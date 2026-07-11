@@ -156,6 +156,9 @@ export async function getAllItems(params?: {
         conditions.push(Q.where('is_favorite', true));
     }
 
+    // Sort by created_at descending directly in SQLite
+    conditions.push(Q.sortBy('created_at', Q.desc));
+
     let records = await itemsCollection.query(...conditions).fetch();
 
     if (params?.search) {
@@ -168,8 +171,6 @@ export async function getAllItems(params?: {
                 r.category.toLowerCase().includes(searchLower),
         );
     }
-
-    records.sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0));
 
     return records.map((r) => r.toApiShape());
 }
@@ -228,11 +229,11 @@ export async function toggleFavorite(id: string): Promise<WardrobeItem> {
 export async function deleteItem(id: string): Promise<void> {
     const record = await itemsCollection.find(id);
 
-    await deleteImages(id);
-
     await database.write(async () => {
         await record.markAsDeleted();
     });
+
+    await deleteImages(id);
 
     await addNotification({
         type: 'delete',

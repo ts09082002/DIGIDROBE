@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
+import Button from '../ui/Button';
 import type { PackingItem } from '../../services/trips-local';
 import type { WardrobeItem } from '../../services/api';
 
@@ -190,7 +191,7 @@ export default function PackingChecklist({ packingItems, itemsMap, onToggle, onS
                                     </TouchableOpacity>
 
                                     {/* Thumbnail */}
-                                    <View style={[styles.thumbWrap, { backgroundColor: isDarkMode ? '#1C1C24' : '#F2F0EC' }]}>
+                                    <View style={[styles.thumbWrap, { backgroundColor: tc.surfacePressed }]}>
                                         {wi?.processedUrl || wi?.originalUrl ? (
                                             <Image
                                                 source={{ uri: wi.processedUrl || wi.originalUrl }}
@@ -240,14 +241,14 @@ export default function PackingChecklist({ packingItems, itemsMap, onToggle, onS
             })}
 
             {/* ── Share button ── */}
-            <TouchableOpacity
-                style={[styles.shareBtn, { backgroundColor: tc.accent }]}
+            <Button
+                title="Share Packing List"
                 onPress={onShare}
-                accessibilityRole="button"
-            >
-                <Ionicons name="share-outline" size={18} color="#fff" />
-                <Text style={styles.shareBtnText}>Share Packing List</Text>
-            </TouchableOpacity>
+                icon="share-outline"
+                variant="primary"
+                fullWidth
+                style={{ marginTop: Spacing.sm }}
+            />
 
             <View style={{ height: 40 }} />
         </View>

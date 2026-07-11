@@ -22,7 +22,7 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
+          "NSAllowsLocalNetworking": true
         },
         "NSLocationWhenInUseUsageDescription": "Allow VibeCheck to access your location to provide personalized weather-based outfit suggestions."
       }

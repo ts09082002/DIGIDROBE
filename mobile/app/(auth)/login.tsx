@@ -9,9 +9,10 @@ import {
     View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import { Colors, FontFamily, Spacing, BorderRadius, Shadows, Typography } from '../../constants/theme';
 import { useThemeColors } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import ScreenContainer from '../../components/ui/ScreenContainer';
 
 type SigningIn = 'google' | 'apple' | 'guest' | null;
 
@@ -50,7 +51,7 @@ export default function LoginScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: tc.background }]}>
+        <ScreenContainer>
             {/* ─── Hero Section ───────────────────────────────────────────── */}
             <View style={styles.hero}>
                 <Image
@@ -145,7 +146,7 @@ export default function LoginScreen() {
                     By continuing, you agree to our Terms of Service & Privacy Policy
                 </Text>
             </View>
-        </View>
+        </ScreenContainer>
     );
 }
 
@@ -167,15 +168,12 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.lg,
     },
     appName: {
-        fontSize: 36,
-        fontFamily: FontFamily.heading,
-        fontWeight: '700',
-        letterSpacing: -0.5,
+        ...Typography.heading1,
+        fontSize: 36, // Keep custom size for app logo branding
         marginBottom: Spacing.xs,
     },
     tagline: {
-        fontSize: 16,
-        fontFamily: FontFamily.body,
+        ...Typography.body,
         letterSpacing: 0.5,
     },
 
@@ -221,9 +219,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#000000',
     },
     socialBtnText: {
-        fontSize: 16,
-        fontFamily: FontFamily.bodySemiBold,
-        fontWeight: '600',
+        ...Typography.button,
     },
 
     // ─── Divider ─────────────────────────────────────────────────────────
@@ -238,8 +234,7 @@ const styles = StyleSheet.create({
         height: 1,
     },
     dividerText: {
-        fontSize: 13,
-        fontFamily: FontFamily.bodyMedium,
+        ...Typography.caption,
         textTransform: 'lowercase',
     },
 
@@ -253,16 +248,13 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.xl,
     },
     guestBtnText: {
+        ...Typography.button,
         fontSize: 15,
-        fontFamily: FontFamily.bodySemiBold,
-        fontWeight: '600',
     },
 
     // ─── Footer ──────────────────────────────────────────────────────────
     footer: {
-        fontSize: 12,
-        fontFamily: FontFamily.body,
+        ...Typography.caption,
         textAlign: 'center',
-        lineHeight: 18,
     },
 });

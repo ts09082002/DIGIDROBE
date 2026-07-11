@@ -19,7 +19,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { Colors, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
+import { Colors, FontFamily, Spacing, BorderRadius, Shadows, Typography } from '../../constants/theme';
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { isSyncEnabled, setSyncEnabled, getLastSyncTime, performSync } from '../../db/sync';
@@ -910,9 +910,7 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.lg,
     },
     title: {
-        fontSize: 28,
-        fontWeight: '700',
-        fontFamily: FontFamily.heading,
+        ...Typography.heading2,
     },
     settingsBtn: {
         width: 40,
@@ -941,14 +939,12 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.md,
     },
     profileName: {
+        ...Typography.heading3,
         fontSize: 21,
-        fontWeight: '700',
-        fontFamily: FontFamily.heading,
         marginBottom: 4,
     },
     profileEmail: {
-        fontSize: 14,
-        fontFamily: FontFamily.body,
+        ...Typography.bodySmall,
         marginBottom: Spacing.md,
     },
     editBadge: {
@@ -960,8 +956,7 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.round,
     },
     editBadgeText: {
-        fontSize: 12,
-        fontFamily: FontFamily.bodySemiBold,
+        ...Typography.caption,
         fontWeight: '600',
     },
 

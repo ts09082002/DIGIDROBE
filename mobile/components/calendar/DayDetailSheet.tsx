@@ -334,8 +334,13 @@ export default function DayDetailSheet({
                     </View>
 
                     <TouchableOpacity
-                        style={[styles.saveBtn, { backgroundColor: tc.accent }]}
+                        style={[
+                            styles.saveBtn,
+                            { backgroundColor: tc.accent },
+                            selectedIds.length === 0 && { opacity: 0.4 }
+                        ]}
                         onPress={handleSave}
+                        disabled={selectedIds.length === 0}
                         activeOpacity={0.8}
                         accessibilityRole="button"
                         accessibilityLabel="Save outfit"

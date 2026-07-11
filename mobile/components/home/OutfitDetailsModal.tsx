@@ -103,9 +103,15 @@ export default function OutfitDetailsModal({
                         {!!outerItem && (
                             <PieceRow title="Outerwear" item={outerItem} />
                         )}
-                        <PieceRow title="Topwear" item={topItem} />
-                        <PieceRow title="Bottomwear" item={bottomItem} />
-                        <PieceRow title="Footwear" item={shoeItem} />
+                        {!!topItem && (
+                            <PieceRow title="Topwear" item={topItem} />
+                        )}
+                        {!!bottomItem && (
+                            <PieceRow title="Bottomwear" item={bottomItem} />
+                        )}
+                        {!!shoeItem && (
+                            <PieceRow title="Footwear" item={shoeItem} />
+                        )}
                         
                         {(accessoryItems || []).map((acc, index) => (
                             <PieceRow key={acc.id} title={`Accessory ${index + 1}`} item={acc} />

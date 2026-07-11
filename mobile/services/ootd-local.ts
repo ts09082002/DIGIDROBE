@@ -99,3 +99,28 @@ export async function getOOTDStats(days: number = 30): Promise<OOTDStats | null>
         leastWorn: sorted.slice(-5).reverse(),
     };
 }
+
+/**
+ * Delete an OOTD entry by ID.
+ */
+export async function deleteOOTD(id: string): Promise<void> {
+    const record = await ootdCollection.find(id);
+    await database.write(async () => {
+        await record.markAsDeleted();
+    });
+}
+
+/**
+ * Delete an OOTD entry by date.
+ */
+export async function deleteOOTDByDate(date: string): Promise<void> {
+    const existing = await ootdCollection
+        .query(Q.where('date', date))
+        .fetch();
+
+    if (existing.length > 0) {
+        await database.write(async () => {
+            await existing[0].markAsDeleted();
+        });
+    }
+}

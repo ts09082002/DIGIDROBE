@@ -142,20 +142,47 @@ class ApiService {
         }
     }
 
-    private async fetch(url: string, init?: RequestInit): Promise<Response> {
-        const headers = new Headers(init?.headers);
-        headers.set('Bypass-Tunnel-Reminder', 'true');
+    private async fetch(url: string, init?: RequestInit, timeoutMs = 15000, retries = 1): Promise<Response> {
+        let lastError: any;
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-        await this.attachAuthHeader(headers);
+            try {
+                const headers = new Headers(init?.headers);
+                headers.set('Bypass-Tunnel-Reminder', 'true');
+                await this.attachAuthHeader(headers);
 
-        let response = await fetch(url, { ...init, headers });
+                const response = await fetch(url, {
+                    ...init,
+                    headers,
+                    signal: controller.signal,
+                });
 
-        if (response.status === 401) {
-            await this.attachAuthHeader(headers, true);
-            response = await fetch(url, { ...init, headers });
+                if (response.status === 401 && attempt < retries) {
+                    await this.attachAuthHeader(headers, true);
+                    const retryResponse = await fetch(url, {
+                        ...init,
+                        headers,
+                        signal: controller.signal,
+                    });
+                    if (retryResponse.status !== 401) {
+                        return retryResponse;
+                    }
+                }
+
+                return response;
+            } catch (err: any) {
+                lastError = err;
+                if (attempt < retries) {
+                    console.log(`[API] Fetch failed (${err.message || err}). Retrying in 1000ms (Attempt ${attempt + 1}/${retries})...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            } finally {
+                clearTimeout(timeoutId);
+            }
         }
-
-        return response;
+        throw lastError;
     }
 
     private baseUrl: string;
@@ -285,6 +312,10 @@ class ApiService {
             body: JSON.stringify(data),
         });
 
+        if (!response.ok) {
+            throw new Error(`Failed to create wardrobe item: ${response.status}`);
+        }
+
         const result: ApiResponse<WardrobeItem> = await response.json();
         return result.data;
     }
@@ -313,6 +344,9 @@ class ApiService {
     // Get single wardrobe item
     async getWardrobeItem(id: string): Promise<WardrobeItem> {
         const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`));
+        if (!response.ok) {
+            throw new Error(`Failed to get wardrobe item: ${response.status}`);
+        }
         const result: ApiResponse<WardrobeItem> = await response.json();
         return result.data;
     }
@@ -322,6 +356,9 @@ class ApiService {
         const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}/favorite`), {
             method: 'PATCH',
         });
+        if (!response.ok) {
+            throw new Error(`Failed to toggle favorite: ${response.status}`);
+        }
         const result: ApiResponse<WardrobeItem> = await response.json();
         return result.data;
     }
@@ -333,13 +370,19 @@ class ApiService {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
+        if (!response.ok) {
+            throw new Error(`Failed to update wardrobe item: ${response.status}`);
+        }
         const result: ApiResponse<WardrobeItem> = await response.json();
         return result.data;
     }
 
     // Delete item
     async deleteItem(id: string): Promise<void> {
-        await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`), { method: 'DELETE' });
+        const response = await this.fetch(this.getFullUrl(`/api/wardrobe/${id}`), { method: 'DELETE' });
+        if (!response.ok) {
+            throw new Error(`Failed to delete item: ${response.status}`);
+        }
     }
 
     // Get stats
@@ -353,6 +396,30 @@ class ApiService {
     getImageUrl(path: string): string {
         if (path.startsWith('http')) return path;
         return this.getFullUrl(path);
+    }
+
+    // Database synchronization methods
+    async syncPull(lastPulledAt: number | null | undefined): Promise<{ changes: any; timestamp: number }> {
+        const response = await this.fetch(this.getFullUrl('/api/sync/pull'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lastPulledAt: lastPulledAt ?? 0 }),
+        }, 30000, 2);
+        if (!response.ok) {
+            throw new Error(`Sync pull failed: ${response.status}`);
+        }
+        return response.json();
+    }
+
+    async syncPush(changes: any, lastPulledAt: number | null | undefined): Promise<void> {
+        const response = await this.fetch(this.getFullUrl('/api/sync/push'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ changes, lastPulledAt: lastPulledAt ?? 0 }),
+        }, 30000, 2);
+        if (!response.ok) {
+            throw new Error(`Sync push failed: ${response.status}`);
+        }
     }
 
     // --- Calendar / OOTD ---

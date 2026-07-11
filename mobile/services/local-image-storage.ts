@@ -132,3 +132,40 @@ export async function getLocalFileSize(uri: string): Promise<number> {
         return 0;
     }
 }
+
+/**
+ * Clean up all temporary files created during image processing in the cache directory.
+ */
+export async function cleanupTempFiles(): Promise<void> {
+    try {
+        const cacheDir = FileSystem.cacheDirectory;
+        if (!cacheDir) return;
+
+        const files = await FileSystem.readDirectoryAsync(cacheDir);
+        const tempImagePatterns = [
+            /^bg_removed_.*\.png$/,
+            /\.png$/,
+            /\.jpg$/,
+            /\.jpeg$/,
+            /^ImagePicker.*$/,
+            /^ImageManipulator.*$/
+        ];
+
+        await Promise.all(
+            files.map(async (file) => {
+                const matches = tempImagePatterns.some((pattern) => pattern.test(file));
+                if (matches) {
+                    const filePath = `${cacheDir}${file}`;
+                    try {
+                        await FileSystem.deleteAsync(filePath, { idempotent: true });
+                    } catch {
+                        // ignore error for single file deletion
+                    }
+                }
+            })
+        );
+        console.log('[Storage] Temporary cache files cleaned successfully');
+    } catch (err) {
+        console.warn('[Storage] Failed to cleanup temporary cache files:', err);
+    }
+}

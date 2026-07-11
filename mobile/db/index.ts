@@ -8,15 +8,17 @@
 import { Database } from '@nozbe/watermelondb';
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
 import { schema } from './schema';
+import { migrations } from './migrations';
 import { WardrobeItemModel } from './models/WardrobeItemModel';
 import { OOTDModel } from './models/OOTDModel';
 import { SavedLookModel } from './models/SavedLookModel';
 
 const adapter = new SQLiteAdapter({
     schema,
+    migrations,
     jsi: true,
     onSetUpError: (error) => {
-        console.error('[WatermelonDB] Setup error:', error);
+        console.log('[WatermelonDB] Setup error:', error);
     },
 });
 

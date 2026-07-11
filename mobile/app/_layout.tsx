@@ -24,6 +24,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AnimatedSplashScreen from '../components/ui/AnimatedSplashScreen';
 import { useDailyNotifications } from '../hooks/useDailyNotifications';
 import { OnboardingProvider } from '../context/OnboardingContext';
+import { NotificationProvider } from '../context/NotificationContext';
 import OnboardingOverlay from '../components/ui/OnboardingOverlay';
 SplashScreen.preventAutoHideAsync();
 
@@ -70,6 +71,19 @@ export default function RootLayout() {
     // Initialize daily occasion notifications
     useDailyNotifications();
 
+    // Clean up temporary cache files on startup
+    useEffect(() => {
+        const runCleanup = async () => {
+            try {
+                const { cleanupTempFiles } = require('../services/local-image-storage');
+                await cleanupTempFiles();
+            } catch (e) {
+                console.warn('[Root] Failed to run initial cache cleanup:', e);
+            }
+        };
+        runCleanup();
+    }, []);
+
     const [fontsLoaded] = useFonts({
         Cormorant_600SemiBold,
         Cormorant_700Bold,
@@ -94,29 +108,31 @@ export default function RootLayout() {
         <DatabaseProvider>
         <ThemeProvider>
         <AuthProvider>
-            <OnboardingProvider>
-                <StatusBar style="auto" />
-                <GestureHandlerRootView style={styles.root}>
-                    <AuthGate>
-                        <Stack
-                            screenOptions={{
-                                headerShown: false,
-                                contentStyle: { backgroundColor: Colors.warmGray },
-                                animation: 'slide_from_right',
-                            }}
-                        >
-                            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                        </Stack>
-                    </AuthGate>
-                    
-                    <OnboardingOverlay />
+            <NotificationProvider>
+                <OnboardingProvider>
+                    <StatusBar style="auto" />
+                    <GestureHandlerRootView style={styles.root}>
+                        <AuthGate>
+                            <Stack
+                                screenOptions={{
+                                    headerShown: false,
+                                    contentStyle: { backgroundColor: Colors.warmGray },
+                                    animation: 'slide_from_right',
+                                }}
+                            >
+                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                            </Stack>
+                        </AuthGate>
+                        
+                        <OnboardingOverlay />
 
-                    {showStartupSplash && (
-                        <AnimatedSplashScreen onFinish={() => setShowStartupSplash(false)} />
-                    )}
-                </GestureHandlerRootView>
-            </OnboardingProvider>
+                        {showStartupSplash && (
+                            <AnimatedSplashScreen onFinish={() => setShowStartupSplash(false)} />
+                        )}
+                    </GestureHandlerRootView>
+                </OnboardingProvider>
+            </NotificationProvider>
         </AuthProvider>
         </ThemeProvider>
         </DatabaseProvider>

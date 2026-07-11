@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, FontFamily, Spacing, BorderRadius, Shadows } from '../../constants/theme';
 import { useTheme, useThemeColors } from '../../context/ThemeContext';
+import Button from '../ui/Button';
 import type { TripDay } from '../../services/trips-local';
 import type { WardrobeItem } from '../../services/api';
 
@@ -51,7 +52,7 @@ export default function DayOutfitCard({ day, dayIndex, dayLabel, items, onAISugg
         <View style={[styles.card, { backgroundColor: tc.card }]}>
             {/* ── Top accent bar ── */}
             <LinearGradient
-                colors={['#A0627A', '#7A4A5E']}
+                colors={[tc.accent, isDarkMode ? '#7B4560' : '#7A4A5E']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.accentBar}
@@ -61,7 +62,7 @@ export default function DayOutfitCard({ day, dayIndex, dayLabel, items, onAISugg
             <View style={styles.header}>
                 {/* Left: day badge */}
                 <View style={styles.dayBadge}>
-                    <View style={[styles.dayNumWrap, { backgroundColor: isDarkMode ? '#2A1E25' : '#F5EDF1' }]}>
+                    <View style={[styles.dayNumWrap, { backgroundColor: tc.accentLight }]}>
                         <Text style={[styles.dayNum, { color: tc.accent }]}>{dayIndex + 1}</Text>
                     </View>
                     <View style={styles.dayTextBlock}>
@@ -78,9 +79,9 @@ export default function DayOutfitCard({ day, dayIndex, dayLabel, items, onAISugg
                 <View style={styles.headerRight}>
                     {hasOutfit ? (
                         <>
-                            <View style={[styles.statusPill, { backgroundColor: isDarkMode ? '#1A2E1F' : '#EDFAF3' }]}>
-                                <View style={[styles.statusDot, { backgroundColor: '#2D9E6B' }]} />
-                                <Text style={[styles.statusText, { color: '#2D9E6B' }]}>Planned</Text>
+                            <View style={[styles.statusPill, { backgroundColor: isDarkMode ? '#122519' : '#EAF7EE' }]}>
+                                <View style={[styles.statusDot, { backgroundColor: Colors.success }]} />
+                                <Text style={[styles.statusText, { color: Colors.success }]}>Planned</Text>
                             </View>
                             <TouchableOpacity
                                 onPress={onManualPick}
@@ -92,9 +93,9 @@ export default function DayOutfitCard({ day, dayIndex, dayLabel, items, onAISugg
                             </TouchableOpacity>
                         </>
                     ) : (
-                        <View style={[styles.statusPill, { backgroundColor: isDarkMode ? '#2A2020' : '#FFF3F3' }]}>
-                            <View style={[styles.statusDot, { backgroundColor: '#E57373' }]} />
-                            <Text style={[styles.statusText, { color: '#E57373' }]}>Empty</Text>
+                        <View style={[styles.statusPill, { backgroundColor: isDarkMode ? '#2C1D1D' : '#FFEEEE' }]}>
+                            <View style={[styles.statusDot, { backgroundColor: Colors.error }]} />
+                            <Text style={[styles.statusText, { color: Colors.error }]}>Empty</Text>
                         </View>
                     )}
                 </View>
@@ -112,7 +113,7 @@ export default function DayOutfitCard({ day, dayIndex, dayLabel, items, onAISugg
                             const catColor = getCatColor(item.category);
                             return (
                                 <View key={item.id} style={styles.itemSlot}>
-                                    <View style={[styles.imageWrap, { backgroundColor: isDarkMode ? '#1C1C24' : '#F2F0EC' }]}>
+                                    <View style={[styles.imageWrap, { backgroundColor: tc.surfacePressed }]}>
                                         <Image
                                             source={{ uri: item.processedUrl || item.originalUrl }}
                                             style={styles.itemImage}
@@ -168,7 +169,7 @@ export default function DayOutfitCard({ day, dayIndex, dayLabel, items, onAISugg
                             key={i}
                             style={[
                                 styles.emptySlot,
-                                { borderColor: isDarkMode ? '#3A3A4A' : '#D8D4CF', backgroundColor: isDarkMode ? '#1C1C24' : '#F7F5F2' },
+                                { borderColor: tc.border, backgroundColor: tc.surfacePressed },
                             ]}
                         >
                             <Ionicons name="shirt-outline" size={20} color={tc.textMuted} style={{ opacity: 0.4 }} />
@@ -176,21 +177,22 @@ export default function DayOutfitCard({ day, dayIndex, dayLabel, items, onAISugg
                     ))}
 
                     <View style={styles.emptyActions}>
-                        <TouchableOpacity
-                            style={[styles.aiSuggestBtn, { backgroundColor: tc.accent }]}
+                        <Button
+                            title="AI Suggest"
                             onPress={onAISuggest}
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="sparkles" size={14} color="#fff" />
-                            <Text style={styles.aiSuggestBtnText}>AI Suggest</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.manualPickBtn, { borderColor: tc.border }]}
+                            icon="sparkles"
+                            variant="primary"
+                            size="sm"
+                            fullWidth
+                        />
+                        <Button
+                            title="Pick manually"
                             onPress={onManualPick}
-                            accessibilityRole="button"
-                        >
-                            <Text style={[styles.manualPickText, { color: tc.textSecondary }]}>Pick manually</Text>
-                        </TouchableOpacity>
+                            variant="secondary"
+                            size="sm"
+                            fullWidth
+                            style={{ marginTop: Spacing.sm }}
+                        />
                     </View>
                 </View>
             )}

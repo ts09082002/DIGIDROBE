@@ -45,7 +45,28 @@ export async function loadUsageIndex(): Promise<RecentUsageIndex> {
 }
 
 export async function saveUsageIndex(index: RecentUsageIndex): Promise<void> {
-    await AsyncStorage.setItem(USAGE_INDEX_KEY, JSON.stringify(index));
+    // Cap recentItemUsage to 200 entries (keep the ones with most recent timestamps)
+    const itemUsageEntries = Object.entries(index.recentItemUsage || {});
+    const cappedItemUsage = Object.fromEntries(
+        itemUsageEntries
+            .sort((a, b) => b[1].localeCompare(a[1]))
+            .slice(0, 200)
+    );
+
+    // Cap recentOutfits to 200 entries
+    const outfitsEntries = Object.entries(index.recentOutfits || {});
+    const cappedOutfits = Object.fromEntries(
+        outfitsEntries
+            .sort((a, b) => b[1].localeCompare(a[1]))
+            .slice(0, 200)
+    );
+
+    const cappedIndex = {
+        recentItemUsage: cappedItemUsage,
+        recentOutfits: cappedOutfits,
+    };
+
+    await AsyncStorage.setItem(USAGE_INDEX_KEY, JSON.stringify(cappedIndex));
 }
 
 export async function loadOnlineWeights(): Promise<OnlineLearningWeights> {

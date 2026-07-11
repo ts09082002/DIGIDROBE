@@ -98,11 +98,8 @@ export default function ProcessingProgressBar({ current, total, done = false }: 
 
 const styles = StyleSheet.create({
     container: {
-        position: 'absolute',
-        bottom: 90,          // above tab bar
-        left: Spacing.xl,
-        right: Spacing.xl,
-        borderRadius: BorderRadius.lg,
+        marginHorizontal: Spacing.xl,
+        borderRadius: BorderRadius.round,
         paddingHorizontal: Spacing.lg,
         paddingVertical: Spacing.md,
         gap: Spacing.sm,

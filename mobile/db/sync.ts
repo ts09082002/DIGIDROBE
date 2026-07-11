@@ -10,7 +10,7 @@
 
 import { synchronize } from '@nozbe/watermelondb/sync';
 import { database } from './index';
-import { API_BASE_URL } from '../constants/theme';
+import { api } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SYNC_ENABLED_KEY = 'settings_cloud_sync_enabled';
@@ -61,32 +61,13 @@ export async function performSync(): Promise<void> {
     await synchronize({
         database,
         pullChanges: async ({ lastPulledAt }) => {
-            const response = await fetch(`${API_BASE_URL}/api/sync/pull`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lastPulledAt }),
-            });
-
-            if (!response.ok) {
-                throw new Error(`Sync pull failed: ${response.status}`);
-            }
-
-            const { changes, timestamp } = await response.json();
+            const { changes, timestamp } = await api.syncPull(lastPulledAt);
             return { changes, timestamp };
         },
         pushChanges: async ({ changes, lastPulledAt }) => {
             // Strip image path fields from the sync payload — images stay local
             const sanitized = sanitizeChangesForSync(changes);
-
-            const response = await fetch(`${API_BASE_URL}/api/sync/push`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ changes: sanitized, lastPulledAt }),
-            });
-
-            if (!response.ok) {
-                throw new Error(`Sync push failed: ${response.status}`);
-            }
+            await api.syncPush(sanitized, lastPulledAt);
         },
     });
 
@@ -118,4 +99,27 @@ function sanitizeChangesForSync(changes: any): any {
     }
 
     return sanitized;
+}
+
+/**
+ * Permanently purge all soft-deleted records from the SQLite database.
+ * Useful for local-only users to prevent database bloat over time.
+ */
+export async function purgeSoftDeleted(): Promise<void> {
+    try {
+        const tables = ['wardrobe_items', 'ootd_entries', 'saved_looks'];
+        await database.write(async () => {
+            for (const table of tables) {
+                // WatermelonDB adapter supports unsafeExecute for raw SQL operations
+                await database.adapter.unsafeExecute({
+                    // @ts-ignore
+                    sql: `delete from ${table} where _status = 'deleted'`,
+                    args: [],
+                });
+            }
+        });
+        console.log('[Database] Soft-deleted records purged successfully from all tables');
+    } catch (err) {
+        console.warn('[Database] Failed to purge soft-deleted records:', err);
+    }
 }

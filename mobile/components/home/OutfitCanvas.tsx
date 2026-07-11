@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import type { WardrobeItem } from '../../services/api';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -48,10 +48,11 @@ type DraggablePieceProps = {
     onSelect: (id: string) => void;
     /** Called on tap — toggles: selects if not selected, deselects if already selected */
     onToggle: (id: string) => void;
+    scaleFactor: number;
 };
 
 const DraggablePiece = forwardRef<PieceHandle, DraggablePieceProps>(
-    ({ children, style, baseZIndex, isSelected, onSelect, onToggle, pieceId, imageUri }, ref) => {
+    ({ children, style, baseZIndex, isSelected, onSelect, onToggle, pieceId, imageUri, scaleFactor }, ref) => {
         const translateX = useSharedValue(0);
         const translateY = useSharedValue(0);
         const scale = useSharedValue(1);
@@ -110,8 +111,11 @@ const DraggablePiece = forwardRef<PieceHandle, DraggablePieceProps>(
                 runOnJS(onSelect)(pieceId); // always select on drag-start
             })
             .onUpdate((e) => {
-                translateX.value = Math.max(-120, Math.min(120, startX.value + e.translationX));
-                translateY.value = Math.max(-160, Math.min(160, startY.value + e.translationY));
+                // Bounds scaled dynamically based on screen width/scaleFactor
+                const limitX = 120 * scaleFactor;
+                const limitY = 160 * scaleFactor;
+                translateX.value = Math.max(-limitX, Math.min(limitX, startX.value + e.translationX));
+                translateY.value = Math.max(-limitY, Math.min(limitY, startY.value + e.translationY));
             });
 
         const pinchGesture = Gesture.Pinch()
@@ -170,7 +174,13 @@ const DraggablePiece = forwardRef<PieceHandle, DraggablePieceProps>(
 const OutfitCanvas = forwardRef<OutfitCanvasHandle, OutfitCanvasProps>(
     ({ topItem, bottomItem, shoeItem, outerItem, accessoryItems, onOpenDetails, onSelectionChange }, ref) => {
         const { isDarkMode } = useTheme();
+        const { width: windowWidth } = useWindowDimensions();
         const [selectedId, setSelectedId] = useState<string | null>(null);
+
+        // Responsive Calculations
+        const stackWidth = Math.min(windowWidth - 40, 280);
+        const stackHeight = stackWidth * 1.714; // Maintains 280x480 ratio
+        const scaleFactor = stackWidth / 280;
 
         const topRef = useRef<PieceHandle>(null);
         const bottomRef = useRef<PieceHandle>(null);
@@ -229,13 +239,22 @@ const OutfitCanvas = forwardRef<OutfitCanvasHandle, OutfitCanvasProps>(
                     accessible={false}
                 />
 
-                <View style={styles.stack}>
-                    {!!outerImg && (
+                <View style={[styles.stack, { width: stackWidth, height: stackHeight }]}>
+                    {outerImg && (
                         <DraggablePiece
                             ref={outerRef}
                             pieceId="outer"
                             imageUri={outerImg}
-                            style={[styles.piece, styles.outerPiece]}
+                            scaleFactor={scaleFactor}
+                            style={[
+                                styles.piece, 
+                                styles.outerPiece, 
+                                { 
+                                    top: 0, 
+                                    height: 140 * scaleFactor, 
+                                    width: stackWidth 
+                                }
+                            ]}
                             baseZIndex={4}
                             isSelected={selectedId === 'outer'}
                             onSelect={handleSelect}
@@ -248,7 +267,10 @@ const OutfitCanvas = forwardRef<OutfitCanvasHandle, OutfitCanvasProps>(
                     {(accessoryItems || []).map((acc, index) => {
                         const accImg = getImageUri(acc);
                         if (!accImg) return null;
-                        const dynamicOffset = { top: 60 + index * 10, right: 10 + index * 10 };
+                        const dynamicOffset = { 
+                            top: (60 + index * 10) * scaleFactor, 
+                            right: (10 + index * 10) * scaleFactor 
+                        };
                         const accId = `acc-${acc.id}`;
                         return (
                             <DraggablePiece
@@ -259,7 +281,16 @@ const OutfitCanvas = forwardRef<OutfitCanvasHandle, OutfitCanvasProps>(
                                 }}
                                 pieceId={accId}
                                 imageUri={accImg}
-                                style={[styles.piece, styles.accessoryPiece, dynamicOffset]}
+                                scaleFactor={scaleFactor}
+                                style={[
+                                    styles.piece, 
+                                    styles.accessoryPiece, 
+                                    dynamicOffset,
+                                    {
+                                        height: 100 * scaleFactor,
+                                        width: 100 * scaleFactor
+                                    }
+                                ]}
                                 baseZIndex={5 + index}
                                 isSelected={selectedId === accId}
                                 onSelect={handleSelect}
@@ -270,50 +301,77 @@ const OutfitCanvas = forwardRef<OutfitCanvasHandle, OutfitCanvasProps>(
                         );
                     })}
 
-                    <DraggablePiece
-                        ref={topRef}
-                        pieceId="top"
-                        imageUri={topImg}
-                        style={[styles.piece, styles.topPiece, { opacity: topImg ? 1 : 0.9 }]}
-                        baseZIndex={3}
-                        isSelected={selectedId === 'top'}
-                        onSelect={handleSelect}
-                        onToggle={handleToggle}
-                    >
-                        {topImg
-                            ? <Image source={{ uri: topImg }} style={styles.pieceImage} resizeMode="contain" />
-                            : null}
-                    </DraggablePiece>
+                    {topImg && (
+                        <DraggablePiece
+                            ref={topRef}
+                            pieceId="top"
+                            imageUri={topImg}
+                            scaleFactor={scaleFactor}
+                            style={[
+                                styles.piece, 
+                                styles.topPiece, 
+                                { 
+                                    top: 20 * scaleFactor, 
+                                    height: 140 * scaleFactor, 
+                                    width: stackWidth 
+                                }
+                            ]}
+                            baseZIndex={3}
+                            isSelected={selectedId === 'top'}
+                            onSelect={handleSelect}
+                            onToggle={handleToggle}
+                        >
+                            <Image source={{ uri: topImg }} style={styles.pieceImage} resizeMode="contain" />
+                        </DraggablePiece>
+                    )}
 
-                    <DraggablePiece
-                        ref={bottomRef}
-                        pieceId="bottom"
-                        imageUri={bottomImg}
-                        style={[styles.piece, styles.bottomPiece]}
-                        baseZIndex={2}
-                        isSelected={selectedId === 'bottom'}
-                        onSelect={handleSelect}
-                        onToggle={handleToggle}
-                    >
-                        {bottomImg
-                            ? <Image source={{ uri: bottomImg }} style={styles.pieceImage} resizeMode="contain" />
-                            : null}
-                    </DraggablePiece>
+                    {bottomImg && (
+                        <DraggablePiece
+                            ref={bottomRef}
+                            pieceId="bottom"
+                            imageUri={bottomImg}
+                            scaleFactor={scaleFactor}
+                            style={[
+                                styles.piece, 
+                                styles.bottomPiece, 
+                                { 
+                                    top: 130 * scaleFactor, 
+                                    height: 180 * scaleFactor, 
+                                    width: stackWidth 
+                                }
+                            ]}
+                            baseZIndex={2}
+                            isSelected={selectedId === 'bottom'}
+                            onSelect={handleSelect}
+                            onToggle={handleToggle}
+                        >
+                            <Image source={{ uri: bottomImg }} style={styles.pieceImage} resizeMode="contain" />
+                        </DraggablePiece>
+                    )}
 
-                    <DraggablePiece
-                        ref={shoeRef}
-                        pieceId="shoe"
-                        imageUri={shoeImg}
-                        style={[styles.piece, styles.shoePiece]}
-                        baseZIndex={1}
-                        isSelected={selectedId === 'shoe'}
-                        onSelect={handleSelect}
-                        onToggle={handleToggle}
-                    >
-                        {shoeImg
-                            ? <Image source={{ uri: shoeImg }} style={styles.pieceImage} resizeMode="contain" />
-                            : null}
-                    </DraggablePiece>
+                    {shoeImg && (
+                        <DraggablePiece
+                            ref={shoeRef}
+                            pieceId="shoe"
+                            imageUri={shoeImg}
+                            scaleFactor={scaleFactor}
+                            style={[
+                                styles.piece, 
+                                styles.shoePiece, 
+                                { 
+                                    top: 260 * scaleFactor, 
+                                    height: 90 * scaleFactor, 
+                                    width: stackWidth 
+                                }
+                            ]}
+                            baseZIndex={1}
+                            isSelected={selectedId === 'shoe'}
+                            onSelect={handleSelect}
+                            onToggle={handleToggle}
+                        >
+                            <Image source={{ uri: shoeImg }} style={styles.pieceImage} resizeMode="contain" />
+                        </DraggablePiece>
+                    )}
                 </View>
             </View>
         );
@@ -335,14 +393,10 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
     },
     stack: {
-        width: 280,
-        height: 480,
         position: 'relative',
     },
     piece: {
         position: 'absolute',
-        width: 280,
-        height: 120,
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'visible',
@@ -351,26 +405,11 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
     },
-    outerPiece: {
-        top: 0,
-        height: 140,
-        width: 280,
-    },
-    topPiece: {
-        top: 20,
-        height: 140,
-    },
-    bottomPiece: {
-        top: 130,
-        height: 180,
-    },
-    shoePiece: {
-        top: 260,
-        height: 90,
-    },
+    outerPiece: {},
+    topPiece: {},
+    bottomPiece: {},
+    shoePiece: {},
     accessoryPiece: {
         position: 'absolute',
-        height: 100,
-        width: 100,
     },
 });

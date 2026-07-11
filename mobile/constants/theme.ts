@@ -226,7 +226,12 @@ export const Shadows = {
 
 function resolveApiBaseUrl(): string {
     const envBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-    if (envBaseUrl) return envBaseUrl;
+    if (envBaseUrl) {
+        if (!__DEV__ && envBaseUrl.startsWith('http://')) {
+            return envBaseUrl.replace('http://', 'https://');
+        }
+        return envBaseUrl;
+    }
 
     const hostUri =
         (Constants.expoConfig as any)?.hostUri ||
